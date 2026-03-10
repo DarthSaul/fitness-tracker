@@ -41,7 +41,7 @@ Verify each file follows the conventions documented in CLAUDE.md:
 ### 3. Security Checks
 
 - [ ] All user-scoped endpoints verify ownership before returning/modifying data
-- [ ] No raw SQL queries (use Prisma's typed queries)
+- [ ] No dynamic or non-parameterized raw SQL queries (use Prisma's typed queries); constant, parameter-free queries are permitted only in the health check — e.g., `prisma.$queryRaw\`SELECT 1\`` in `server/api/health.get.ts`)
 - [ ] No secrets or credentials in code (should be in `.env`)
 - [ ] Auth middleware applied to protected routes
 - [ ] Input validation on all POST/PATCH/PUT bodies

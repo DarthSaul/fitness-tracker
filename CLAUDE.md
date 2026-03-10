@@ -47,7 +47,7 @@ workout-tracker/
 
 ## Database Schema
 
-10 models organized around immutable program definitions and mutable user progress:
+9 models organized around immutable program definitions and mutable user progress:
 
 - **Program library (immutable):** `Program → ProgramWeek → ProgramDay → ProgramExercise → ExerciseSet`
 - **User progress (mutable):** `User`, `UserProgram` (saved/active + current position), `WorkoutSession`, `CompletedSet`
