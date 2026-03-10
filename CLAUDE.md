@@ -94,7 +94,23 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ### Git Workflow
 
-- Branch per work item: `feat/phase-{n}-{short-description}` (e.g., `feat/phase-1-prisma-schema`).
+#### Commits — [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
+
+- Format: `<type>(<optional scope>): <description>`
+- Allowed types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`, `ci`, `build`, `perf`
+- Breaking changes: append `!` before colon (e.g., `feat!: remove endpoint`) or add a `BREAKING CHANGE:` footer.
+- Subject line ≤72 chars, imperative mood.
+- Optional body after a blank line explaining _what_ and _why_.
+
+#### Branches — [Conventional Branch](https://conventional-branch.github.io/)
+
+- Format: `<type>/<description>`
+- Allowed types: `feat/`, `fix/`, `hotfix/`, `chore/`, `release/`
+- Lowercase letters, numbers, and hyphens only — no underscores, spaces, or special chars.
+- Include ticket/issue number when applicable (e.g., `feat/issue-42-add-auth`).
+
+#### PRs & Merging
+
 - Keep PRs small and scoped to a single roadmap item.
 - CodeRabbit runs automated review on every PR.
 - Merge to `main` after review.

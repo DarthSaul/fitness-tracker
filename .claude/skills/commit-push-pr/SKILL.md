@@ -45,9 +45,13 @@ You have the capability to call multiple tools in a single response. You MUST co
 
 ### 2. Create a commit
 
-- Write a commit message following **Conventional Commits** format (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`, `style:`, `ci:`, `build:`, `perf:`).
+Follow the **[Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)** spec (see CLAUDE.md § Git Workflow for full rules):
+
+- Format: `<type>(<optional scope>): <description>`
+- Allowed types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`, `ci`, `build`, `perf`
+- Breaking changes: append `!` before the colon or add a `BREAKING CHANGE:` footer.
 - If `$ARGUMENTS` is provided, use it as the commit subject line verbatim.
-- Otherwise, analyze the diff to determine the appropriate type and write a concise subject line (≤72 chars).
+- Otherwise, analyze the diff to determine the appropriate type and write a concise subject line (≤72 chars, imperative mood).
 - Add a blank line and then a short body (2-4 lines) explaining _what_ and _why_, not _how_.
 - Do NOT add any co-authorship footer.
 - Run `git commit` with the message.
