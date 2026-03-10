@@ -52,7 +52,7 @@ Programs are never modified by users. User progress is tracked through UserProgr
 3. Run `npx prisma format` for consistent formatting
 4. Run `npx prisma migrate dev --name descriptive-name` to generate and apply the migration
 5. Review the generated SQL in `prisma/migrations/` to confirm it matches intent
-6. If the migration looks wrong, delete the migration folder and try again
+6. If the migration looks wrong, fix the schema or migration SQL, then run `npx prisma migrate reset` to drop and recreate the development database and replay all migrations from scratch, followed by `npx prisma migrate dev` to generate a corrected migration
 
 ## Seed Script Pattern
 

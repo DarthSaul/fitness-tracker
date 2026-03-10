@@ -1,7 +1,7 @@
 ---
 name: commit-push-pr
 description: Stage all changes, create a conventional commit, push the branch, and open a pull request using the repo's PR template.
-allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(gh pr create:*)
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh repo view:*)
 disable-model-invocation: true
 ---
 
@@ -30,7 +30,7 @@ disable-model-invocation: true
 </recent_commits>
 
 <pr_template>
-!`cat .github/pull_request_template.md 2>/dev/null || echo "No PR template found"`
+!`cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null || echo "No PR template found"`
 </pr_template>
 
 ## Instructions

@@ -135,10 +135,10 @@ Sentry.setUser(null)
 ## Health Check Endpoint (`server/api/health.get.ts`)
 
 ```typescript
-import { defineEventHandler } from 'h3'
+import { defineEventHandler, setResponseStatus } from 'h3'
 import { prisma } from '~/server/utils/prisma'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   const start = Date.now()
 
   try {
@@ -156,6 +156,7 @@ export default defineEventHandler(async () => {
       },
     }
   } catch (error) {
+    setResponseStatus(event, 503)
     return {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
