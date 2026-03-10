@@ -123,7 +123,7 @@ Sentry.init({
 After authentication, tag Sentry with the user:
 
 ```typescript
-Sentry.setUser({ id: userId, email: userEmail })
+Sentry.setUser({ id: userId })
 ```
 
 On logout:

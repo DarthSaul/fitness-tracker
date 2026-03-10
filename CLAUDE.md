@@ -16,7 +16,7 @@ A mobile-first PWA for tracking structured workout programs. Private use (invite
 
 ## Project Structure
 
-```
+```text
 workout-tracker/
 ├── prisma/
 │   └── schema.prisma          # Database schema & models
