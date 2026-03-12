@@ -61,5 +61,6 @@ describe('POST /api/auth/logout', () => {
     await expect(
       (handler as (e: typeof event) => Promise<void>)(event),
     ).rejects.toThrow('session store failure')
+    expect(mockSendRedirect).not.toHaveBeenCalled()
   })
 })

@@ -1,10 +1,7 @@
+import type { User as PrismaUser } from '@prisma/client'
+
 declare module '#auth-utils' {
-  interface User {
-    id: string
-    email: string
-    name: string | null
-    avatarUrl: string | null
-  }
+  type User = Pick<PrismaUser, 'id' | 'email' | 'name' | 'avatarUrl'>
 }
 
 export {}

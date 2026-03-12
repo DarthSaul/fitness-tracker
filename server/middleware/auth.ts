@@ -7,6 +7,8 @@ const PUBLIC_PATHS = ['/api/auth/', '/api/_auth/', '/api/health']
  * @throws {H3Error} 401 Unauthorized when the session is absent or has no user.
  */
 export default defineEventHandler(async (event) => {
+  event.context.requestId = crypto.randomUUID()
+
   if (PUBLIC_PATHS.some((prefix) => event.path.startsWith(prefix))) return
 
   const session = await getUserSession(event)

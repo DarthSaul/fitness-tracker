@@ -11,37 +11,43 @@ export default defineOAuthGoogleEventHandler({
    * Profile fields (name, avatar) are refreshed on every login from the Google ID token.
    */
   async onSuccess(event, { user }) {
-    const dbUser = await prisma.user.upsert({
-      where: {
-        provider_providerId: {
+    try {
+      const dbUser = await prisma.user.upsert({
+        where: {
+          provider_providerId: {
+            provider: 'google',
+            providerId: user.sub,
+          },
+        },
+        update: {
+          name: user.name ?? null,
+          avatarUrl: user.picture ?? null,
+          email: user.email,
+        },
+        create: {
+          email: user.email,
+          name: user.name ?? null,
+          avatarUrl: user.picture ?? null,
           provider: 'google',
           providerId: user.sub,
         },
-      },
-      update: {
-        name: user.name ?? null,
-        avatarUrl: user.picture ?? null,
-        email: user.email,
-      },
-      create: {
-        email: user.email,
-        name: user.name ?? null,
-        avatarUrl: user.picture ?? null,
-        provider: 'google',
-        providerId: user.sub,
-      },
-    })
+      })
 
-    await setUserSession(event, {
-      user: {
-        id: dbUser.id,
-        email: dbUser.email,
-        name: dbUser.name,
-        avatarUrl: dbUser.avatarUrl,
-      },
-    })
+      await setUserSession(event, {
+        user: {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name,
+          avatarUrl: dbUser.avatarUrl,
+        },
+      })
 
-    return sendRedirect(event, '/')
+      return sendRedirect(event, '/')
+    }
+    catch (error) {
+      console.error('Google OAuth upsert error:', error)
+      return sendRedirect(event, '/login?error=upsert')
+    }
   },
   /** Logs the error and redirects to the login page with a query-string error code. */
   onError(event, error) {

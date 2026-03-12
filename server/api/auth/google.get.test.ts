@@ -11,7 +11,7 @@
  * unchanged (see vitest.setup.ts), so importing the handler module gives us
  * the config object directly, letting us call onSuccess/onError in tests.
  */
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { User } from '@prisma/client'
 
 // ── Import the handler — returns the config object due to the global stub ─────

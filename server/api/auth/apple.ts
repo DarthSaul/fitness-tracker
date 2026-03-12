@@ -22,37 +22,43 @@ export default defineOAuthAppleEventHandler({
     const lastName = user.name?.lastName
     const name = [firstName, lastName].filter(Boolean).join(' ') || null
 
-    const dbUser = await prisma.user.upsert({
-      where: {
-        provider_providerId: {
+    try {
+      const dbUser = await prisma.user.upsert({
+        where: {
+          provider_providerId: {
+            provider: 'apple',
+            providerId: payload.sub,
+          },
+        },
+        update: {
+          email,
+          // Only overwrite name when Apple provides it (first login only)
+          ...(name ? { name } : {}),
+        },
+        create: {
+          email,
+          name,
+          avatarUrl: null,
           provider: 'apple',
           providerId: payload.sub,
         },
-      },
-      update: {
-        email,
-        // Only overwrite name when Apple provides it (first login only)
-        ...(name ? { name } : {}),
-      },
-      create: {
-        email,
-        name,
-        avatarUrl: null,
-        provider: 'apple',
-        providerId: payload.sub,
-      },
-    })
+      })
 
-    await setUserSession(event, {
-      user: {
-        id: dbUser.id,
-        email: dbUser.email,
-        name: dbUser.name,
-        avatarUrl: dbUser.avatarUrl,
-      },
-    })
+      await setUserSession(event, {
+        user: {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name,
+          avatarUrl: dbUser.avatarUrl,
+        },
+      })
 
-    return sendRedirect(event, '/')
+      return sendRedirect(event, '/')
+    }
+    catch (error) {
+      console.error('Apple OAuth upsert error:', error)
+      return sendRedirect(event, '/login?error=apple_failed')
+    }
   },
   /** Logs the error and redirects to the login page with a query-string error code. */
   onError(event, error) {
