@@ -26,6 +26,11 @@ enum SessionStatus {
   COMPLETED
 }
 
+enum ExerciseGroupType {
+  STANDARD
+  SUPERSET
+}
+
 // ---------------------------------------------------------------------------
 // Auth / User
 // ---------------------------------------------------------------------------
@@ -76,23 +81,37 @@ model ProgramDay {
   programWeekId String
   dayNumber     Int
   name          String?
+  warmUp        String?
 
-  programWeek ProgramWeek       @relation(fields: [programWeekId], references: [id], onDelete: Cascade)
-  exercises   ProgramExercise[]
+  programWeek    ProgramWeek     @relation(fields: [programWeekId], references: [id], onDelete: Cascade)
+  exerciseGroups ExerciseGroup[]
 
   @@unique([programWeekId, dayNumber])
 }
 
-model ProgramExercise {
-  id           String @id @default(cuid())
+model ExerciseGroup {
+  id           String            @id @default(cuid())
   programDayId String
-  name         String
   order        Int
+  type         ExerciseGroupType @default(STANDARD)
+  restSeconds  Int?
 
-  programDay ProgramDay    @relation(fields: [programDayId], references: [id], onDelete: Cascade)
-  sets       ExerciseSet[]
+  programDay ProgramDay        @relation(fields: [programDayId], references: [id], onDelete: Cascade)
+  exercises  ProgramExercise[]
 
   @@unique([programDayId, order])
+}
+
+model ProgramExercise {
+  id              String @id @default(cuid())
+  exerciseGroupId String
+  name            String
+  order           Int
+
+  exerciseGroup ExerciseGroup @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
+  sets          ExerciseSet[]
+
+  @@unique([exerciseGroupId, order])
 }
 
 model ExerciseSet {

@@ -16,7 +16,11 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "prisma": "^6.19.2"
+    "prisma": "^6.19.2",
+    "tsx": "^4.21.0"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
