@@ -1,7 +1,7 @@
 ---
 name: commit-push-pr
 description: Stage all changes, create a conventional commit, push the branch, and open a pull request using the repo's PR template.
-allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh repo view:*)
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh repo view:*), Bash(rm:*), Write
 ---
 
 # Commit, Push & Create PR
@@ -64,6 +64,10 @@ Follow the **[Conventional Commits v1.0.0](https://www.conventionalcommits.org/e
 
 - Use `gh pr create` to open a pull request.
 - Generate a clear, descriptive PR title from the commit(s) on this branch.
-- For the PR body, use the **PR template** shown in `<pr_template>` above. Fill in each section of the template based on the actual changes. If no template was found, write a well-structured description covering: what changed, why, and how to test.
+- For the PR body, use the **PR template** shown in `<pr_template>` above. Fill in each section based on the actual changes. If no template was found, write a well-structured description covering: what changed, why, and how to test.
+- **Write the PR body to a temp file first** using the Write tool at `/tmp/pr_body.md`, then run:
+  `gh pr create --title "<title>" --body-file /tmp/pr_body.md`
+  This avoids shell permission prompts triggered by inline multi-line strings with markdown headers.
+- **After the PR is created, delete the temp file:** `rm /tmp/pr_body.md`
 - Target the default branch (usually `main` or `develop`). Do NOT hard-code a target — let `gh` infer it, or check with `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
 - If a PR already exists for this branch, skip this step and tell me the existing PR URL instead (check with `gh pr view --json url -q .url 2>/dev/null`).
