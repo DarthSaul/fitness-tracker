@@ -2,7 +2,6 @@
 name: commit-push-pr
 description: Stage all changes, create a conventional commit, push the branch, and open a pull request using the repo's PR template.
 allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh repo view:*)
-disable-model-invocation: true
 ---
 
 # Commit, Push & Create PR
