@@ -24,3 +24,6 @@ logs
 !.env.example
 
 /app/generated/prisma
+
+# Claude Code agent memory (machine-specific runtime data)
+.claude/agent-memory/
