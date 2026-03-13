@@ -36,6 +36,11 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git c
 
 You have the capability to call multiple tools in a single response. You MUST complete all steps below in a **single message**. Do not use any other tools or do anything else.
 
+### 0. Branch check
+
+- Check `<current_branch>`. If it is `main` or `master`, **stop immediately** — do not stage or commit anything.
+- Ask me what branch name to use, then run `git checkout -b <branch>` before proceeding.
+
 ### 1. Stage changes
 
 - If there are unstaged changes (check `<git_status>` for entries without a leading letter in the index column), run `git add -A` to stage everything.
