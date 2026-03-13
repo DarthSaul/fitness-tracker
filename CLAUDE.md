@@ -114,6 +114,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - Keep PRs small and scoped to a single roadmap item.
 - CodeRabbit runs automated review on every PR.
 - Merge to `main` after review.
+- All checklist items in the PR template must be completed (checked) by the submitter before requesting review.
 
 ## Phased Roadmap
 
