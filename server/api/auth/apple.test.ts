@@ -9,7 +9,7 @@
  *  - onSuccess: session fields and redirect target
  *  - onError: redirect destination and console.error call
  */
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { User } from '@prisma/client'
 
 import handlerConfig from './apple'

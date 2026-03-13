@@ -9,7 +9,7 @@ const PUBLIC_PATHS = ['/api/auth/', '/api/_auth/', '/api/health']
 export default defineEventHandler(async (event) => {
   event.context.requestId = crypto.randomUUID()
 
-  if (PUBLIC_PATHS.some((prefix) => event.path.startsWith(prefix))) return
+  if (PUBLIC_PATHS.some((p) => p === '/api/health' ? event.path === p : event.path.startsWith(p))) return
 
   const session = await getUserSession(event)
   if (!session?.user) {

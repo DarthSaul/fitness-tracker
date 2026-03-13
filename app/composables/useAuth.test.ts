@@ -2,7 +2,7 @@
  * Tests for app/composables/useAuth.ts
  *
  * Coverage strategy:
- *  - Return shape: all six values are exposed
+ *  - Return shape: all seven values are exposed
  *  - signInWithGoogle: navigates externally to /api/auth/google
  *  - signInWithApple: navigates externally to /api/auth/apple
  *  - signOut: POSTs to logout, refreshes session, navigates to /login — in that order
