@@ -36,6 +36,11 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git c
 
 You have the capability to call multiple tools in a single response. You MUST complete all steps below in a **single message**. Do not use any other tools or do anything else.
 
+### 0. Branch check
+
+- Check `<current_branch>`. If it is `main` or `master`, **stop immediately** — do not stage or commit anything.
+- Ask me what branch name to use. The name must follow Conventional Branch format: `<type>/<description>`, where type is one of `feat`, `fix`, `hotfix`, `chore`, `release`, and description uses only lowercase letters, numbers, and hyphens (e.g. `feat/add-auth`, `fix/issue-42-crash`). Do not proceed until a valid name is provided, then run `git checkout -b <branch>`.
+
 ### 1. Stage changes
 
 - If there are unstaged changes (check `<git_status>` for entries without a leading letter in the index column), run `git add -A` to stage everything.
@@ -65,5 +70,6 @@ Follow the **[Conventional Commits v1.0.0](https://www.conventionalcommits.org/e
 - Use `gh pr create` to open a pull request.
 - Generate a clear, descriptive PR title from the commit(s) on this branch.
 - For the PR body, use the **PR template** shown in `<pr_template>` above. Fill in each section of the template based on the actual changes. If no template was found, write a well-structured description covering: what changed, why, and how to test.
+- For each checklist item, mark it `- [x]` if it applies to this PR. If an item is not applicable, replace the checkbox with `N/A` and a brief reason (e.g. `- N/A — no API routes added`).
 - Target the default branch (usually `main` or `develop`). Do NOT hard-code a target — let `gh` infer it, or check with `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
 - If a PR already exists for this branch, skip this step and tell me the existing PR URL instead (check with `gh pr view --json url -q .url 2>/dev/null`).
