@@ -33,7 +33,7 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git c
 </pr_template>
 
 <state_files>
-!`find . -name "STATE.md" -not -path "*/.git/*" 2>/dev/null || echo "none"`
+!`found=$(find . -name "STATE.md" -not -path "*/.git/*" 2>/dev/null); echo "${found:-none}"`
 </state_files>
 
 ## Instructions
@@ -42,7 +42,7 @@ You have the capability to call multiple tools in a single response. You MUST co
 
 ### 0. STATE.md check
 
-- Check `<state_files>`. If any `STATE.md` paths are listed (i.e. the output is not `none`), print a visible warning to the user:
+- Check `<state_files>`. If the output is not `none` (i.e. contains one or more paths), print a visible warning to the user:
   ```
   ⚠ STATE.md found: <path(s)>
   This file is a task-manager context snapshot. If this task is complete, delete it before merging.
