@@ -1,7 +1,7 @@
 ---
 name: commit-push-pr
 description: Stage all changes, create a conventional commit, push the branch, and open a pull request using the repo's PR template.
-allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh repo view:*)
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh repo view:*), Bash(find:*)
 ---
 
 # Commit, Push & Create PR
@@ -32,11 +32,24 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git c
 !`cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null || echo "No PR template found"`
 </pr_template>
 
+<state_files>
+!`find . -name "STATE.md" -not -path "*/.git/*" 2>/dev/null || echo "none"`
+</state_files>
+
 ## Instructions
 
 You have the capability to call multiple tools in a single response. You MUST complete all steps below in a **single message**. Do not use any other tools or do anything else.
 
-### 0. Branch check
+### 0. STATE.md check
+
+- Check `<state_files>`. If any `STATE.md` paths are listed (i.e. the output is not `none`), print a visible warning to the user:
+  ```
+  ⚠ STATE.md found: <path(s)>
+  This file is a task-manager context snapshot. If this task is complete, delete it before merging.
+  ```
+- Do not block the commit — this is a reminder only. Continue to the next step regardless.
+
+### 1. Branch check
 
 - Check `<current_branch>`. If it is `main` or `master`, **stop immediately** — do not stage or commit anything.
 - Ask me what branch name to use. The name must follow Conventional Branch format: `<type>/<description>`, where type is one of `feat`, `fix`, `hotfix`, `chore`, `release`, and description uses only lowercase letters, numbers, and hyphens (e.g. `feat/add-auth`, `fix/issue-42-crash`). Do not proceed until a valid name is provided, then run `git checkout -b <branch>`.
