@@ -1,20 +1,16 @@
 ---
 name: read-roadmap
 description: Print the current project roadmap from CLAUDE.md with phase progress summary.
-allowed-tools: ""
+allowed-tools: "Read"
 ---
 
 # Read Roadmap
 
-## Pre-computed context
-
-<roadmap_section>
-!`awk '/^## Roadmap$/,/^## [^#]/' CLAUDE.md | head -n -1`
-</roadmap_section>
-
 ## Instructions
 
-Display a readable roadmap briefing directly to the user. Do NOT call any tools — all the data you need is in `<roadmap_section>` above.
+1. Use the Read tool to read `CLAUDE.md`.
+2. Extract the `## Roadmap` section (everything from `## Roadmap` up to the next `##` heading).
+3. Display a readable roadmap briefing directly to the user.
 
 Format your output exactly like this:
 
