@@ -49,7 +49,7 @@ JavaScript lacks type inference, so be more thorough:
 - **Active voice.** "Fetches the user by ID" not "This function is used to fetch the user by ID."
 - **No filler phrases.** Avoid: "This function...", "A helper that...", "Used to..."
 - **Capitalize first word, end with period.**
-- **Align with this project's patterns:** This is a Nuxt 3 / Nitro / Prisma TypeScript project. Use domain terminology (WorkoutSession, UserProgram, ProgramDay, etc.) naturally.
+- **Align with this project's patterns:** This is a Nuxt 4 / Nitro / Prisma TypeScript project. Use domain terminology (WorkoutSession, UserProgram, ProgramDay, etc.) naturally.
 
 ## Workflow
 

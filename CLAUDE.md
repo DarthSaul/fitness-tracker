@@ -4,8 +4,8 @@ A mobile-first PWA for tracking structured workout programs. Private use (invite
 
 ## Tech Stack
 
-- **Framework:** Nuxt 3 (full-stack, TypeScript)
-- **Server Engine:** Nitro (built into Nuxt 3 — not a separate backend)
+- **Framework:** Nuxt 4 (full-stack, TypeScript)
+- **Server Engine:** Nitro (built into Nuxt 4 — not a separate backend)
 - **ORM:** Prisma (schema, migrations, typed queries)
 - **Database:** PostgreSQL hosted on Supabase (accessed via Prisma connection string)
 - **Auth:** Supabase Auth (Google + Apple OAuth) via `nuxt-auth-utils`
@@ -33,12 +33,13 @@ workout-tracker/
 │   └── utils/
 │       ├── prisma.ts          # Prisma client singleton
 │       └── logger.ts          # Shared pino logger instance
-├── pages/                     # File-based routing (Vue pages)
-├── components/                # Reusable Vue components
-├── composables/               # Shared logic (useAuth, useWorkout)
-├── layouts/                   # App shell layouts
-├── plugins/
-│   └── sentry.client.ts       # Sentry client-side init
+├── app/
+│   ├── pages/                 # File-based routing (Vue pages)
+│   ├── components/            # Reusable Vue components
+│   ├── composables/           # Shared logic (useAuth, useWorkout)
+│   ├── layouts/               # App shell layouts
+│   └── plugins/
+│       └── sentry.client.ts   # Sentry client-side init
 ├── public/                    # Static assets, PWA icons
 ├── nuxt.config.ts             # Nuxt + PWA + module config
 ├── sentry.server.config.ts    # Sentry server-side config
@@ -116,15 +117,48 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - Merge to `main` after review.
 - All checklist items in the PR template must be completed (checked) by the submitter before requesting review.
 
-## Phased Roadmap
+## Roadmap
 
-Summary:
+**Current phase: Phase 1 — Foundation**
 
-1. **Phase 1 — Foundation:** Nuxt scaffold, Prisma schema, auth, seed data, deploy to Vercel.
-2. **Phase 2 — Observability:** pino logging middleware, Sentry error/performance tracing, health check.
-3. **Phase 3 — Workout Engine:** User-program management, session tracking, day/week advancement.
-4. **Phase 4 — Frontend:** Mobile-first UI with Tailwind + Nuxt UI, PWA config.
-5. **Phase 5 — Polish:** History views, additional programs, offline support, invite system.
+### Phase 0 — Init ✅
+- [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
+- [x] Configure PWA manifest and `@vite-pwa/nuxt`
+- [x] Set up AI harness: CLAUDE.md, subagents, PR template
+
+### Phase 1 — Foundation 🔄
+- [x] Initialize Prisma schema with full domain model (9 models)
+- [x] Prisma client singleton (`server/utils/prisma.ts`)
+- [x] ExerciseGroup model, warmUp field, Brick House seed data
+- [x] OAuth routes (Google + Apple) via `nuxt-auth-utils`
+- [x] Auth middleware (`server/middleware/auth.ts`)
+- [x] Unit test harness
+- [ ] Deploy to Vercel (initial production environment)
+
+### Phase 2 — Observability
+- [ ] pino structured logging middleware
+- [ ] Sentry error tracking (client + server)
+- [ ] Sentry performance tracing (API routes + Prisma)
+- [ ] `/api/health` endpoint
+
+### Phase 3 — Workout Engine
+- [ ] User-program management endpoints (save, activate, deactivate)
+- [ ] Workout session lifecycle (start → complete sets → complete day)
+- [ ] Day/week advancement logic
+- [ ] Program completion handling
+
+### Phase 4 — Frontend
+- [ ] Mobile-first layout with Tailwind + Nuxt UI
+- [ ] Program browser page
+- [ ] Active workout session UI
+- [ ] Auth flow pages (login, callback)
+- [ ] PWA install / offline config
+
+### Phase 5 — Polish & Iteration
+- [ ] Workout history views
+- [ ] Additional programs seeded
+- [ ] Offline support (service worker caching)
+- [ ] Invite system
 
 ## Subagents
 
