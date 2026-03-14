@@ -4,6 +4,9 @@
  */
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
+  if (!id?.trim()) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing program ID' })
+  }
 
   try {
     const program = await prisma.program.findUnique({
@@ -38,6 +41,7 @@ export default defineEventHandler(async (event) => {
     return program
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    console.error('[GET /api/programs/:id] Failed to fetch program', error)
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch program' })
   }
 })

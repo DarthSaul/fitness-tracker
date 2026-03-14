@@ -152,5 +152,12 @@ describe('server/middleware/auth', () => {
       await (handler as (e: typeof event) => Promise<void>)(event)
       expect(mockGetUserSession).toHaveBeenCalled()
     })
+
+    test('does check session for /api/programs/:id', async () => {
+      mockGetUserSession.mockResolvedValueOnce({ user: { id: 'u1' } })
+      const event = makeEvent('/api/programs/clprog001')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(mockGetUserSession).toHaveBeenCalled()
+    })
   })
 })

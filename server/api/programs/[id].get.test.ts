@@ -130,8 +130,10 @@ describe('GET /api/programs/:id', () => {
     })
   })
 
-  test('throws 500 when findUnique rejects with a non-H3 error', async () => {
-    mockFindUnique.mockRejectedValueOnce(new Error('database timeout'))
+  test('throws 500 and logs when findUnique rejects with a non-H3 error', async () => {
+    const dbError = new Error('database timeout')
+    mockFindUnique.mockRejectedValueOnce(dbError)
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const event = makeEvent('clprog001')
     await expect(
@@ -141,6 +143,37 @@ describe('GET /api/programs/:id', () => {
     expect(mockCreateError).toHaveBeenCalledWith({
       statusCode: 500,
       statusMessage: 'Failed to fetch program',
+    })
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[GET /api/programs/:id] Failed to fetch program',
+      dbError,
+    )
+    consoleSpy.mockRestore()
+  })
+
+  test('throws 400 when id param is undefined', async () => {
+    const event = makeEvent(undefined as unknown as string)
+    mockGetRouterParam.mockReturnValue(undefined)
+    await expect(
+      (handler as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing program ID' })
+
+    expect(mockCreateError).toHaveBeenCalledWith({
+      statusCode: 400,
+      statusMessage: 'Missing program ID',
+    })
+  })
+
+  test('throws 400 when id param is empty string', async () => {
+    const event = makeEvent('')
+    mockGetRouterParam.mockReturnValue('  ')
+    await expect(
+      (handler as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing program ID' })
+
+    expect(mockCreateError).toHaveBeenCalledWith({
+      statusCode: 400,
+      statusMessage: 'Missing program ID',
     })
   })
 

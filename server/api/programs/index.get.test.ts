@@ -68,14 +68,16 @@ describe('GET /api/programs', () => {
     expect(mockFindMany).toHaveBeenCalledOnce()
   })
 
-  test('throws 500 when findMany rejects', async () => {
-    mockFindMany.mockRejectedValueOnce(new Error('database connection lost'))
+  test('throws 500 and logs when findMany rejects', async () => {
+    const dbError = new Error('database connection lost')
+    mockFindMany.mockRejectedValueOnce(dbError)
     mockCreateError.mockImplementationOnce((opts: { statusCode: number; statusMessage: string }) => {
       const err = new Error(opts.statusMessage) as Error & { statusCode: number; statusMessage: string }
       err.statusCode = opts.statusCode
       err.statusMessage = opts.statusMessage
       return err
     })
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const event = makeEvent()
     await expect(
@@ -86,5 +88,10 @@ describe('GET /api/programs', () => {
       statusCode: 500,
       statusMessage: 'Failed to fetch programs',
     })
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[GET /api/programs] Failed to fetch programs',
+      dbError,
+    )
+    consoleSpy.mockRestore()
   })
 })

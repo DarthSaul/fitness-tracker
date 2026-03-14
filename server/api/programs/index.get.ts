@@ -12,7 +12,8 @@ export default defineEventHandler(async () => {
       orderBy: { createdAt: 'desc' },
     })
     return programs
-  } catch {
+  } catch (error) {
+    console.error('[GET /api/programs] Failed to fetch programs', error)
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch programs' })
   }
 })
