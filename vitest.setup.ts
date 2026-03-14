@@ -10,6 +10,8 @@ import { vi } from 'vitest'
 
 // ── H3 helpers (used in server routes and middleware) ─────────────────────────
 vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
+vi.stubGlobal('getRouterParam', vi.fn())
+vi.stubGlobal('readBody', vi.fn())
 vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
   const err = new Error(opts.statusMessage) as Error & {
     statusCode: number
@@ -37,6 +39,7 @@ vi.stubGlobal('defineOAuthAppleEventHandler', (config: unknown) => config)
 // the shared mock reference they import from this setup context.
 vi.stubGlobal('prisma', {
   user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  program: { findMany: vi.fn(), findUnique: vi.fn() },
   userProgram: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   workoutSession: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   completedSet: { create: vi.fn(), findMany: vi.fn() },
