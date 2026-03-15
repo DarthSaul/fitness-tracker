@@ -1,41 +1,63 @@
 /**
- * Tests for server/api/programs/[id].get.ts
+ * Tests for server/api/programs/days/[id].get.ts
  *
  * Coverage strategy:
- *  - Happy path: returns full program object when found
+ *  - Happy path: returns full day object when found
  *  - Not found: throws 404 when findUnique returns null
  *  - Error propagation: throws 500 when findUnique rejects (non-H3 error)
  *  - H3 error pass-through: re-throws a 404 H3Error without wrapping it as 500
+ *  - Missing/empty ID: throws 400
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 import handler from './[id].get'
 
-const mockFindUnique = (prisma as typeof prisma).program.findUnique as ReturnType<typeof vi.fn>
+const mockFindUnique = (prisma as typeof prisma).programDay.findUnique as ReturnType<typeof vi.fn>
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
-function makeEvent(id = 'clprog001') {
+function makeEvent(id = 'clday001') {
   mockGetRouterParam.mockReturnValue(id)
-  return { path: `/api/programs/${id}`, context: {} }
+  return { path: `/api/programs/days/${id}`, context: {} }
 }
 
-const mockFullProgram = {
-  id: 'clprog001',
-  name: 'Brick House',
-  description: 'A strength program',
-  createdAt: new Date(),
-  weeks: [
+const mockFullDay = {
+  id: 'clday001',
+  programWeekId: 'clweek001',
+  dayNumber: 1,
+  name: 'Lower Body',
+  warmUp: null,
+  exerciseGroups: [
     {
-      id: 'clweek001',
-      programId: 'clprog001',
-      weekNumber: 1,
-      days: [{ id: 'clday001' }],
+      id: 'clgrp001',
+      programDayId: 'clday001',
+      order: 1,
+      type: 'STANDARD',
+      restSeconds: 90,
+      exercises: [
+        {
+          id: 'clexe001',
+          exerciseGroupId: 'clgrp001',
+          name: 'Back Squat',
+          order: 1,
+          sets: [
+            {
+              id: 'clset001',
+              programExerciseId: 'clexe001',
+              setNumber: 1,
+              reps: 5,
+              weight: 135,
+              rpe: null,
+              notes: null,
+            },
+          ],
+        },
+      ],
     },
   ],
 }
 
-describe('GET /api/programs/:id', () => {
+describe('GET /api/programs/days/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
@@ -46,32 +68,23 @@ describe('GET /api/programs/:id', () => {
     })
   })
 
-  test('returns full program object when found', async () => {
-    mockFindUnique.mockResolvedValueOnce(mockFullProgram)
+  test('returns full day object when found', async () => {
+    mockFindUnique.mockResolvedValueOnce(mockFullDay)
 
-    const event = makeEvent('clprog001')
+    const event = makeEvent('clday001')
     const result = await (handler as (e: typeof event) => Promise<unknown>)(event)
 
-    const expected = {
-      ...mockFullProgram,
-      weeks: [
-        {
-          ...mockFullProgram.weeks[0],
-          days: ['clday001'],
-        },
-      ],
-    }
-    expect(result).toEqual(expected)
+    expect(result).toEqual(mockFullDay)
     expect(mockFindUnique).toHaveBeenCalledOnce()
     expect(mockFindUnique).toHaveBeenCalledWith({
-      where: { id: 'clprog001' },
+      where: { id: 'clday001' },
       include: {
-        weeks: {
-          orderBy: { weekNumber: 'asc' },
+        exerciseGroups: {
+          orderBy: { order: 'asc' },
           include: {
-            days: {
-              orderBy: { dayNumber: 'asc' },
-              select: { id: true },
+            exercises: {
+              orderBy: { order: 'asc' },
+              include: { sets: { orderBy: { setNumber: 'asc' } } },
             },
           },
         },
@@ -82,14 +95,14 @@ describe('GET /api/programs/:id', () => {
   test('throws 404 when findUnique returns null', async () => {
     mockFindUnique.mockResolvedValueOnce(null)
 
-    const event = makeEvent('clprog999')
+    const event = makeEvent('clday999')
     await expect(
       (handler as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Program not found' })
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Day not found' })
 
     expect(mockCreateError).toHaveBeenCalledWith({
       statusCode: 404,
-      statusMessage: 'Program not found',
+      statusMessage: 'Day not found',
     })
   })
 
@@ -98,17 +111,17 @@ describe('GET /api/programs/:id', () => {
     mockFindUnique.mockRejectedValueOnce(dbError)
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const event = makeEvent('clprog001')
+    const event = makeEvent('clday001')
     await expect(
       (handler as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch program' })
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch day' })
 
     expect(mockCreateError).toHaveBeenCalledWith({
       statusCode: 500,
-      statusMessage: 'Failed to fetch program',
+      statusMessage: 'Failed to fetch day',
     })
     expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/programs/:id] Failed to fetch program',
+      '[GET /api/programs/days/:id] Failed to fetch day',
       dbError,
     )
     consoleSpy.mockRestore()
@@ -119,11 +132,11 @@ describe('GET /api/programs/:id', () => {
     mockGetRouterParam.mockReturnValue(undefined)
     await expect(
       (handler as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing program ID' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing day ID' })
 
     expect(mockCreateError).toHaveBeenCalledWith({
       statusCode: 400,
-      statusMessage: 'Missing program ID',
+      statusMessage: 'Missing day ID',
     })
   })
 
@@ -132,26 +145,25 @@ describe('GET /api/programs/:id', () => {
     mockGetRouterParam.mockReturnValue('  ')
     await expect(
       (handler as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing program ID' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing day ID' })
 
     expect(mockCreateError).toHaveBeenCalledWith({
       statusCode: 400,
-      statusMessage: 'Missing program ID',
+      statusMessage: 'Missing day ID',
     })
   })
 
   test('re-throws an H3 error without wrapping it as 500', async () => {
-    const h3Error = new Error('Program not found') as Error & { statusCode: number; statusMessage: string }
+    const h3Error = new Error('Day not found') as Error & { statusCode: number; statusMessage: string }
     h3Error.statusCode = 404
-    h3Error.statusMessage = 'Program not found'
+    h3Error.statusMessage = 'Day not found'
     mockFindUnique.mockRejectedValueOnce(h3Error)
 
-    const event = makeEvent('clprog999')
+    const event = makeEvent('clday999')
     const thrown = await (handler as (e: typeof event) => Promise<unknown>)(event).catch((e) => e)
 
     expect(thrown.statusCode).toBe(404)
-    expect(thrown.statusMessage).toBe('Program not found')
-    // createError should NOT have been called with 500
+    expect(thrown.statusMessage).toBe('Day not found')
     expect(mockCreateError).not.toHaveBeenCalledWith(
       expect.objectContaining({ statusCode: 500 }),
     )

@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Programs'],
     summary: 'Get program by ID',
-    description: 'Returns the full detail of a single program, including all nested weeks, days, exercise groups, exercises, and sets.',
+    description: 'Returns the detail of a single program with nested weeks. Days are returned as ID arrays — fetch full day detail via GET /api/programs/days/{id}.',
     parameters: [
       {
         name: 'id',
@@ -35,8 +35,9 @@ defineRouteMeta({
 })
 
 /**
- * Returns the full detail of a single program, including all nested
- * weeks → days → exercise groups → exercises → sets.
+ * Returns the detail of a single program with nested weeks.
+ * Days are returned as ID arrays — fetch full day detail via
+ * GET /api/programs/days/{id}.
  */
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -53,17 +54,7 @@ export default defineEventHandler(async (event) => {
           include: {
             days: {
               orderBy: { dayNumber: 'asc' },
-              include: {
-                exerciseGroups: {
-                  orderBy: { order: 'asc' },
-                  include: {
-                    exercises: {
-                      orderBy: { order: 'asc' },
-                      include: { sets: { orderBy: { setNumber: 'asc' } } },
-                    },
-                  },
-                },
-              },
+              select: { id: true },
             },
           },
         },
@@ -74,7 +65,13 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: 'Program not found' })
     }
 
-    return program
+    return {
+      ...program,
+      weeks: program.weeks.map((week) => ({
+        ...week,
+        days: week.days.map((day: { id: string }) => day.id),
+      })),
+    }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     console.error('[GET /api/programs/:id] Failed to fetch program', error)
