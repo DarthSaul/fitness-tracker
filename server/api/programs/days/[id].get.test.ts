@@ -38,8 +38,13 @@ const mockFullDay = {
         {
           id: 'clexe001',
           exerciseGroupId: 'clgrp001',
-          name: 'Back Squat',
+          exerciseId: 'clexr001',
           order: 1,
+          exercise: {
+            id: 'clexr001',
+            name: 'Back Squat',
+            description: null,
+          },
           sets: [
             {
               id: 'clset001',
@@ -84,7 +89,10 @@ describe('GET /api/programs/days/:id', () => {
           include: {
             exercises: {
               orderBy: { order: 'asc' },
-              include: { sets: { orderBy: { setNumber: 'asc' } } },
+              include: {
+                exercise: true,
+                sets: { orderBy: { setNumber: 'asc' } },
+              },
             },
           },
         },
