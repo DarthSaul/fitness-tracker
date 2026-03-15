@@ -59,7 +59,10 @@ export default defineEventHandler(async (event) => {
                   include: {
                     exercises: {
                       orderBy: { order: 'asc' },
-                      include: { sets: { orderBy: { setNumber: 'asc' } } },
+                      include: {
+                        exercise: true,
+                        sets: { orderBy: { setNumber: 'asc' } },
+                      },
                     },
                   },
                 },
