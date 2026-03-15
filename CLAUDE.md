@@ -119,7 +119,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ## Roadmap
 
-**Current phase: Phase 2 — Observability**
+**Current phase: Phase 2 — API Iteration**
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
@@ -135,24 +135,24 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [x] Unit test harness
 - [x] Deploy to Vercel (initial production environment)
 
-### Phase 2 — Observability
-- [ ] pino structured logging middleware
-- [ ] Sentry error tracking (client + server)
-- [ ] Sentry performance tracing (API routes + Prisma)
-- [ ] `/api/health` endpoint
-
-### Phase 3 — Workout Engine
+### Phase 2 — API Iteration
 - [ ] User-program management endpoints (save, activate, deactivate)
 - [ ] Workout session lifecycle (start → complete sets → complete day)
 - [ ] Day/week advancement logic
 - [ ] Program completion handling
 
-### Phase 4 — Frontend
+### Phase 3 — Frontend
 - [ ] Mobile-first layout with Tailwind + Nuxt UI
 - [ ] Program browser page
 - [ ] Active workout session UI
 - [ ] Auth flow pages (login, callback)
 - [ ] PWA install / offline config
+
+### Phase 4 — Observability
+- [ ] pino structured logging middleware
+- [ ] Sentry error tracking (client + server)
+- [ ] Sentry performance tracing (API routes + Prisma)
+- [ ] `/api/health` endpoint
 
 ### Phase 5 — Polish & Iteration
 - [ ] Workout history views
