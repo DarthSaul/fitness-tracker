@@ -29,7 +29,10 @@ You are a database specialist for a Nuxt 4 workout tracker app using Prisma ORM 
 The schema has two halves:
 
 **Program library (immutable templates):**
-`Program → ProgramWeek → ProgramDay → ProgramExercise → ExerciseSet`
+`Program → ProgramWeek → ProgramDay → ExerciseGroup → ProgramExercise → ExerciseSet`
+
+**Shared lookup table:**
+`Exercise` — canonical exercise names (e.g. "Deadlift", "Bench Press"). Referenced by `ProgramExercise.exerciseId`. Not part of the immutable program hierarchy — exercises are shared across many programs.
 
 **User progress (mutable):**
 `User`, `UserProgram` (tracks saved/active programs + current position), `WorkoutSession`, `CompletedSet`
@@ -41,7 +44,9 @@ Programs are never modified by users. User progress is tracked through UserProgr
 - Never modify the Program-side models based on user input — they are immutable reference data.
 - The `UserProgram.isActive` field should have a constraint: only one active program per user.
 - `ExerciseSet` defines what the user *should* do; `CompletedSet` records what they *actually* did.
-- When writing seed scripts, parse structured data (from PDFs or JSON) into the full hierarchy: Program → Weeks → Days → Exercises → Sets.
+- When writing seed scripts, parse structured data (from PDFs or JSON) into the full hierarchy: Program → Weeks → Days → ExerciseGroups → Exercises → Sets.
+- Upsert exercises into the `Exercise` table before creating program data, then use `exercise: { connect: { name } }` in `ProgramExercise` creates.
+- Watch for duplicate exercise names that differ only by pluralization, word order, or suffixes (e.g. "DB Pullover" vs "DB Pullovers", "BB Standing Overhead Press" vs "Standing BB Overhead Press"). When duplicates are found: (1) pick a canonical name, (2) fix the seed data, (3) write a data migration that UPDATEs `ProgramExercise.exerciseId` to the canonical Exercise row, then DELETEs the duplicate Exercise rows.
 - Always run `npx prisma validate` after schema changes before generating a migration.
 - Use `npx prisma format` to keep the schema file consistently formatted.
 

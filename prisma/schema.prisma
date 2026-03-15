@@ -102,12 +102,21 @@ model ExerciseGroup {
   @@unique([programDayId, order])
 }
 
+model Exercise {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  programExercises ProgramExercise[]
+}
+
 model ProgramExercise {
   id              String @id @default(cuid())
   exerciseGroupId String
-  name            String
+  exerciseId      String
   order           Int
 
+  exercise      Exercise      @relation(fields: [exerciseId], references: [id])
   exerciseGroup ExerciseGroup @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
   sets          ExerciseSet[]
 
