@@ -8,6 +8,7 @@ export default defineNuxtConfig({
       openAPI: true,
     },
     openAPI: {
+      route: '/_openapi.json',
       meta: {
         title: 'Workout Tracker API',
         description: 'REST API for tracking structured workout programs',
@@ -16,6 +17,9 @@ export default defineNuxtConfig({
       ui: {
         scalar: {
           route: '/api/docs',
+          spec: {
+            url: '/_openapi.json',
+          },
         },
       },
     },

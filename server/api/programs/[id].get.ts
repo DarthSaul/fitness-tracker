@@ -15,6 +15,11 @@ defineRouteMeta({
     responses: {
       200: {
         description: 'Full program with nested structure',
+        content: {
+          'application/json': {
+            schema: { $ref: '#/components/schemas/ProgramDetail' },
+          },
+        },
       },
       400: {
         description: 'Missing program ID',
