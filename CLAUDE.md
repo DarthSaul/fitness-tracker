@@ -119,21 +119,21 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ## Roadmap
 
-**Current phase: Phase 1 — Foundation**
+**Current phase: Phase 2 — Observability**
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
 - [x] Configure PWA manifest and `@vite-pwa/nuxt`
 - [x] Set up AI harness: CLAUDE.md, subagents, PR template
 
-### Phase 1 — Foundation 🔄
+### Phase 1 — Foundation ✅
 - [x] Initialize Prisma schema with full domain model (9 models)
 - [x] Prisma client singleton (`server/utils/prisma.ts`)
 - [x] ExerciseGroup model, warmUp field, Brick House seed data
 - [x] OAuth routes (Google + Apple) via `nuxt-auth-utils`
 - [x] Auth middleware (`server/middleware/auth.ts`)
 - [x] Unit test harness
-- [ ] Deploy to Vercel (initial production environment)
+- [x] Deploy to Vercel (initial production environment)
 
 ### Phase 2 — Observability
 - [ ] pino structured logging middleware
@@ -159,6 +159,10 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [ ] Additional programs seeded
 - [ ] Offline support (service worker caching)
 - [ ] Invite system
+
+### Backlog
+- [ ] Document API with Docusaurus (or similar)
+- [ ] Configure Apple OAuth
 
 ## Subagents
 

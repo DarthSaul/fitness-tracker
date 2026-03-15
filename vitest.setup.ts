@@ -38,6 +38,7 @@ vi.stubGlobal('defineOAuthAppleEventHandler', (config: unknown) => config)
 // Individual test files can reconfigure prisma.user.upsert etc. per-test via
 // the shared mock reference they import from this setup context.
 vi.stubGlobal('prisma', {
+  $queryRaw: vi.fn(),
   user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
   userProgram: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
