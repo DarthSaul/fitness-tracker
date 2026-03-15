@@ -1,3 +1,16 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Auth'],
+    summary: 'Apple OAuth login',
+    description: 'Handles Apple OAuth flow (GET redirect + POST callback via form_post). On success, upserts the user and establishes a session, then redirects to /.',
+    responses: {
+      302: {
+        description: 'Redirects to Apple OAuth consent screen or to / after successful login',
+      },
+    },
+  },
+})
+
 /**
  * Apple OAuth handler — covers both the GET redirect initiation and the POST callback.
  * Apple uses `response_mode: form_post`, so this file has no HTTP method suffix.
