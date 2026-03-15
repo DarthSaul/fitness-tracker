@@ -76,16 +76,11 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 ### Error Handling
 
 - All API routes should use try/catch and return meaningful error responses.
-- Unhandled exceptions are caught by Sentry automatically.
-- Log errors through the pino logger before re-throwing or returning error responses.
+- Use `createError` from `h3` for error responses with appropriate status codes.
 
 ### Observability
 
-- Every API request is automatically logged by `server/middleware/logging.ts` (method, route, status, duration, userId, requestId).
-- Request IDs are generated with `crypto.randomUUID()` and passed through the event context.
-- Sentry captures unhandled exceptions server-side and client-side, tagged with userId.
-- Sentry performance tracing is enabled for API routes and Prisma queries.
-- New API routes get instrumentation for free — no per-route setup needed.
+> **Note:** The Observability phase (Phase 4) has not been started yet. Until it is complete, pino logging and Sentry instrumentation are **not** available. Do not import or reference `server/utils/logger.ts`, `server/middleware/logging.ts`, or Sentry APIs in new code. Simple `console.log`/`console.error` is fine for debugging until Phase 4 lands.
 
 ### TypeScript
 
@@ -119,7 +114,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ## Roadmap
 
-**Current phase: Phase 2 — Observability**
+**Current phase: Phase 2 — API Iteration**
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
@@ -135,24 +130,24 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [x] Unit test harness
 - [x] Deploy to Vercel (initial production environment)
 
-### Phase 2 — Observability
-- [ ] pino structured logging middleware
-- [ ] Sentry error tracking (client + server)
-- [ ] Sentry performance tracing (API routes + Prisma)
-- [ ] `/api/health` endpoint
-
-### Phase 3 — Workout Engine
+### Phase 2 — API Iteration
 - [ ] User-program management endpoints (save, activate, deactivate)
 - [ ] Workout session lifecycle (start → complete sets → complete day)
 - [ ] Day/week advancement logic
 - [ ] Program completion handling
 
-### Phase 4 — Frontend
+### Phase 3 — Frontend
 - [ ] Mobile-first layout with Tailwind + Nuxt UI
 - [ ] Program browser page
 - [ ] Active workout session UI
 - [ ] Auth flow pages (login, callback)
 - [ ] PWA install / offline config
+
+### Phase 4 — Observability
+- [ ] pino structured logging middleware
+- [ ] Sentry error tracking (client + server)
+- [ ] Sentry performance tracing (API routes + Prisma)
+- [ ] `/api/health` endpoint
 
 ### Phase 5 — Polish & Iteration
 - [ ] Workout history views
