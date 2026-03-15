@@ -1,3 +1,16 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Auth'],
+    summary: 'Google OAuth login',
+    description: 'Initiates the Google OAuth authorization redirect. On successful callback, upserts the user and establishes a session, then redirects to /.',
+    responses: {
+      302: {
+        description: 'Redirects to Google OAuth consent screen or to / after successful login',
+      },
+    },
+  },
+})
+
 /**
  * Google OAuth handler — initiates the authorization redirect and processes the callback.
  * Requests `email` and `profile` scopes so profile name and avatar URL are available on every login.

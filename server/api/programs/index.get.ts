@@ -1,3 +1,19 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Programs'],
+    summary: 'List all programs',
+    description: 'Returns a summary list of all programs in the library, ordered newest first.',
+    responses: {
+      200: {
+        description: 'Array of program summaries (id, name, description, createdAt, week count)',
+      },
+      500: {
+        description: 'Internal server error',
+      },
+    },
+  },
+})
+
 /** Returns a summary list of all programs in the library, ordered newest first. */
 export default defineEventHandler(async () => {
   try {

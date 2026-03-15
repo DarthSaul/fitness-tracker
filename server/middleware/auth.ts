@@ -1,5 +1,7 @@
-// Paths that do not require authentication
-const PUBLIC_PATHS = ['/api/auth/', '/api/_auth/', '/api/health']
+// Path prefixes that do not require authentication
+const PUBLIC_PREFIXES = ['/api/auth/', '/api/_auth/', '/api/docs', '/_openapi']
+// Exact paths that do not require authentication
+const PUBLIC_EXACT = ['/api/health']
 
 /**
  * Global auth guard that protects all non-public API routes.
@@ -9,7 +11,7 @@ const PUBLIC_PATHS = ['/api/auth/', '/api/_auth/', '/api/health']
 export default defineEventHandler(async (event) => {
   event.context.requestId = crypto.randomUUID()
 
-  if (PUBLIC_PATHS.some((p) => p === '/api/health' ? event.path === p : event.path.startsWith(p))) return
+  if (PUBLIC_EXACT.includes(event.path) || PUBLIC_PREFIXES.some((p) => event.path.startsWith(p))) return
 
   const session = await getUserSession(event)
   if (!session?.user) {

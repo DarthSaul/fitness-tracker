@@ -8,6 +8,9 @@
  */
 import { vi } from 'vitest'
 
+// ── Nitro compile-time macros ────────────────────────────────────────────────
+vi.stubGlobal('defineRouteMeta', vi.fn())
+
 // ── H3 helpers (used in server routes and middleware) ─────────────────────────
 vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
 vi.stubGlobal('getRouterParam', vi.fn())

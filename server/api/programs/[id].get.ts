@@ -1,3 +1,34 @@
+defineRouteMeta({
+  openAPI: {
+    tags: ['Programs'],
+    summary: 'Get program by ID',
+    description: 'Returns the full detail of a single program, including all nested weeks, days, exercise groups, exercises, and sets.',
+    parameters: [
+      {
+        name: 'id',
+        in: 'path',
+        required: true,
+        schema: { type: 'string' },
+        description: 'Program CUID',
+      },
+    ],
+    responses: {
+      200: {
+        description: 'Full program with nested structure',
+      },
+      400: {
+        description: 'Missing program ID',
+      },
+      404: {
+        description: 'Program not found',
+      },
+      500: {
+        description: 'Internal server error',
+      },
+    },
+  },
+})
+
 /**
  * Returns the full detail of a single program, including all nested
  * weeks → days → exercise groups → exercises → sets.
