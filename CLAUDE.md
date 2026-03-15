@@ -76,16 +76,11 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 ### Error Handling
 
 - All API routes should use try/catch and return meaningful error responses.
-- Unhandled exceptions are caught by Sentry automatically.
-- Log errors through the pino logger before re-throwing or returning error responses.
+- Use `createError` from `h3` for error responses with appropriate status codes.
 
 ### Observability
 
-- Every API request is automatically logged by `server/middleware/logging.ts` (method, route, status, duration, userId, requestId).
-- Request IDs are generated with `crypto.randomUUID()` and passed through the event context.
-- Sentry captures unhandled exceptions server-side and client-side, tagged with userId.
-- Sentry performance tracing is enabled for API routes and Prisma queries.
-- New API routes get instrumentation for free — no per-route setup needed.
+> **Note:** The Observability phase (Phase 4) has not been started yet. Until it is complete, pino logging and Sentry instrumentation are **not** available. Do not import or reference `server/utils/logger.ts`, `server/middleware/logging.ts`, or Sentry APIs in new code. Simple `console.log`/`console.error` is fine for debugging until Phase 4 lands.
 
 ### TypeScript
 
