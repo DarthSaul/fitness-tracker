@@ -160,6 +160,10 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [ ] Offline support (service worker caching)
 - [ ] Invite system
 
+### Backlog
+- [ ] Document API with Docusaurus (or similar)
+- [ ] Configure Apple OAuth
+
 ## Subagents
 
 Custom subagents are defined in `.claude/agents/`. Available agents:
