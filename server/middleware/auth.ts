@@ -11,6 +11,9 @@ const PUBLIC_EXACT = ['/api/health']
 export default defineEventHandler(async (event) => {
   event.context.requestId = crypto.randomUUID()
 
+  // Only guard API and OpenAPI routes — let page SSR requests through for client-side auth handling
+  if (!event.path.startsWith('/api/') && !event.path.startsWith('/_openapi')) return
+
   if (PUBLIC_EXACT.includes(event.path) || PUBLIC_PREFIXES.some((p) => event.path.startsWith(p))) return
 
   const session = await getUserSession(event)
