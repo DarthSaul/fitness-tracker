@@ -39,8 +39,8 @@ defineRouteMeta({
  * exerciseGroups → exercises → sets.
  */
 export default defineEventHandler(async (event) => {
-  const id = getRouterParam(event, 'id')
-  if (!id?.trim()) {
+  const id = getRouterParam(event, 'id')?.trim()
+  if (!id) {
     throw createError({ statusCode: 400, statusMessage: 'Missing day ID' })
   }
 
