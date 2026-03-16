@@ -120,14 +120,14 @@ describe('GET /api/auth/google', () => {
       })
     })
 
-    test('redirects to / after successful login', async () => {
+    test('redirects to /app after successful login', async () => {
       mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
       await config.onSuccess(event, { user: mockGoogleUser })
 
       expect(mockSendRedirect).toHaveBeenCalledOnce()
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/')
+      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/app')
     })
   })
 

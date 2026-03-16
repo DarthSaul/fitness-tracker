@@ -264,7 +264,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       })
     })
 
-    test('redirects to / after successful login', async () => {
+    test('redirects to /app after successful login', async () => {
       mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
@@ -273,7 +273,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
         payload: mockPayload,
       })
 
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/')
+      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/app')
     })
   })
 

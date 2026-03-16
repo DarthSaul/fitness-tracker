@@ -112,6 +112,12 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - Merge to `main` after review.
 - All checklist items in the PR template must be completed (checked) by the submitter before requesting review.
 
+### Verification
+
+- Every implementation plan must include a final step to run the **verify-app** subagent.
+- The verify-app agent runs the full QA pipeline (TypeScript check, unit tests, build, dev server smoke check) and must pass before changes are considered complete.
+- Do not skip this step, even for small changes.
+
 ## Roadmap
 
 **Current phase: Phase 2 — API Iteration**

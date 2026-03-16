@@ -13,9 +13,12 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@nuxt/ui": "^4.5.1",
     "@prisma/client": "^6.19.2",
+    "@vite-pwa/nuxt": "^1.1.1",
     "nuxt": "^4.3.1",
     "nuxt-auth-utils": "^0.5.29",
+    "tailwindcss": "^4.2.1",
     "vue": "^3.5.29",
     "vue-router": "^4.6.4"
   },

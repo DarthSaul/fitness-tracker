@@ -6,14 +6,24 @@ const props = defineProps<{ error: NuxtError }>()
 const isUnauthorized = computed(
   () => props.error.statusCode === 401,
 )
+
+function handleError() {
+  clearError({ redirect: isUnauthorized.value ? '/login' : '/app' })
+}
 </script>
 
 <template>
-  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: sans-serif;">
-    <h1>{{ error.statusCode }}</h1>
-    <p>{{ error.statusMessage || 'Something went wrong' }}</p>
-    <a v-if="isUnauthorized" href="/api/auth/google">
-      <button type="button">Log in with Google</button>
-    </a>
+  <div class="flex min-h-dvh flex-col items-center justify-center bg-neutral-950 px-4">
+    <h1 class="text-6xl font-bold text-white">
+      {{ error.statusCode }}
+    </h1>
+    <p class="mt-4 text-neutral-400">
+      {{ error.statusMessage || 'Something went wrong' }}
+    </p>
+    <UButton
+      class="mt-6"
+      :label="isUnauthorized ? 'Go to Login' : 'Go Home'"
+      @click="handleError"
+    />
   </div>
 </template>
