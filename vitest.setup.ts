@@ -44,6 +44,7 @@ vi.stubGlobal('prisma', {
   $queryRaw: vi.fn(),
   user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
+  programDay: { findUnique: vi.fn() },
   userProgram: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   workoutSession: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   completedSet: { create: vi.fn(), findMany: vi.fn() },

@@ -206,6 +206,25 @@ defineRouteMeta({
 							},
 						},
 					},
+					ProgramWeekSummary: {
+						type: 'object',
+						properties: {
+							id: { type: 'string', example: 'cm5abc123week01' },
+							programId: {
+								type: 'string',
+								example: 'cm5abc123prog01',
+							},
+							weekNumber: {
+								type: 'integer',
+								example: 1,
+							},
+							days: {
+								type: 'array',
+								items: { type: 'string' },
+								description: 'Array of ProgramDay CUIDs',
+							},
+						},
+					},
 					ProgramDetail: {
 						type: 'object',
 						properties: {
@@ -232,7 +251,7 @@ defineRouteMeta({
 							weeks: {
 								type: 'array',
 								items: {
-									$ref: '#/components/schemas/ProgramWeek',
+									$ref: '#/components/schemas/ProgramWeekSummary',
 								},
 							},
 						},
