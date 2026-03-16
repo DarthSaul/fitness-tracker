@@ -186,7 +186,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
         payload: mockPayload,
       })
 
-      const upsertArg = mockPrismaUserUpsert.mock.calls[0][0] as {
+      const upsertArg = mockPrismaUserUpsert.mock.calls[0]?.[0] as {
         update: Record<string, unknown>
       }
       expect(upsertArg.update).not.toHaveProperty('name')
@@ -200,7 +200,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
         payload: mockPayload,
       })
 
-      const upsertArg = mockPrismaUserUpsert.mock.calls[0][0] as {
+      const upsertArg = mockPrismaUserUpsert.mock.calls[0]?.[0] as {
         update: Record<string, unknown>
       }
       expect(upsertArg.update).toHaveProperty('name', 'Jane Appleseed')

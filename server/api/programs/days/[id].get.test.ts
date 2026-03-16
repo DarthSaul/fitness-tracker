@@ -168,7 +168,7 @@ describe('GET /api/programs/days/:id', () => {
     mockFindUnique.mockRejectedValueOnce(h3Error)
 
     const event = makeEvent('clday999')
-    const thrown = await (handler as (e: typeof event) => Promise<unknown>)(event).catch((e) => e)
+    const thrown = await (handler as (e: typeof event) => Promise<unknown>)(event).catch((e: unknown) => e) as { statusCode: number; statusMessage: string }
 
     expect(thrown.statusCode).toBe(404)
     expect(thrown.statusMessage).toBe('Day not found')

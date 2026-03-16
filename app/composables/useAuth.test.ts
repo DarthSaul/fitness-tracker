@@ -16,7 +16,7 @@ import { useAuth } from './useAuth'
 
 // ── Stub references ───────────────────────────────────────────────────────────
 const mockNavigateTo = navigateTo as ReturnType<typeof vi.fn>
-const mockDollarFetch = $fetch as ReturnType<typeof vi.fn>
+const mockDollarFetch = $fetch as unknown as ReturnType<typeof vi.fn>
 const mockFetchSession = vi.fn()
 
 // Configure what useUserSession() returns for all tests in this file.
