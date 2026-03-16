@@ -100,9 +100,9 @@ This project is a **Nuxt 4 workout tracker PWA** with the following tech stack:
 The project follows a 6-phase roadmap:
 - **Phase 0 — Init:** Nuxt scaffold, PWA config, AI harness
 - **Phase 1 — Foundation:** Prisma schema, auth, seed data, deploy to Vercel
-- **Phase 2 — Observability:** pino logging, Sentry error/performance tracing, health check
-- **Phase 3 — Workout Engine:** User-program management, session tracking, day/week advancement
-- **Phase 4 — Frontend:** Mobile-first UI with Tailwind + Nuxt UI, PWA config
+- **Phase 2 — API Iteration:** User-program management, session tracking, day/week advancement
+- **Phase 3 — Frontend:** Mobile-first UI with Tailwind + Nuxt UI, PWA config
+- **Phase 4 — Observability:** pino logging, Sentry error/performance tracing, health check
 - **Phase 5 — Polish & Iteration:** History views, additional programs, offline support, invite system
 
 Conventional Commits format is used: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`, `ci`, `build`, `perf`.
