@@ -5,7 +5,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo(loggedIn.value ? '/app' : '/login')
   }
 
-  if (to.path.startsWith('/app') && !loggedIn.value) {
+  if ((to.path === '/app' || to.path.startsWith('/app/')) && !loggedIn.value) {
     return navigateTo('/login')
   }
 
