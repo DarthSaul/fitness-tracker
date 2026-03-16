@@ -46,7 +46,7 @@ const errorMessage = computed(() => {
         <UButton
           block
           size="lg"
-          color="white"
+          color="neutral"
           variant="solid"
           icon="i-lucide-chrome"
           label="Continue with Google"
