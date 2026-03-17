@@ -199,6 +199,16 @@ describe('POST /api/workouts/:id/sets', () => {
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Set already recorded for this session' })
   })
 
+  test('throws 404 when exercise set not found', async () => {
+    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
+    mockFindUniqueExerciseSet.mockResolvedValueOnce(null)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Exercise set not found' })
+  })
+
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
     mockFindUniqueSession.mockRejectedValueOnce(dbError)

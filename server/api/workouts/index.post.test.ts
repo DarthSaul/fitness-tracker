@@ -2,12 +2,12 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 import handler from './index.post'
 
-const mockFindFirstUserProgram = (prisma as typeof prisma).userProgram.findFirst as ReturnType<typeof vi.fn>
 const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
 // Transaction-scoped mocks (used inside the interactive transaction callback)
 const txMocks = {
+  findFirstUserProgram: vi.fn(),
   findFirstSession: vi.fn(),
   findFirstDay: vi.fn(),
   createSession: vi.fn(),
@@ -75,6 +75,7 @@ describe('POST /api/workouts', () => {
     // Interactive transaction: execute the callback with a tx object containing our mocks
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
       const tx = {
+        userProgram: { findFirst: txMocks.findFirstUserProgram },
         workoutSession: { findFirst: txMocks.findFirstSession, create: txMocks.createSession },
         programDay: { findFirst: txMocks.findFirstDay },
       }
@@ -83,7 +84,7 @@ describe('POST /api/workouts', () => {
   })
 
   test('starts a workout session and returns 201 with session and day', async () => {
-    mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
     txMocks.findFirstSession.mockResolvedValueOnce(null)
     txMocks.findFirstDay.mockResolvedValueOnce(mockDay)
     txMocks.createSession.mockResolvedValueOnce(mockSession)
@@ -115,8 +116,20 @@ describe('POST /api/workouts', () => {
     })
   })
 
+  test('throws 401 when userId is missing', async () => {
+    const event = {
+      path: '/api/workouts',
+      context: { userId: undefined },
+      node: { res: { statusCode: 200 } },
+    }
+
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+  })
+
   test('throws 400 when no active program', async () => {
-    mockFindFirstUserProgram.mockResolvedValueOnce(null)
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(null)
 
     const event = makeEvent()
     await expect(
@@ -125,7 +138,7 @@ describe('POST /api/workouts', () => {
   })
 
   test('throws 409 when session already in progress', async () => {
-    mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
     txMocks.findFirstSession.mockResolvedValueOnce(mockSession)
 
     const event = makeEvent()
@@ -135,7 +148,7 @@ describe('POST /api/workouts', () => {
   })
 
   test('throws 500 when program day not found', async () => {
-    mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
     txMocks.findFirstSession.mockResolvedValueOnce(null)
     txMocks.findFirstDay.mockResolvedValueOnce(null)
 
@@ -147,7 +160,7 @@ describe('POST /api/workouts', () => {
 
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
-    mockFindFirstUserProgram.mockRejectedValueOnce(dbError)
+    txMocks.findFirstUserProgram.mockRejectedValueOnce(dbError)
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const event = makeEvent()
@@ -166,7 +179,7 @@ describe('POST /api/workouts', () => {
     const h3Error = new Error('No active program') as Error & { statusCode: number; statusMessage: string }
     h3Error.statusCode = 400
     h3Error.statusMessage = 'No active program'
-    mockFindFirstUserProgram.mockRejectedValueOnce(h3Error)
+    txMocks.findFirstUserProgram.mockRejectedValueOnce(h3Error)
 
     const event = makeEvent()
     const thrown = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event).catch((e: unknown) => e) as { statusCode: number }
@@ -178,7 +191,7 @@ describe('POST /api/workouts', () => {
   })
 
   test('uses interactive $transaction for atomic check-and-create', async () => {
-    mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
     txMocks.findFirstSession.mockResolvedValueOnce(null)
     txMocks.findFirstDay.mockResolvedValueOnce(mockDay)
     txMocks.createSession.mockResolvedValueOnce(mockSession)

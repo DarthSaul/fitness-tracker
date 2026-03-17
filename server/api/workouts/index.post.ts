@@ -15,17 +15,21 @@ defineRouteMeta({
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
+  if (!userId) {
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  }
+
   try {
-    const activeProgram = await prisma.userProgram.findFirst({
-      where: { userId, isActive: true },
-    })
-
-    if (!activeProgram) {
-      throw createError({ statusCode: 400, statusMessage: 'No active program' })
-    }
-
     // Use interactive transaction to prevent TOCTOU race on session creation
     const { session, currentDay } = await prisma.$transaction(async (tx) => {
+      const activeProgram = await tx.userProgram.findFirst({
+        where: { userId, isActive: true },
+      })
+
+      if (!activeProgram) {
+        throw createError({ statusCode: 400, statusMessage: 'No active program' })
+      }
+
       const existingSession = await tx.workoutSession.findFirst({
         where: { userProgramId: activeProgram.id, status: 'IN_PROGRESS' },
       })

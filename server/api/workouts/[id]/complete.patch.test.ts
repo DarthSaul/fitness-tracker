@@ -17,7 +17,7 @@ function makeEvent(id = 'ws001') {
   }
 }
 
-function makeSession(weekNumber: number, dayNumber: number, weeks: Array<{ weekNumber: number; dayCount: number }>) {
+function makeSession(weekNumber: number, dayNumber: number, weeks: Array<{ weekNumber: number; dayNumbers: number[] }>) {
   return {
     id: 'ws001',
     userId: 'user001',
@@ -31,9 +31,9 @@ function makeSession(weekNumber: number, dayNumber: number, weeks: Array<{ weekN
       program: {
         weeks: weeks.map((w) => ({
           weekNumber: w.weekNumber,
-          days: Array.from({ length: w.dayCount }, (_, i) => ({
-            id: `d${w.weekNumber}-${i + 1}`,
-            dayNumber: i + 1,
+          days: w.dayNumbers.map((dn) => ({
+            id: `d${w.weekNumber}-${dn}`,
+            dayNumber: dn,
           })),
         })),
       },
@@ -55,7 +55,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
 
   test('advances to next day within the same week', async () => {
     // Week 1, day 1 of 3 days → should advance to day 2
-    const session = makeSession(1, 1, [{ weekNumber: 1, dayCount: 3 }, { weekNumber: 2, dayCount: 2 }])
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }, { weekNumber: 2, dayNumbers: [1, 2] }])
     mockFindUniqueSession.mockResolvedValueOnce(session)
 
     const updatedSession = { ...session, status: 'COMPLETED', completedAt: new Date() }
@@ -77,7 +77,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
 
   test('advances to next week when last day of week', async () => {
     // Week 1, day 3 of 3 days, 2 weeks total → should advance to week 2, day 1
-    const session = makeSession(1, 3, [{ weekNumber: 1, dayCount: 3 }, { weekNumber: 2, dayCount: 2 }])
+    const session = makeSession(1, 3, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }, { weekNumber: 2, dayNumbers: [1, 2] }])
     mockFindUniqueSession.mockResolvedValueOnce(session)
 
     const updatedSession = { ...session, status: 'COMPLETED' }
@@ -97,10 +97,90 @@ describe('PATCH /api/workouts/:id/complete', () => {
 
   test('completes program and deactivates when last day of last week', async () => {
     // Week 2, day 2 of 2 days, 2 weeks total → program complete
-    const session = makeSession(2, 2, [{ weekNumber: 1, dayCount: 3 }, { weekNumber: 2, dayCount: 2 }])
+    const session = makeSession(2, 2, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }, { weekNumber: 2, dayNumbers: [1, 2] }])
     mockFindUniqueSession.mockResolvedValueOnce(session)
 
     const updatedSession = { ...session, status: 'COMPLETED' }
+    const updatedProgram = { id: 'up001', isActive: false }
+    mockUpdateSession.mockResolvedValueOnce(updatedSession)
+    mockUpdateUserProgram.mockResolvedValueOnce(updatedProgram)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ programCompleted: boolean }>)(event)
+
+    expect(result.programCompleted).toBe(true)
+    expect(mockUpdateUserProgram).toHaveBeenCalledWith({
+      where: { id: 'up001' },
+      data: { isActive: false },
+    })
+  })
+
+  test('throws 401 when userId is missing', async () => {
+    mockGetRouterParam.mockReturnValue('ws001')
+    const event = {
+      path: '/api/workouts/ws001/complete',
+      context: { userId: undefined },
+    }
+
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+  })
+
+  test('advances to next day with non-contiguous day numbers', async () => {
+    // Week 1 has days [1, 3] (gap at 2), currently on day 1 → should advance to day 3
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 3] }])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+
+    const updatedSession = { ...session, status: 'COMPLETED', completedAt: new Date() }
+    const updatedProgram = { id: 'up001', currentWeek: 1, currentDay: 3, isActive: true }
+    mockUpdateSession.mockResolvedValueOnce(updatedSession)
+    mockUpdateUserProgram.mockResolvedValueOnce(updatedProgram)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ programCompleted: boolean }>)(event)
+
+    expect(result.programCompleted).toBe(false)
+    expect(mockUpdateUserProgram).toHaveBeenCalledWith({
+      where: { id: 'up001' },
+      data: { currentWeek: 1, currentDay: 3 },
+    })
+  })
+
+  test('skips empty weeks when advancing', async () => {
+    // Week 1 day 1, then week 2 is empty, week 3 has day 1 → should advance to week 3 day 1
+    const session = makeSession(1, 1, [
+      { weekNumber: 1, dayNumbers: [1] },
+      { weekNumber: 2, dayNumbers: [] },
+      { weekNumber: 3, dayNumbers: [1] },
+    ])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+
+    const updatedSession = { ...session, status: 'COMPLETED', completedAt: new Date() }
+    const updatedProgram = { id: 'up001', currentWeek: 3, currentDay: 1, isActive: true }
+    mockUpdateSession.mockResolvedValueOnce(updatedSession)
+    mockUpdateUserProgram.mockResolvedValueOnce(updatedProgram)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ programCompleted: boolean }>)(event)
+
+    expect(result.programCompleted).toBe(false)
+    expect(mockUpdateUserProgram).toHaveBeenCalledWith({
+      where: { id: 'up001' },
+      data: { currentWeek: 3, currentDay: 1 },
+    })
+  })
+
+  test('completes program when all remaining weeks are empty', async () => {
+    // Week 1 day 1, then weeks 2 and 3 are empty → program complete
+    const session = makeSession(1, 1, [
+      { weekNumber: 1, dayNumbers: [1] },
+      { weekNumber: 2, dayNumbers: [] },
+      { weekNumber: 3, dayNumbers: [] },
+    ])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+
+    const updatedSession = { ...session, status: 'COMPLETED', completedAt: new Date() }
     const updatedProgram = { id: 'up001', isActive: false }
     mockUpdateSession.mockResolvedValueOnce(updatedSession)
     mockUpdateUserProgram.mockResolvedValueOnce(updatedProgram)
@@ -134,7 +214,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
   })
 
   test('throws 403 when session belongs to another user', async () => {
-    const session = makeSession(1, 1, [{ weekNumber: 1, dayCount: 3 }])
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
     mockFindUniqueSession.mockResolvedValueOnce({ ...session, userId: 'other-user' })
 
     const event = makeEvent()
@@ -144,7 +224,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
   })
 
   test('throws 409 when session is already completed', async () => {
-    const session = makeSession(1, 1, [{ weekNumber: 1, dayCount: 3 }])
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
     mockFindUniqueSession.mockResolvedValueOnce({ ...session, status: 'COMPLETED' })
 
     const event = makeEvent()
@@ -186,7 +266,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
   })
 
   test('uses $transaction for atomic update', async () => {
-    const session = makeSession(1, 1, [{ weekNumber: 1, dayCount: 3 }])
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
     mockFindUniqueSession.mockResolvedValueOnce(session)
     mockUpdateSession.mockResolvedValueOnce({ ...session, status: 'COMPLETED' })
     mockUpdateUserProgram.mockResolvedValueOnce({ id: 'up001', currentWeek: 1, currentDay: 2 })

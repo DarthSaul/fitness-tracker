@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!exerciseSet) {
-      throw createError({ statusCode: 400, statusMessage: 'Exercise set not found' })
+      throw createError({ statusCode: 404, statusMessage: 'Exercise set not found' })
     }
 
     const programWeek = exerciseSet.programExercise.exerciseGroup.programDay.programWeek

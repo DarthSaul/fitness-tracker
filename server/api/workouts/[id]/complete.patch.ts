@@ -19,6 +19,11 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
+
+  if (!userId) {
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  }
+
   const id = getRouterParam(event, 'id')
 
   if (!id?.trim()) {
@@ -80,12 +85,21 @@ export default defineEventHandler(async (event) => {
       const nextDayData = currentWeekData.days[currentDayIdx + 1]
       if (nextDayData) nextDay = nextDayData.dayNumber
     } else if (currentWeekIdx >= 0 && currentWeekIdx < weeks.length - 1) {
-      // Last day of week, but not last week — advance to first day of next week
-      const nextWeekData = weeks[currentWeekIdx + 1]
-      if (nextWeekData?.days[0]) {
-        nextWeek = nextWeekData.weekNumber
-        nextDay = nextWeekData.days[0].dayNumber
+      // Last day of week, but not last week — scan forward for next week with days
+      let found = false
+      for (let i = currentWeekIdx + 1; i < weeks.length; i++) {
+        const week = weeks[i]
+        if (!week) continue
+        if (week.days.length > 0) {
+          const firstDay = week.days[0]
+          if (!firstDay) continue
+          nextWeek = week.weekNumber
+          nextDay = firstDay.dayNumber
+          found = true
+          break
+        }
       }
+      if (!found) programCompleted = true
     } else {
       // Last day of last week — program complete
       programCompleted = true
