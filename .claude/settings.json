@@ -1,5 +1,21 @@
 {
 	"permissions": {
-		"allow": ["Read", "Edit", "Write", "Glob", "Grep"]
+		"allow": [
+			"Read",
+			"Edit",
+			"Write",
+			"Glob",
+			"Grep",
+			"Bash(cd:*)",
+			"Bash(grep)",
+			"Bash(find)",
+			"Bash(ls)",
+			"Bash(pnpm:*)",
+			"Bash(git:*)",
+			"Bash(gh pr:*)",
+			"Bash(npx nuxi:*)",
+			"Bash(npx prisma:*)",
+			"Bash(npx vitest:*)"
+		]
 	}
 }
