@@ -49,41 +49,37 @@ const { isSaved, isSaving, toggleSave } = useUserPrograms()
 
     <!-- Program list -->
     <div v-else class="space-y-4">
-      <NuxtLink
-        v-for="program in programs"
-        :key="program.id"
-        :to="`/programs/${program.id}`"
-        class="block"
-      >
-        <UCard>
-          <div class="flex items-start justify-between">
-            <div class="min-w-0 flex-1">
-              <h3 class="font-semibold text-white">
-                {{ program.name }}
-              </h3>
-              <p
-                v-if="program.description"
-                class="mt-1 line-clamp-2 text-sm text-slate-400"
-              >
-                {{ program.description }}
-              </p>
-            </div>
-            <div class="ml-3 flex shrink-0 items-center gap-2">
-              <span class="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
-                {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
-              </span>
-              <UButton
-                :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
-                :color="isSaved(program.id) ? 'primary' : 'neutral'"
-                variant="ghost"
-                size="sm"
-                :loading="isSaving(program.id)"
-                @click.prevent="toggleSave(program.id)"
-              />
-            </div>
+      <UCard v-for="program in programs" :key="program.id">
+        <div class="flex items-start justify-between">
+          <NuxtLink
+            :to="`/programs/${program.id}`"
+            class="min-w-0 flex-1"
+          >
+            <h3 class="font-semibold text-white">
+              {{ program.name }}
+            </h3>
+            <p
+              v-if="program.description"
+              class="mt-1 line-clamp-2 text-sm text-slate-400"
+            >
+              {{ program.description }}
+            </p>
+          </NuxtLink>
+          <div class="ml-3 flex shrink-0 items-center gap-2">
+            <span class="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+              {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
+            </span>
+            <UButton
+              :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
+              :color="isSaved(program.id) ? 'primary' : 'neutral'"
+              variant="ghost"
+              size="sm"
+              :loading="isSaving(program.id)"
+              @click.prevent="toggleSave(program.id)"
+            />
           </div>
-        </UCard>
-      </NuxtLink>
+        </div>
+      </UCard>
     </div>
   </div>
 </template>
