@@ -158,6 +158,17 @@ describe('POST /api/workouts', () => {
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Program day not found for current position' })
   })
 
+  test('throws 409 on concurrent duplicate session (P2002)', async () => {
+    const p2002Error = new Error('Unique constraint failed') as Error & { code: string }
+    p2002Error.code = 'P2002'
+    mockTransaction.mockRejectedValueOnce(p2002Error)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session already in progress' })
+  })
+
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
     txMocks.findFirstUserProgram.mockRejectedValueOnce(dbError)

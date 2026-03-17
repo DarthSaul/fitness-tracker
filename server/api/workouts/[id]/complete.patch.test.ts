@@ -195,6 +195,28 @@ describe('PATCH /api/workouts/:id/complete', () => {
     })
   })
 
+  test('throws 500 when session weekNumber not found in program weeks', async () => {
+    // Week 99 doesn't exist in the program
+    const session = makeSession(99, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: expect.stringContaining('Invalid program position') })
+  })
+
+  test('throws 500 when session dayNumber not found in current week', async () => {
+    // Day 99 doesn't exist in week 1
+    const session = makeSession(1, 99, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: expect.stringContaining('Invalid program position') })
+  })
+
   test('throws 400 when session id is missing', async () => {
     const event = makeEvent(undefined as unknown as string)
     mockGetRouterParam.mockReturnValue(undefined)

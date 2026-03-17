@@ -85,6 +85,46 @@ describe('POST /api/workouts/:id/sets', () => {
     })
   })
 
+  test('throws 401 when userId is missing', async () => {
+    mockGetRouterParam.mockReturnValue('ws001')
+    const event = {
+      path: '/api/workouts/ws001/sets',
+      context: { userId: undefined },
+      node: { res: { statusCode: 200 } },
+    }
+
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+  })
+
+  test('throws 400 when exerciseSetId is not a string', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 123 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing exerciseSetId' })
+  })
+
+  test('throws 400 when reps is Infinity', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', reps: Infinity })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+  })
+
+  test('throws 400 when weight is Infinity', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', weight: Infinity })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'weight must be a non-negative number' })
+  })
+
   test('throws 400 when session id is missing', async () => {
     const event = makeEvent(undefined as unknown as string)
     mockGetRouterParam.mockReturnValue(undefined)

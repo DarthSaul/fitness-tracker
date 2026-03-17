@@ -19,6 +19,11 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
+
+  if (!userId) {
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  }
+
   const id = getRouterParam(event, 'id')
 
   if (!id?.trim()) {
@@ -29,18 +34,18 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { exerciseSetId, reps, weight, rpe, notes } = body || {}
 
-    if (!exerciseSetId) {
+    if (typeof exerciseSetId !== 'string' || !exerciseSetId.trim()) {
       throw createError({ statusCode: 400, statusMessage: 'Missing exerciseSetId' })
     }
 
     // Validate numeric fields when present
-    if (reps !== undefined && reps !== null && (typeof reps !== 'number' || reps < 0)) {
+    if (reps !== undefined && reps !== null && (!Number.isFinite(reps) || reps < 0)) {
       throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
     }
-    if (weight !== undefined && weight !== null && (typeof weight !== 'number' || weight < 0)) {
+    if (weight !== undefined && weight !== null && (!Number.isFinite(weight) || weight < 0)) {
       throw createError({ statusCode: 400, statusMessage: 'weight must be a non-negative number' })
     }
-    if (rpe !== undefined && rpe !== null && (typeof rpe !== 'number' || rpe < 0 || rpe > 10)) {
+    if (rpe !== undefined && rpe !== null && (!Number.isFinite(rpe) || rpe < 0 || rpe > 10)) {
       throw createError({ statusCode: 400, statusMessage: 'rpe must be between 0 and 10' })
     }
     if (notes !== undefined && notes !== null && (typeof notes !== 'string' || notes.length > 500)) {

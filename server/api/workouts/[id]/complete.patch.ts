@@ -76,6 +76,13 @@ export default defineEventHandler(async (event) => {
       ? currentWeekData.days.findIndex((d) => d.dayNumber === session.dayNumber)
       : -1
 
+    if (currentWeekIdx < 0 || currentDayIdx < 0) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: `Invalid program position: week ${session.weekNumber}, day ${session.dayNumber} not found in program ${userProgram.programId}`,
+      })
+    }
+
     let programCompleted = false
     let nextWeek = session.weekNumber
     let nextDay = session.dayNumber

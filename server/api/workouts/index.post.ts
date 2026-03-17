@@ -82,6 +82,9 @@ export default defineEventHandler(async (event) => {
     return { session, day: currentDay }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    if ((error as { code?: string }).code === 'P2002') {
+      throw createError({ statusCode: 409, statusMessage: 'Session already in progress' })
+    }
     console.error('[POST /api/workouts] Failed to start workout session', error)
     throw createError({ statusCode: 500, statusMessage: 'Failed to start workout session' })
   }
