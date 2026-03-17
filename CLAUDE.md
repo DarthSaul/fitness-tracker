@@ -138,9 +138,9 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ### Phase 2 — API Iteration
 - [x] User-program management endpoints (save, activate, deactivate)
-- [ ] Workout session lifecycle (start → complete sets → complete day)
-- [ ] Day/week advancement logic
-- [ ] Program completion handling
+- [x] Workout session lifecycle (start → complete sets → complete day)
+- [x] Day/week advancement logic
+- [x] Program completion handling
 - [x] Document API with Scalar
 
 ### Phase 3 — Frontend
