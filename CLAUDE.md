@@ -137,14 +137,15 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [x] Deploy to Vercel (initial production environment)
 
 ### Phase 2 — API Iteration
-- [ ] User-program management endpoints (save, activate, deactivate)
+- [x] User-program management endpoints (save, activate, deactivate)
 - [ ] Workout session lifecycle (start → complete sets → complete day)
 - [ ] Day/week advancement logic
 - [ ] Program completion handling
+- [x] Document API with Scalar
 
 ### Phase 3 — Frontend
-- [ ] Mobile-first layout with Tailwind + Nuxt UI
-- [ ] Program browser page
+- [x] Mobile-first layout with Tailwind + Nuxt UI
+- [x] Program browser page
 - [ ] Active workout session UI
 - [ ] Auth flow pages (login, callback)
 - [ ] PWA install / offline config
@@ -162,7 +163,6 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [ ] Invite system
 
 ### Backlog
-- [ ] Document API with Docusaurus (or similar)
 - [ ] Configure Apple OAuth
 
 ## Subagents
