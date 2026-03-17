@@ -67,9 +67,9 @@ Follow the **[Conventional Commits v1.0.0](https://www.conventionalcommits.org/e
 
 ### 4. Open a pull request
 
-- Use `gh pr create` to open a pull request.
+- **First**, check if a PR already exists for this branch by running `gh pr view --json url -q .url 2>/dev/null`. If a PR URL is returned, skip the rest of this step and tell me the existing PR URL.
+- If no PR exists, use `gh pr create` to open one.
 - Generate a clear, descriptive PR title from the commit(s) on this branch.
 - For the PR body, use the **PR template** shown in `<pr_template>` above. Fill in each section of the template based on the actual changes. If no template was found, write a well-structured description covering: what changed, why, and how to test.
 - For each checklist item, mark it `- [x]` if it applies to this PR. If an item is not applicable, replace the checkbox with `N/A` and a brief reason (e.g. `- N/A — no API routes added`).
 - Target the default branch (usually `main` or `develop`). Do NOT hard-code a target — let `gh` infer it, or check with `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
-- If a PR already exists for this branch, skip this step and tell me the existing PR URL instead (check with `gh pr view --json url -q .url 2>/dev/null`).
