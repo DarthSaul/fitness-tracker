@@ -1,3 +1,9 @@
+/**
+ * Global route guard that redirects unauthenticated users away from protected routes and
+ * bounces authenticated users away from the login page.
+ *
+ * Protected route prefixes: `/app`, `/programs`.
+ */
 export default defineNuxtRouteMiddleware((to) => {
   const { loggedIn } = useUserSession()
 
@@ -5,7 +11,11 @@ export default defineNuxtRouteMiddleware((to) => {
     return navigateTo(loggedIn.value ? '/app' : '/login')
   }
 
-  if ((to.path === '/app' || to.path.startsWith('/app/')) && !loggedIn.value) {
+  const protectedPrefixes = ['/app', '/programs']
+  const isProtected = protectedPrefixes.some(
+    prefix => to.path === prefix || to.path.startsWith(prefix + '/')
+  )
+  if (isProtected && !loggedIn.value) {
     return navigateTo('/login')
   }
 

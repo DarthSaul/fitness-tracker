@@ -35,6 +35,16 @@ declare global {
   }
   const navigateTo: (path: string, opts?: { external?: boolean }) => Promise<void>
   const $fetch: (url: string, opts?: Record<string, unknown>) => Promise<unknown>
+
+  // ── Nuxt page / route macros ──────────────────────────────────────────────
+  const defineNuxtRouteMiddleware: (
+    fn: (to: { path: string }) => unknown,
+  ) => (to: { path: string }) => unknown
+  const definePageMeta: (meta: Record<string, unknown>) => void
+  const useFetch: <T = unknown>(
+    url: string,
+    opts?: Record<string, unknown>,
+  ) => { data: { value: T | null }; status: { value: string }; error: { value: unknown } }
 }
 
 export {}

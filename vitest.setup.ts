@@ -55,3 +55,16 @@ vi.stubGlobal('prisma', {
 vi.stubGlobal('useUserSession', vi.fn())
 vi.stubGlobal('navigateTo', vi.fn())
 vi.stubGlobal('$fetch', vi.fn())
+
+// ── Nuxt page / layout macros (used in app/pages and app/layouts) ─────────────
+vi.stubGlobal('definePageMeta', vi.fn())
+vi.stubGlobal('defineNuxtRouteMiddleware', (fn: (to: unknown) => unknown) => fn)
+
+// ── Nuxt composables (used in app/pages) ──────────────────────────────────────
+vi.stubGlobal('useFetch', vi.fn(() => ({ data: ref(null), status: ref('idle'), error: ref(null) })))
+vi.stubGlobal('useRoute', vi.fn(() => ({ path: '/' })))
+vi.stubGlobal('useNuxtApp', vi.fn())
+
+// ── Vue globals (used in components/pages without explicit imports) ────────────
+vi.stubGlobal('ref', (val: unknown) => ({ value: val }))
+vi.stubGlobal('computed', (fn: () => unknown) => ({ value: fn() }))
