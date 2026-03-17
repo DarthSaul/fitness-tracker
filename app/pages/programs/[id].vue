@@ -4,15 +4,16 @@ definePageMeta({ layout: 'app' })
 import type { ProgramDetail, ProgramWeekSummary, ProgramDayDetail, ExerciseSetDetail } from '~/types/program'
 
 const route = useRoute()
-const programId = route.params.id as string
+const programId = computed(() => route.params.id as string)
 
-const { data: program, status } = useFetch<ProgramDetail>(`/api/programs/${programId}`)
+const { data: program, status } = useFetch<ProgramDetail>(() => `/api/programs/${programId.value}`)
 const { isSaved, isSaving, toggleSave } = useUserPrograms()
 
 const slideoverOpen = ref(false)
 const selectedWeek = ref<ProgramWeekSummary | null>(null)
 const weekDays = ref<ProgramDayDetail[]>([])
 const loadingDays = ref(false)
+let openWeekRequestId = 0
 
 function formatRange(values: number[]): string | null {
   if (!values.length) return null
@@ -35,15 +36,33 @@ function rpeRange(sets: ExerciseSetDetail[]): string | null {
 }
 
 async function openWeek(week: ProgramWeekSummary): Promise<void> {
+  const requestId = ++openWeekRequestId
   selectedWeek.value = week
+  weekDays.value = []
   slideoverOpen.value = true
   loadingDays.value = true
   try {
-    weekDays.value = await Promise.all(
+    const days = await Promise.all(
       week.days.map(dayId => $fetch<ProgramDayDetail>(`/api/programs/days/${dayId}`))
     )
+    if (requestId === openWeekRequestId) {
+      weekDays.value = days
+    }
+  } catch {
+    if (requestId === openWeekRequestId) {
+      weekDays.value = []
+    }
   } finally {
-    loadingDays.value = false
+    if (requestId === openWeekRequestId) {
+      loadingDays.value = false
+    }
+  }
+}
+
+function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    openWeek(week)
   }
 }
 </script>
@@ -113,8 +132,12 @@ async function openWeek(week: ProgramWeekSummary): Promise<void> {
         <UCard
           v-for="week in program.weeks"
           :key="week.id"
+          role="button"
+          tabindex="0"
+          :aria-label="`View Week ${week.weekNumber}`"
           class="cursor-pointer transition-colors hover:bg-slate-800/50"
           @click="openWeek(week)"
+          @keydown="onCardKeydown(week, $event)"
         >
           <div class="flex items-center justify-between">
             <div>
@@ -200,7 +223,7 @@ async function openWeek(week: ProgramWeekSummary): Promise<void> {
                 </div>
 
                 <!-- Rest period -->
-                <p v-if="group.restSeconds" class="mt-2 text-xs text-slate-500">
+                <p v-if="group.restSeconds != null" class="mt-2 text-xs text-slate-500">
                   Rest: {{ group.restSeconds }}s
                 </p>
               </div>
