@@ -6,12 +6,16 @@
 			"Write",
 			"Glob",
 			"Grep",
-			"Bash(pnpm)",
-			"Bash(git)",
-			"Bash(gh pr)",
-			"Bash(npx nuxi)",
-			"Bash(npx prisma)",
-			"Bash(npx vitest)"
+			"Bash(cd:*)",
+			"Bash(grep)",
+			"Bash(find)",
+			"Bash(ls)",
+			"Bash(pnpm:*)",
+			"Bash(git:*)",
+			"Bash(gh pr:*)",
+			"Bash(npx nuxi:*)",
+			"Bash(npx prisma:*)",
+			"Bash(npx vitest:*)"
 		]
 	}
 }
