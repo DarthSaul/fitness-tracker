@@ -4,14 +4,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app' })
 
-/** Shape returned by GET /api/programs for each program in the library. */
-interface ProgramSummary {
-  id: string
-  name: string
-  description: string | null
-  createdAt: string
-  _count: { weeks: number }
-}
+import type { ProgramSummary } from '~/types/program'
 
 const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
 </script>
@@ -36,22 +29,22 @@ const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
       />
     </div>
 
-    <!-- Empty state -->
-    <UCard v-else-if="programs && programs.length === 0">
-      <div class="text-center text-slate-400">
-        <p>No programs available.</p>
-        <p class="mt-1 text-sm">
-          Check back later for new programs.
-        </p>
-      </div>
-    </UCard>
-
     <!-- Error state -->
     <UCard v-else-if="status === 'error'">
       <div class="text-center text-red-400">
         <p>Failed to load programs.</p>
         <p class="mt-1 text-sm">
           Please try again later.
+        </p>
+      </div>
+    </UCard>
+
+    <!-- Empty state -->
+    <UCard v-else-if="programs && programs.length === 0">
+      <div class="text-center text-slate-400">
+        <p>No programs available.</p>
+        <p class="mt-1 text-sm">
+          Check back later for new programs.
         </p>
       </div>
     </UCard>
