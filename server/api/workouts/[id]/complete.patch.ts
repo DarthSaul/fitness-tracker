@@ -36,7 +36,10 @@ export default defineEventHandler(async (event) => {
                 weeks: {
                   orderBy: { weekNumber: 'asc' },
                   include: {
-                    days: { select: { id: true } },
+                    days: {
+                      orderBy: { dayNumber: 'asc' as const },
+                      select: { id: true, dayNumber: true },
+                    },
                   },
                 },
               },
@@ -60,21 +63,29 @@ export default defineEventHandler(async (event) => {
 
     const { userProgram } = session
     const weeks = userProgram.program.weeks
-    const currentWeekData = weeks.find((w) => w.weekNumber === session.weekNumber)
-    const daysInCurrentWeek = currentWeekData ? currentWeekData.days.length : 0
-    const totalWeeks = weeks.length
+
+    // Find current position using ordered arrays (handles gaps in week/day numbers)
+    const currentWeekIdx = weeks.findIndex((w) => w.weekNumber === session.weekNumber)
+    const currentWeekData = currentWeekIdx >= 0 ? weeks[currentWeekIdx] : undefined
+    const currentDayIdx = currentWeekData
+      ? currentWeekData.days.findIndex((d) => d.dayNumber === session.dayNumber)
+      : -1
 
     let programCompleted = false
     let nextWeek = session.weekNumber
     let nextDay = session.dayNumber
 
-    if (session.dayNumber < daysInCurrentWeek) {
-      // Not last day of week — advance day
-      nextDay = session.dayNumber + 1
-    } else if (session.weekNumber < totalWeeks) {
-      // Last day of week, but not last week — advance week
-      nextWeek = session.weekNumber + 1
-      nextDay = 1
+    if (currentWeekData && currentDayIdx >= 0 && currentDayIdx < currentWeekData.days.length - 1) {
+      // Not last day of week — advance to next day in ordered array
+      const nextDayData = currentWeekData.days[currentDayIdx + 1]
+      if (nextDayData) nextDay = nextDayData.dayNumber
+    } else if (currentWeekIdx >= 0 && currentWeekIdx < weeks.length - 1) {
+      // Last day of week, but not last week — advance to first day of next week
+      const nextWeekData = weeks[currentWeekIdx + 1]
+      if (nextWeekData?.days[0]) {
+        nextWeek = nextWeekData.weekNumber
+        nextDay = nextWeekData.days[0].dayNumber
+      }
     } else {
       // Last day of last week — program complete
       programCompleted = true

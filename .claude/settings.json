@@ -15,7 +15,8 @@
 			"Bash(gh pr:*)",
 			"Bash(npx nuxi:*)",
 			"Bash(npx prisma:*)",
-			"Bash(npx vitest:*)"
+			"Bash(npx vitest:*)",
+			"Bash(npx tsc:*)"
 		]
 	}
 }

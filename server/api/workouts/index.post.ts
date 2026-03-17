@@ -24,45 +24,54 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'No active program' })
     }
 
-    const existingSession = await prisma.workoutSession.findFirst({
-      where: { userProgramId: activeProgram.id, status: 'IN_PROGRESS' },
-    })
+    // Use interactive transaction to prevent TOCTOU race on session creation
+    const { session, currentDay } = await prisma.$transaction(async (tx) => {
+      const existingSession = await tx.workoutSession.findFirst({
+        where: { userProgramId: activeProgram.id, status: 'IN_PROGRESS' },
+      })
 
-    if (existingSession) {
-      throw createError({ statusCode: 409, statusMessage: 'Session already in progress' })
-    }
+      if (existingSession) {
+        throw createError({ statusCode: 409, statusMessage: 'Session already in progress' })
+      }
 
-    const currentDay = await prisma.programDay.findFirst({
-      where: {
-        programWeek: {
-          programId: activeProgram.programId,
-          weekNumber: activeProgram.currentWeek,
+      const day = await tx.programDay.findFirst({
+        where: {
+          programWeek: {
+            programId: activeProgram.programId,
+            weekNumber: activeProgram.currentWeek,
+          },
+          dayNumber: activeProgram.currentDay,
         },
-        dayNumber: activeProgram.currentDay,
-      },
-      include: {
-        exerciseGroups: {
-          orderBy: { order: 'asc' },
-          include: {
-            exercises: {
-              orderBy: { order: 'asc' },
-              include: {
-                exercise: { select: { id: true, name: true } },
-                sets: { orderBy: { setNumber: 'asc' } },
+        include: {
+          exerciseGroups: {
+            orderBy: { order: 'asc' },
+            include: {
+              exercises: {
+                orderBy: { order: 'asc' },
+                include: {
+                  exercise: { select: { id: true, name: true } },
+                  sets: { orderBy: { setNumber: 'asc' } },
+                },
               },
             },
           },
         },
-      },
-    })
+      })
 
-    const session = await prisma.workoutSession.create({
-      data: {
-        userId,
-        userProgramId: activeProgram.id,
-        weekNumber: activeProgram.currentWeek,
-        dayNumber: activeProgram.currentDay,
-      },
+      if (!day) {
+        throw createError({ statusCode: 500, statusMessage: 'Program day not found for current position' })
+      }
+
+      const newSession = await tx.workoutSession.create({
+        data: {
+          userId,
+          userProgramId: activeProgram.id,
+          weekNumber: activeProgram.currentWeek,
+          dayNumber: activeProgram.currentDay,
+        },
+      })
+
+      return { session: newSession, currentDay: day }
     })
 
     event.node.res.statusCode = 201

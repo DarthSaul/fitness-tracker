@@ -187,4 +187,6 @@ model CompletedSet {
 
   workoutSession WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
   exerciseSet    ExerciseSet    @relation(fields: [exerciseSetId], references: [id], onDelete: Cascade)
+
+  @@unique([workoutSessionId, exerciseSetId])
 }

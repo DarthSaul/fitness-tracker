@@ -31,7 +31,10 @@ function makeSession(weekNumber: number, dayNumber: number, weeks: Array<{ weekN
       program: {
         weeks: weeks.map((w) => ({
           weekNumber: w.weekNumber,
-          days: Array.from({ length: w.dayCount }, (_, i) => ({ id: `d${w.weekNumber}-${i + 1}` })),
+          days: Array.from({ length: w.dayCount }, (_, i) => ({
+            id: `d${w.weekNumber}-${i + 1}`,
+            dayNumber: i + 1,
+          })),
         })),
       },
     },

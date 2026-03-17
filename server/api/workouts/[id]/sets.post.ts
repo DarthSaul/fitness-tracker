@@ -25,14 +25,27 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing session ID' })
   }
 
-  const body = await readBody(event)
-  const { exerciseSetId, reps, weight, rpe, notes } = body || {}
-
-  if (!exerciseSetId) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing exerciseSetId' })
-  }
-
   try {
+    const body = await readBody(event)
+    const { exerciseSetId, reps, weight, rpe, notes } = body || {}
+
+    if (!exerciseSetId) {
+      throw createError({ statusCode: 400, statusMessage: 'Missing exerciseSetId' })
+    }
+
+    // Validate numeric fields when present
+    if (reps !== undefined && reps !== null && (typeof reps !== 'number' || reps < 0)) {
+      throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    }
+    if (weight !== undefined && weight !== null && (typeof weight !== 'number' || weight < 0)) {
+      throw createError({ statusCode: 400, statusMessage: 'weight must be a non-negative number' })
+    }
+    if (rpe !== undefined && rpe !== null && (typeof rpe !== 'number' || rpe < 0 || rpe > 10)) {
+      throw createError({ statusCode: 400, statusMessage: 'rpe must be between 0 and 10' })
+    }
+    if (notes !== undefined && notes !== null && (typeof notes !== 'string' || notes.length > 500)) {
+      throw createError({ statusCode: 400, statusMessage: 'notes must be a string of 500 characters or less' })
+    }
     const session = await prisma.workoutSession.findUnique({
       where: { id },
       include: { userProgram: true },
@@ -98,6 +111,9 @@ export default defineEventHandler(async (event) => {
     return completedSet
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    if ((error as { code?: string }).code === 'P2002') {
+      throw createError({ statusCode: 409, statusMessage: 'Set already recorded for this session' })
+    }
     console.error('[POST /api/workouts/:id/sets] Failed to record completed set', error)
     throw createError({ statusCode: 500, statusMessage: 'Failed to record completed set' })
   }

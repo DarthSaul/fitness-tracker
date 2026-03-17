@@ -150,6 +150,55 @@ describe('POST /api/workouts/:id/sets', () => {
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Exercise set does not belong to this workout day' })
   })
 
+  test('throws 400 when reps is negative', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', reps: -1 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+  })
+
+  test('throws 400 when weight is negative', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', weight: -5 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'weight must be a non-negative number' })
+  })
+
+  test('throws 400 when rpe is out of range', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', rpe: 11 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'rpe must be between 0 and 10' })
+  })
+
+  test('throws 400 when notes exceeds 500 characters', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', notes: 'x'.repeat(501) })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'notes must be a string of 500 characters or less' })
+  })
+
+  test('throws 409 when duplicate set is submitted (P2002)', async () => {
+    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
+    mockFindUniqueExerciseSet.mockResolvedValueOnce(mockExerciseSet)
+    const p2002Error = new Error('Unique constraint failed') as Error & { code: string }
+    p2002Error.code = 'P2002'
+    mockCreateCompletedSet.mockRejectedValueOnce(p2002Error)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Set already recorded for this session' })
+  })
+
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
     mockFindUniqueSession.mockRejectedValueOnce(dbError)

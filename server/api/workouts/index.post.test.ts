@@ -3,10 +3,15 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import handler from './index.post'
 
 const mockFindFirstUserProgram = (prisma as typeof prisma).userProgram.findFirst as ReturnType<typeof vi.fn>
-const mockFindFirstSession = (prisma as typeof prisma).workoutSession.findFirst as ReturnType<typeof vi.fn>
-const mockFindFirstDay = (prisma as typeof prisma).programDay.findFirst as ReturnType<typeof vi.fn>
-const mockCreateSession = (prisma as typeof prisma).workoutSession.create as ReturnType<typeof vi.fn>
+const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
+
+// Transaction-scoped mocks (used inside the interactive transaction callback)
+const txMocks = {
+  findFirstSession: vi.fn(),
+  findFirstDay: vi.fn(),
+  createSession: vi.fn(),
+}
 
 function makeEvent() {
   return {
@@ -67,13 +72,21 @@ describe('POST /api/workouts', () => {
       err.statusMessage = opts.statusMessage
       return err
     })
+    // Interactive transaction: execute the callback with a tx object containing our mocks
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        workoutSession: { findFirst: txMocks.findFirstSession, create: txMocks.createSession },
+        programDay: { findFirst: txMocks.findFirstDay },
+      }
+      return fn(tx)
+    })
   })
 
   test('starts a workout session and returns 201 with session and day', async () => {
     mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
-    mockFindFirstSession.mockResolvedValueOnce(null)
-    mockFindFirstDay.mockResolvedValueOnce(mockDay)
-    mockCreateSession.mockResolvedValueOnce(mockSession)
+    txMocks.findFirstSession.mockResolvedValueOnce(null)
+    txMocks.findFirstDay.mockResolvedValueOnce(mockDay)
+    txMocks.createSession.mockResolvedValueOnce(mockSession)
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event) as { session: unknown; day: unknown }
@@ -81,7 +94,18 @@ describe('POST /api/workouts', () => {
     expect(result.session).toEqual(mockSession)
     expect(result.day).toEqual(mockDay)
     expect(event.node.res.statusCode).toBe(201)
-    expect(mockCreateSession).toHaveBeenCalledWith({
+    expect(txMocks.findFirstSession).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userProgramId: 'up001', status: 'IN_PROGRESS' } }),
+    )
+    expect(txMocks.findFirstDay).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          programWeek: { programId: 'prog001', weekNumber: 1 },
+          dayNumber: 2,
+        },
+      }),
+    )
+    expect(txMocks.createSession).toHaveBeenCalledWith({
       data: {
         userId: 'user001',
         userProgramId: 'up001',
@@ -102,12 +126,23 @@ describe('POST /api/workouts', () => {
 
   test('throws 409 when session already in progress', async () => {
     mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
-    mockFindFirstSession.mockResolvedValueOnce(mockSession)
+    txMocks.findFirstSession.mockResolvedValueOnce(mockSession)
 
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session already in progress' })
+  })
+
+  test('throws 500 when program day not found', async () => {
+    mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.findFirstSession.mockResolvedValueOnce(null)
+    txMocks.findFirstDay.mockResolvedValueOnce(null)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Program day not found for current position' })
   })
 
   test('throws 500 on unexpected error', async () => {
@@ -140,5 +175,18 @@ describe('POST /api/workouts', () => {
     expect(mockCreateError).not.toHaveBeenCalledWith(
       expect.objectContaining({ statusCode: 500 }),
     )
+  })
+
+  test('uses interactive $transaction for atomic check-and-create', async () => {
+    mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.findFirstSession.mockResolvedValueOnce(null)
+    txMocks.findFirstDay.mockResolvedValueOnce(mockDay)
+    txMocks.createSession.mockResolvedValueOnce(mockSession)
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockTransaction).toHaveBeenCalledOnce()
+    expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function))
   })
 })
