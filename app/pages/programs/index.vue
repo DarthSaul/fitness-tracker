@@ -1,12 +1,10 @@
-/**
- * Program browser page — fetches the full program library and renders each entry as a card.
- */
 <script setup lang="ts">
 definePageMeta({ layout: 'app' })
 
 import type { ProgramSummary } from '~/types/program'
 
 const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
+const { isSaved, isSaving, toggleSave } = useUserPrograms()
 </script>
 
 <template>
@@ -53,7 +51,10 @@ const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
     <div v-else class="space-y-4">
       <UCard v-for="program in programs" :key="program.id">
         <div class="flex items-start justify-between">
-          <div class="min-w-0 flex-1">
+          <NuxtLink
+            :to="`/programs/${program.id}`"
+            class="min-w-0 flex-1"
+          >
             <h3 class="font-semibold text-white">
               {{ program.name }}
             </h3>
@@ -63,10 +64,20 @@ const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
             >
               {{ program.description }}
             </p>
+          </NuxtLink>
+          <div class="ml-3 flex shrink-0 items-center gap-2">
+            <span class="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+              {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
+            </span>
+            <UButton
+              :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
+              :color="isSaved(program.id) ? 'primary' : 'neutral'"
+              variant="ghost"
+              size="sm"
+              :loading="isSaving(program.id)"
+              @click.prevent="toggleSave(program.id)"
+            />
           </div>
-          <span class="ml-3 shrink-0 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
-            {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
-          </span>
         </div>
       </UCard>
     </div>
