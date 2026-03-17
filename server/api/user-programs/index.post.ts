@@ -29,13 +29,6 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: 'Program not found' })
     }
 
-    const existing = await prisma.userProgram.findFirst({
-      where: { userId, programId },
-    })
-    if (existing) {
-      throw createError({ statusCode: 409, statusMessage: 'Program already saved' })
-    }
-
     const userProgram = await prisma.userProgram.create({
       data: { userId, programId },
       include: {
@@ -47,6 +40,9 @@ export default defineEventHandler(async (event) => {
     return userProgram
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    if ((error as { code?: string }).code === 'P2002') {
+      throw createError({ statusCode: 409, statusMessage: 'Program already saved' })
+    }
     console.error('[POST /api/user-programs] Failed to save program', error)
     throw createError({ statusCode: 500, statusMessage: 'Failed to save program' })
   }

@@ -14,7 +14,6 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import handler from './index.post'
 
 const mockProgramFindUnique = (prisma as typeof prisma).program.findUnique as ReturnType<typeof vi.fn>
-const mockFindFirst = (prisma as typeof prisma).userProgram.findFirst as ReturnType<typeof vi.fn>
 const mockCreate = (prisma as typeof prisma).userProgram.create as ReturnType<typeof vi.fn>
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
@@ -52,7 +51,6 @@ describe('POST /api/user-programs', () => {
 
   test('creates user program and returns it', async () => {
     mockProgramFindUnique.mockResolvedValueOnce({ id: 'prog001', name: 'Brick House' })
-    mockFindFirst.mockResolvedValueOnce(null)
     mockCreate.mockResolvedValueOnce(mockCreatedProgram)
 
     const event = makeEvent()
@@ -100,7 +98,9 @@ describe('POST /api/user-programs', () => {
 
   test('throws 409 when program already saved', async () => {
     mockProgramFindUnique.mockResolvedValueOnce({ id: 'prog001', name: 'Brick House' })
-    mockFindFirst.mockResolvedValueOnce({ id: 'up001' })
+    const prismaError = new Error('Unique constraint failed') as Error & { code: string }
+    prismaError.code = 'P2002'
+    mockCreate.mockRejectedValueOnce(prismaError)
 
     const event = makeEvent({ programId: 'prog001' })
     await expect(

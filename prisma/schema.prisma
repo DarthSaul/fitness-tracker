@@ -155,6 +155,8 @@ model UserProgram {
   program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   workoutSessions WorkoutSession[]
+
+  @@unique([userId, programId])
 }
 
 model WorkoutSession {
