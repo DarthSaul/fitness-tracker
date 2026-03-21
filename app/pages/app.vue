@@ -10,13 +10,17 @@ onMounted(() => {
   nowRef.value = new Date()
 })
 
-const { data: activeProgram, status: activeProgramStatus } = useFetch<{
+const { data: activeProgram, status: activeProgramStatus, error: activeProgramError } = useFetch<{
   id: string
   programId: string
   currentWeek: number
   currentDay: number
   program: { id: string; name: string; description: string | null }
 }>('/api/user-programs/active')
+
+const isActiveProgramFetchError = computed(() => {
+  return activeProgramError.value && activeProgramError.value.statusCode !== 404
+})
 
 const weekDays = computed(() => {
   if (!nowRef.value) return []
@@ -105,6 +109,16 @@ const formattedToday = computed(() => {
 
     <!-- Loading -->
     <div v-if="activeProgramStatus === 'pending'" class="h-20 animate-pulse rounded-lg bg-slate-800" />
+
+    <!-- Fetch error (non-404) -->
+    <UCard v-else-if="isActiveProgramFetchError" class="py-1">
+      <div class="text-center text-red-400">
+        <p>Failed to load program.</p>
+        <p class="mt-1 text-sm">
+          Please try again later.
+        </p>
+      </div>
+    </UCard>
 
     <!-- Active program -->
     <UCard v-else-if="activeProgram" class="py-1">
