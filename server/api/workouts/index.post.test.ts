@@ -8,6 +8,7 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 // Transaction-scoped mocks (used inside the interactive transaction callback)
 const txMocks = {
   findFirstUserProgram: vi.fn(),
+  queryRawUnsafe: vi.fn(),
   findFirstSession: vi.fn(),
   findFirstDay: vi.fn(),
   createSession: vi.fn(),
@@ -78,9 +79,12 @@ describe('POST /api/workouts', () => {
         userProgram: { findFirst: txMocks.findFirstUserProgram },
         workoutSession: { findFirst: txMocks.findFirstSession, create: txMocks.createSession },
         programDay: { findFirst: txMocks.findFirstDay },
+        $queryRawUnsafe: txMocks.queryRawUnsafe,
       }
       return fn(tx)
     })
+    // Default: $queryRawUnsafe returns the locked program matching mockActiveProgram
+    txMocks.queryRawUnsafe.mockResolvedValue([mockActiveProgram])
   })
 
   test('starts a workout session and returns 201 with session and day', async () => {

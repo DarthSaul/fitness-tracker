@@ -30,8 +30,18 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: 'No active program' })
       }
 
+      // Acquire row-level lock and re-read to get fresh values after any concurrent updates
+      const [lockedProgram] = await tx.$queryRawUnsafe<Array<{ currentWeek: number; currentDay: number; isActive: boolean; programId: string; id: string }>>(
+        'SELECT id, "currentWeek", "currentDay", "isActive", "programId" FROM "UserProgram" WHERE id = $1 FOR UPDATE',
+        activeProgram.id,
+      )
+
+      if (!lockedProgram || !lockedProgram.isActive) {
+        throw createError({ statusCode: 400, statusMessage: 'No active program' })
+      }
+
       const existingSession = await tx.workoutSession.findFirst({
-        where: { userProgramId: activeProgram.id, status: 'IN_PROGRESS' },
+        where: { userProgramId: lockedProgram.id, status: 'IN_PROGRESS' },
       })
 
       if (existingSession) {
@@ -41,10 +51,10 @@ export default defineEventHandler(async (event) => {
       const day = await tx.programDay.findFirst({
         where: {
           programWeek: {
-            programId: activeProgram.programId,
-            weekNumber: activeProgram.currentWeek,
+            programId: lockedProgram.programId,
+            weekNumber: lockedProgram.currentWeek,
           },
-          dayNumber: activeProgram.currentDay,
+          dayNumber: lockedProgram.currentDay,
         },
         include: {
           exerciseGroups: {
@@ -69,9 +79,9 @@ export default defineEventHandler(async (event) => {
       const newSession = await tx.workoutSession.create({
         data: {
           userId,
-          userProgramId: activeProgram.id,
-          weekNumber: activeProgram.currentWeek,
-          dayNumber: activeProgram.currentDay,
+          userProgramId: lockedProgram.id,
+          weekNumber: lockedProgram.currentWeek,
+          dayNumber: lockedProgram.currentDay,
         },
       })
 

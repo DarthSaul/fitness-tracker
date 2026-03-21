@@ -4,10 +4,15 @@ import handler from './sets.post'
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
-const mockFindUniqueSession = (prisma as typeof prisma).workoutSession.findUnique as ReturnType<typeof vi.fn>
-const mockFindUniqueExerciseSet = (prisma as typeof prisma).exerciseSet.findUnique as ReturnType<typeof vi.fn>
-const mockCreateCompletedSet = (prisma as typeof prisma).completedSet.create as ReturnType<typeof vi.fn>
+const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
+
+// Transaction-scoped mocks
+const txMocks = {
+  findUniqueSession: vi.fn(),
+  findUniqueExerciseSet: vi.fn(),
+  createCompletedSet: vi.fn(),
+}
 
 function makeEvent(id = 'ws001') {
   mockGetRouterParam.mockReturnValue(id)
@@ -61,19 +66,28 @@ describe('POST /api/workouts/:id/sets', () => {
       return err
     })
     mockReadBody.mockResolvedValue({ exerciseSetId: 'es001', reps: 8, weight: 60, rpe: 7 })
+    // Interactive transaction: execute the callback with a tx object containing our mocks
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        workoutSession: { findUnique: txMocks.findUniqueSession },
+        exerciseSet: { findUnique: txMocks.findUniqueExerciseSet },
+        completedSet: { create: txMocks.createCompletedSet },
+      }
+      return fn(tx)
+    })
   })
 
   test('records a completed set and returns 201', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindUniqueExerciseSet.mockResolvedValueOnce(mockExerciseSet)
-    mockCreateCompletedSet.mockResolvedValueOnce(mockCompletedSet)
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findUniqueExerciseSet.mockResolvedValueOnce(mockExerciseSet)
+    txMocks.createCompletedSet.mockResolvedValueOnce(mockCompletedSet)
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual(mockCompletedSet)
     expect(event.node.res.statusCode).toBe(201)
-    expect(mockCreateCompletedSet).toHaveBeenCalledWith({
+    expect(txMocks.createCompletedSet).toHaveBeenCalledWith({
       data: {
         workoutSessionId: 'ws001',
         exerciseSetId: 'es001',
@@ -144,7 +158,7 @@ describe('POST /api/workouts/:id/sets', () => {
   })
 
   test('throws 404 when session not found', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce(null)
+    txMocks.findUniqueSession.mockResolvedValueOnce(null)
 
     const event = makeEvent()
     await expect(
@@ -153,7 +167,7 @@ describe('POST /api/workouts/:id/sets', () => {
   })
 
   test('throws 403 when session belongs to another user', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, userId: 'other-user' })
+    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, userId: 'other-user' })
 
     const event = makeEvent()
     await expect(
@@ -162,7 +176,7 @@ describe('POST /api/workouts/:id/sets', () => {
   })
 
   test('throws 409 when session is already completed', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
 
     const event = makeEvent()
     await expect(
@@ -171,8 +185,8 @@ describe('POST /api/workouts/:id/sets', () => {
   })
 
   test('throws 400 when exercise set does not belong to this workout day', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindUniqueExerciseSet.mockResolvedValueOnce({
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findUniqueExerciseSet.mockResolvedValueOnce({
       ...mockExerciseSet,
       programExercise: {
         exerciseGroup: {
@@ -227,11 +241,11 @@ describe('POST /api/workouts/:id/sets', () => {
   })
 
   test('throws 409 when duplicate set is submitted (P2002)', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindUniqueExerciseSet.mockResolvedValueOnce(mockExerciseSet)
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findUniqueExerciseSet.mockResolvedValueOnce(mockExerciseSet)
     const p2002Error = new Error('Unique constraint failed') as Error & { code: string }
     p2002Error.code = 'P2002'
-    mockCreateCompletedSet.mockRejectedValueOnce(p2002Error)
+    txMocks.createCompletedSet.mockRejectedValueOnce(p2002Error)
 
     const event = makeEvent()
     await expect(
@@ -240,8 +254,8 @@ describe('POST /api/workouts/:id/sets', () => {
   })
 
   test('throws 404 when exercise set not found', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindUniqueExerciseSet.mockResolvedValueOnce(null)
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findUniqueExerciseSet.mockResolvedValueOnce(null)
 
     const event = makeEvent()
     await expect(
@@ -251,7 +265,7 @@ describe('POST /api/workouts/:id/sets', () => {
 
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
-    mockFindUniqueSession.mockRejectedValueOnce(dbError)
+    txMocks.findUniqueSession.mockRejectedValueOnce(dbError)
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const event = makeEvent()
@@ -270,7 +284,7 @@ describe('POST /api/workouts/:id/sets', () => {
     const h3Error = new Error('Session not found') as Error & { statusCode: number; statusMessage: string }
     h3Error.statusCode = 404
     h3Error.statusMessage = 'Session not found'
-    mockFindUniqueSession.mockRejectedValueOnce(h3Error)
+    txMocks.findUniqueSession.mockRejectedValueOnce(h3Error)
 
     const event = makeEvent()
     const thrown = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event).catch((e: unknown) => e) as { statusCode: number }

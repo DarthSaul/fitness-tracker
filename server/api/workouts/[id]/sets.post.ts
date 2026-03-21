@@ -51,65 +51,68 @@ export default defineEventHandler(async (event) => {
     if (notes !== undefined && notes !== null && (typeof notes !== 'string' || notes.length > 500)) {
       throw createError({ statusCode: 400, statusMessage: 'notes must be a string of 500 characters or less' })
     }
-    const session = await prisma.workoutSession.findUnique({
-      where: { id },
-      include: { userProgram: true },
-    })
+    // Wrap in transaction to prevent TOCTOU race between status check and insert
+    const completedSet = await prisma.$transaction(async (tx) => {
+      const session = await tx.workoutSession.findUnique({
+        where: { id },
+        include: { userProgram: true },
+      })
 
-    if (!session) {
-      throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-    }
+      if (!session) {
+        throw createError({ statusCode: 404, statusMessage: 'Session not found' })
+      }
 
-    if (session.userId !== userId) {
-      throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
-    }
+      if (session.userId !== userId) {
+        throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+      }
 
-    if (session.status === 'COMPLETED') {
-      throw createError({ statusCode: 409, statusMessage: 'Session already completed' })
-    }
+      if (session.status === 'COMPLETED') {
+        throw createError({ statusCode: 409, statusMessage: 'Session already completed' })
+      }
 
-    // Validate that the exerciseSet belongs to this workout's day
-    const exerciseSet = await prisma.exerciseSet.findUnique({
-      where: { id: exerciseSetId },
-      include: {
-        programExercise: {
-          include: {
-            exerciseGroup: {
-              include: {
-                programDay: {
-                  include: {
-                    programWeek: true,
+      // Validate that the exerciseSet belongs to this workout's day
+      const exerciseSet = await tx.exerciseSet.findUnique({
+        where: { id: exerciseSetId },
+        include: {
+          programExercise: {
+            include: {
+              exerciseGroup: {
+                include: {
+                  programDay: {
+                    include: {
+                      programWeek: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-    })
+      })
 
-    if (!exerciseSet) {
-      throw createError({ statusCode: 404, statusMessage: 'Exercise set not found' })
-    }
+      if (!exerciseSet) {
+        throw createError({ statusCode: 404, statusMessage: 'Exercise set not found' })
+      }
 
-    const programWeek = exerciseSet.programExercise.exerciseGroup.programDay.programWeek
-    if (
-      programWeek.weekNumber !== session.weekNumber ||
-      exerciseSet.programExercise.exerciseGroup.programDay.dayNumber !== session.dayNumber ||
-      programWeek.programId !== session.userProgram.programId
-    ) {
-      throw createError({ statusCode: 400, statusMessage: 'Exercise set does not belong to this workout day' })
-    }
+      const programWeek = exerciseSet.programExercise.exerciseGroup.programDay.programWeek
+      if (
+        programWeek.weekNumber !== session.weekNumber ||
+        exerciseSet.programExercise.exerciseGroup.programDay.dayNumber !== session.dayNumber ||
+        programWeek.programId !== session.userProgram.programId
+      ) {
+        throw createError({ statusCode: 400, statusMessage: 'Exercise set does not belong to this workout day' })
+      }
 
-    const completedSet = await prisma.completedSet.create({
-      data: {
-        workoutSessionId: id,
-        exerciseSetId,
-        reps,
-        weight,
-        rpe,
-        notes,
-      },
+      return tx.completedSet.create({
+        data: {
+          workoutSessionId: id,
+          exerciseSetId,
+          reps,
+          weight,
+          rpe,
+          notes,
+        },
+      })
     })
 
     event.node.res.statusCode = 201
