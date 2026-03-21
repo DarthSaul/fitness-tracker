@@ -11,22 +11,12 @@
 			"Bash(find)",
 			"Bash(ls)",
 			"Bash(pnpm:*)",
-			"Bash(git status:*)",
-			"Bash(git diff:*)",
-			"Bash(git log:*)",
-			"Bash(git branch:*)",
-			"Bash(git add:*)",
-			"Bash(git commit:*)",
-			"Bash(git push:*)",
-			"Bash(git checkout:*)",
-			"Bash(git rev-parse:*)",
-			"Bash(git blame:*)",
-			"Bash(gh pr create:*)",
-			"Bash(gh pr view:*)",
-			"Bash(gh repo view:*)",
+			"Bash(git:*)",
+			"Bash(gh pr:*)",
 			"Bash(npx nuxi:*)",
 			"Bash(npx prisma:*)",
-			"Bash(npx vitest:*)"
+			"Bash(npx vitest:*)",
+			"Bash(npx tsc:*)"
 		]
 	}
 }
