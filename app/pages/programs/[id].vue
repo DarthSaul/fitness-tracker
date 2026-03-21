@@ -83,6 +83,18 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
         <template v-if="program">{{ program.name }}</template>
         <template v-else>Program</template>
       </h2>
+      <UButton
+        v-if="program"
+        :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
+        :color="isSaved(program.id) ? 'primary' : 'neutral'"
+        :variant="isSaved(program.id) ? 'solid' : 'outline'"
+        size="sm"
+        :loading="isSaving(program.id)"
+        class="ml-auto shrink-0"
+        @click="toggleSave(program.id)"
+      >
+        {{ isSaved(program.id) ? 'Saved' : 'Save' }}
+      </UButton>
     </div>
 
     <!-- Loading state -->
@@ -103,26 +115,13 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
 
     <!-- Program detail -->
     <template v-else-if="program">
-      <!-- Description + save -->
-      <div class="flex items-start justify-between gap-3">
-        <p v-if="program.description" class="text-sm text-slate-400">
-          {{ program.description }}
-        </p>
-        <p v-else class="text-sm text-slate-500 italic">
-          No description available.
-        </p>
-        <UButton
-          :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
-          :color="isSaved(program.id) ? 'primary' : 'neutral'"
-          :variant="isSaved(program.id) ? 'solid' : 'outline'"
-          size="sm"
-          :loading="isSaving(program.id)"
-          class="shrink-0"
-          @click="toggleSave(program.id)"
-        >
-          {{ isSaved(program.id) ? 'Saved' : 'Save' }}
-        </UButton>
-      </div>
+      <!-- Description -->
+      <p v-if="program.description" class="text-sm text-slate-400">
+        {{ program.description }}
+      </p>
+      <p v-else class="text-sm text-slate-500 italic">
+        No description available.
+      </p>
 
       <!-- Weeks -->
       <div class="space-y-4">
