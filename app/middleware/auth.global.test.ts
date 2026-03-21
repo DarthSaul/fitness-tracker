@@ -9,6 +9,8 @@
  *  - /app protection: unauthenticated redirects to /login (regression guard)
  *  - /app sub-paths: unauthenticated redirects to /login
  *  - /app does NOT redirect authenticated users
+ *  - /workout protection: unauthenticated redirects to /login
+ *  - /workout does NOT redirect authenticated users
  *  - /login redirect: authenticated users are sent to /app
  *  - /login is accessible to unauthenticated users (no redirect)
  *  - Unrelated public paths pass through without redirecting
@@ -137,6 +139,20 @@ describe('app/middleware/auth.global', () => {
     test('does NOT redirect unauthenticated users on /login', () => {
       setLoggedIn(false)
       ;(middleware as MiddlewareFn)(makeTo('/login'))
+      expect(mockNavigateTo).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('/workout route protection', () => {
+    test('redirects unauthenticated users on /workout/abc to /login', () => {
+      setLoggedIn(false)
+      ;(middleware as MiddlewareFn)(makeTo('/workout/abc'))
+      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
+    })
+
+    test('does NOT redirect authenticated users on /workout/abc', () => {
+      setLoggedIn(true)
+      ;(middleware as MiddlewareFn)(makeTo('/workout/abc'))
       expect(mockNavigateTo).not.toHaveBeenCalled()
     })
   })

@@ -4,6 +4,10 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app' })
 
+import type { ActiveWorkoutResponse } from '~/types/workout'
+
+const router = useRouter()
+
 const nowRef = ref<Date | null>(null)
 
 onMounted(() => {
@@ -49,6 +53,26 @@ const formattedToday = computed(() => {
   if (!nowRef.value) return ''
   return `Today, ${nowRef.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 })
+
+// Active workout session
+const { data: activeWorkout } = useFetch<ActiveWorkoutResponse>('/api/workouts/active')
+
+const { startWorkout, loading: startingWorkout, error: workoutError } = useWorkoutSession()
+
+async function handleStartWorkout(): Promise<void> {
+  try {
+    const sessionId = await startWorkout()
+    await router.push(`/workout/${sessionId}`)
+  } catch {
+    // Error is set in composable
+  }
+}
+
+function resumeWorkout(): void {
+  if (activeWorkout.value?.session) {
+    router.push(`/workout/${activeWorkout.value.session.id}`)
+  }
+}
 </script>
 
 <template>
@@ -84,19 +108,51 @@ const formattedToday = computed(() => {
       {{ formattedToday }}
     </h2>
 
-    <!-- Next day in program card -->
-    <UCard v-if="activeProgram" class="py-1">
-      <NuxtLink :to="`/programs/${activeProgram.programId}`" class="flex items-center justify-between">
+    <!-- Resume workout banner -->
+    <UCard v-if="activeWorkout?.session" class="border border-violet-500/30 py-1">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="font-medium text-white">
+            Workout in progress
+          </p>
+          <p class="text-sm text-slate-400">
+            Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
+          </p>
+        </div>
+        <UButton color="primary" @click="resumeWorkout">
+          Resume
+        </UButton>
+      </div>
+    </UCard>
+
+    <!-- Next day / Start workout card -->
+    <UCard v-else-if="activeProgram" class="py-1">
+      <div class="flex items-center justify-between">
         <div>
           <p class="text-sm text-slate-400">Next up</p>
           <p class="font-semibold text-white">
             Week {{ activeProgram.currentWeek }}, Day {{ activeProgram.currentDay }}
           </p>
         </div>
-        <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
-      </NuxtLink>
+        <UButton
+          color="primary"
+          :loading="startingWorkout"
+          @click="handleStartWorkout"
+        >
+          Start Workout
+        </UButton>
+      </div>
+      <UAlert
+        v-if="workoutError"
+        color="error"
+        variant="subtle"
+        :title="workoutError"
+        class="mt-3"
+      />
     </UCard>
-    <UCard v-else class="py-1">
+
+    <!-- No active program placeholder -->
+    <UCard v-else-if="activeProgramStatus !== 'pending'" class="py-1">
       <div class="text-slate-400">
         Next day in program
       </div>
@@ -152,11 +208,13 @@ const formattedToday = computed(() => {
           Analytics
         </div>
       </UCard>
-      <UCard class="py-5">
-        <div class="text-center text-slate-400">
-          Start a workout
-        </div>
-      </UCard>
+      <NuxtLink to="/programs">
+        <UCard class="py-5">
+          <div class="text-center text-slate-400">
+            Browse Programs
+          </div>
+        </UCard>
+      </NuxtLink>
     </div>
   </div>
 </template>

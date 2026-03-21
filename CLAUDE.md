@@ -164,6 +164,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ### Backlog
 - [ ] Configure Apple OAuth
+- [ ] RPE tracking (optional, user-enabled in settings)
 
 ## Subagents
 
