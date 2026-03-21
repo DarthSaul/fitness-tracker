@@ -4,7 +4,7 @@ definePageMeta({ layout: 'app' })
 import type { ProgramSummary } from '~/types/program'
 
 const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
-const { isSaved, isSaving, toggleSave } = useUserPrograms()
+const { isSaved, isSaving, toggleSave, isActive, isActivating, toggleActive } = useUserPrograms()
 
 const filter = ref<'all' | 'saved'>('all')
 
@@ -100,6 +100,17 @@ const filteredPrograms = computed(() => {
                 :loading="isSaving(program.id)"
                 @click.prevent="toggleSave(program.id)"
               />
+              <UButton
+                v-if="isSaved(program.id)"
+                :icon="isActive(program.id) ? 'i-lucide-circle-check' : 'i-lucide-play'"
+                :color="isActive(program.id) ? 'success' : 'neutral'"
+                :variant="isActive(program.id) ? 'soft' : 'outline'"
+                size="sm"
+                :loading="isActivating(program.id)"
+                @click.prevent="toggleActive(program.id)"
+              >
+                {{ isActive(program.id) ? 'Active' : 'Start' }}
+              </UButton>
             </div>
           </div>
           <p
