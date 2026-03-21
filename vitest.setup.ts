@@ -45,9 +45,10 @@ vi.stubGlobal('prisma', {
   $transaction: vi.fn(),
   user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
-  programDay: { findUnique: vi.fn() },
+  programDay: { findUnique: vi.fn(), findFirst: vi.fn() },
   userProgram: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
-  workoutSession: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  workoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+  exerciseSet: { findUnique: vi.fn() },
   completedSet: { create: vi.fn(), findMany: vi.fn() },
 })
 

@@ -5,6 +5,14 @@ import type { ProgramSummary } from '~/types/program'
 
 const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
 const { isSaved, isSaving, toggleSave } = useUserPrograms()
+
+const filter = ref<'all' | 'saved'>('all')
+
+const filteredPrograms = computed(() => {
+  if (!programs.value) return []
+  if (filter.value === 'saved') return programs.value.filter(p => isSaved(p.id))
+  return programs.value
+})
 </script>
 
 <template>
@@ -47,39 +55,64 @@ const { isSaved, isSaving, toggleSave } = useUserPrograms()
       </div>
     </UCard>
 
+    <!-- Filter toggle -->
+    <div v-if="programs && programs.length > 0" class="flex gap-1">
+      <UButton
+        size="xs"
+        :color="filter === 'all' ? 'primary' : 'neutral'"
+        :variant="filter === 'all' ? 'solid' : 'ghost'"
+        @click="filter = 'all'"
+      >
+        All
+      </UButton>
+      <UButton
+        size="xs"
+        :color="filter === 'saved' ? 'primary' : 'neutral'"
+        :variant="filter === 'saved' ? 'solid' : 'ghost'"
+        @click="filter = 'saved'"
+      >
+        Saved
+      </UButton>
+    </div>
+
     <!-- Program list -->
-    <div v-else class="space-y-4">
-      <UCard v-for="program in programs" :key="program.id">
-        <div class="flex items-start justify-between">
-          <NuxtLink
-            :to="`/programs/${program.id}`"
-            class="min-w-0 flex-1"
-          >
-            <h3 class="font-semibold text-white">
-              {{ program.name }}
-            </h3>
-            <p
-              v-if="program.description"
-              class="mt-1 line-clamp-2 text-sm text-slate-400"
+    <div v-if="status !== 'pending' && status !== 'error' && programs && programs.length > 0" class="space-y-4">
+      <template v-if="filteredPrograms.length > 0">
+        <UCard v-for="program in filteredPrograms" :key="program.id">
+          <div class="flex items-start justify-between">
+            <NuxtLink
+              :to="`/programs/${program.id}`"
+              class="min-w-0 flex-1"
             >
-              {{ program.description }}
-            </p>
-          </NuxtLink>
-          <div class="ml-3 flex shrink-0 items-center gap-2">
-            <span class="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
-              {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
-            </span>
-            <UButton
-              :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
-              :color="isSaved(program.id) ? 'primary' : 'neutral'"
-              variant="ghost"
-              size="sm"
-              :loading="isSaving(program.id)"
-              @click.prevent="toggleSave(program.id)"
-            />
+              <h3 class="font-semibold text-white">
+                {{ program.name }}
+              </h3>
+            </NuxtLink>
+            <div class="ml-3 flex shrink-0 items-center gap-2">
+              <span class="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+                {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
+              </span>
+              <UButton
+                :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
+                :color="isSaved(program.id) ? 'primary' : 'neutral'"
+                :variant="isSaved(program.id) ? 'soft' : 'ghost'"
+                size="sm"
+                :loading="isSaving(program.id)"
+                @click.prevent="toggleSave(program.id)"
+              />
+            </div>
           </div>
-        </div>
-      </UCard>
+          <p
+            v-if="program.description"
+            class="mt-2 text-sm text-slate-400"
+          >
+            {{ program.description }}
+          </p>
+        </UCard>
+      </template>
+      <p v-else class="text-center text-sm text-slate-500">
+        No programs saved yet.
+      </p>
     </div>
   </div>
 </template>

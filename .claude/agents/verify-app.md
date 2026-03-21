@@ -33,13 +33,16 @@ Execute these steps in order. If any step fails, stop, diagnose the issue, and r
 
 ### Step 4: Dev Server Smoke Check
 - Pick a random port in the 4000–5999 range to avoid collisions with other parallel verify-app runs or the user's own dev server on port 3000.
-- Start the dev server with `gtimeout 15 pnpm dev --port <PORT>` (the 15-second timeout ensures the process is automatically killed).
-- Check the server output for any warnings or errors during startup.
-- If the port is busy (startup fails with EADDRINUSE), pick another random port and retry once.
-- After confirming startup looks clean, kill any remaining process with `lsof -ti:<PORT> | xargs kill -9` to ensure cleanup.
+- Start the dev server **in the background** with output redirected to a temp log file:
+  `gtimeout 15 pnpm dev --port $PORT > /tmp/dev.$PORT.log 2>&1 &`
+  The `gtimeout` wrapper ensures the process is automatically killed after 15 seconds.
+- Sleep briefly (`sleep 3`) to give the server time to start.
+- Inspect the log for errors: run `grep -q EADDRINUSE /tmp/dev.$PORT.log` to check for port conflicts, and verify the background process is still alive (e.g., `lsof -ti:$PORT` returns a PID).
+- If EADDRINUSE is detected or the process died, pick a new random port and retry once using the same approach.
+- After verification is complete, clean up: `lsof -ti:$PORT | xargs kill -9` as a defensive fallback (gtimeout handles the primary kill).
 
 ### Step 5: API Health Check (when applicable)
-- If the dev server started successfully in Step 4 and `/api/health` exists, run `curl -s http://localhost:<PORT>/api/health` using the same port from Step 4 to verify a 200 response.
+- While the dev server is still running in the background from Step 4, run `curl -s http://localhost:$PORT/api/health` using the same port to verify a 200 response.
 - Note: Skip this if the health endpoint hasn't been implemented yet.
 
 ## Reporting Format
