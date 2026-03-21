@@ -4,10 +4,15 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'app' })
 
-const now = new Date()
+const nowRef = ref<Date | null>(null)
+
+onMounted(() => {
+  nowRef.value = new Date()
+})
 
 const weekDays = computed(() => {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (!nowRef.value) return []
+  const today = new Date(nowRef.value.getFullYear(), nowRef.value.getMonth(), nowRef.value.getDate())
   const dayOfWeek = today.getDay()
   // Monday-start: shift Sunday (0) to 6, others subtract 1
   const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
@@ -29,7 +34,8 @@ const weekDays = computed(() => {
 })
 
 const formattedToday = computed(() => {
-  return `Today, ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  if (!nowRef.value) return ''
+  return `Today, ${nowRef.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 })
 </script>
 
