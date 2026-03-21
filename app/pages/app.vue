@@ -55,7 +55,7 @@ const formattedToday = computed(() => {
 })
 
 // Active workout session
-const { data: activeWorkout } = useFetch<ActiveWorkoutResponse>('/api/workouts/active')
+const { data: activeWorkout, status: activeWorkoutStatus } = useFetch<ActiveWorkoutResponse>('/api/workouts/active')
 
 const { startWorkout, loading: startingWorkout, error: workoutError } = useWorkoutSession()
 
@@ -78,7 +78,17 @@ function resumeWorkout(): void {
 <template>
   <div class="space-y-6">
     <!-- Weekly calendar strip -->
-    <div class="flex justify-between">
+    <div v-if="weekDays.length === 0" class="flex justify-between">
+      <div
+        v-for="i in 7"
+        :key="i"
+        class="flex flex-col items-center gap-1"
+      >
+        <div class="h-4 w-8 animate-pulse rounded bg-slate-800" />
+        <div class="h-10 w-10 animate-pulse rounded-lg bg-slate-800" />
+      </div>
+    </div>
+    <div v-else class="flex justify-between">
       <div
         v-for="day in weekDays"
         :key="day.dayNumber"
@@ -108,8 +118,11 @@ function resumeWorkout(): void {
       {{ formattedToday }}
     </h2>
 
+    <!-- Workout card skeleton -->
+    <div v-if="activeWorkoutStatus === 'pending'" class="h-16 animate-pulse rounded-lg bg-slate-800" />
+
     <!-- Resume workout banner -->
-    <UCard v-if="activeWorkout?.session" class="border border-violet-500/30 py-1">
+    <UCard v-else-if="activeWorkout?.session" class="border border-violet-500/30 py-1">
       <div class="flex items-center justify-between">
         <div>
           <p class="font-medium text-white">
@@ -203,11 +216,13 @@ function resumeWorkout(): void {
 
     <!-- Quick actions -->
     <div class="grid grid-cols-2 gap-4">
-      <UCard class="py-5">
-        <div class="text-center text-slate-400">
-          Analytics
-        </div>
-      </UCard>
+      <NuxtLink to="/analytics">
+        <UCard class="py-5">
+          <div class="text-center text-slate-400">
+            Analytics
+          </div>
+        </UCard>
+      </NuxtLink>
       <NuxtLink to="/programs">
         <UCard class="py-5">
           <div class="text-center text-slate-400">

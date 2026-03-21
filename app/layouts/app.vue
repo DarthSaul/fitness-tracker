@@ -23,7 +23,7 @@ const dropdownItems: DropdownMenuItem[] = [
 const navItems = [
   { label: 'Home', icon: '🏋️', to: '/app' },
   { label: 'Programs', icon: '📋', to: '/programs' },
-  { label: 'Progress', icon: '📊', to: '' },
+  { label: 'Analytics', icon: '📊', to: '/analytics' },
   { label: 'Settings', icon: '⚙️', to: '' },
 ]
 
