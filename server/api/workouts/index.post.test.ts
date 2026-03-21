@@ -31,6 +31,15 @@ const mockActiveProgram = {
   currentDay: 2,
 }
 
+const mockLockedProgram = {
+  id: 'up001',
+  userId: 'user001',
+  programId: 'prog001',
+  isActive: true,
+  currentWeek: 2,
+  currentDay: 3,
+}
+
 const mockDay = {
   id: 'd1',
   dayNumber: 2,
@@ -88,25 +97,31 @@ describe('POST /api/workouts', () => {
   })
 
   test('starts a workout session and returns 201 with session and day', async () => {
+    // Pre-lock returns stale position (week 1, day 2); post-lock returns fresh (week 2, day 3)
     txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.queryRawUnsafe.mockResolvedValueOnce([mockLockedProgram])
     txMocks.findFirstSession.mockResolvedValueOnce(null)
-    txMocks.findFirstDay.mockResolvedValueOnce(mockDay)
-    txMocks.createSession.mockResolvedValueOnce(mockSession)
+
+    const lockedDay = { ...mockDay, dayNumber: 3 }
+    const lockedSession = { ...mockSession, weekNumber: 2, dayNumber: 3 }
+    txMocks.findFirstDay.mockResolvedValueOnce(lockedDay)
+    txMocks.createSession.mockResolvedValueOnce(lockedSession)
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event) as { session: unknown; day: unknown }
 
-    expect(result.session).toEqual(mockSession)
-    expect(result.day).toEqual(mockDay)
+    expect(result.session).toEqual(lockedSession)
+    expect(result.day).toEqual(lockedDay)
     expect(event.node.res.statusCode).toBe(201)
     expect(txMocks.findFirstSession).toHaveBeenCalledWith(
       expect.objectContaining({ where: { userProgramId: 'up001', status: 'IN_PROGRESS' } }),
     )
+    // Assert handler uses locked (fresh) values, not stale pre-lock values
     expect(txMocks.findFirstDay).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          programWeek: { programId: 'prog001', weekNumber: 1 },
-          dayNumber: 2,
+          programWeek: { programId: 'prog001', weekNumber: 2 },
+          dayNumber: 3,
         },
       }),
     )
@@ -114,8 +129,8 @@ describe('POST /api/workouts', () => {
       data: {
         userId: 'user001',
         userProgramId: 'up001',
-        weekNumber: 1,
-        dayNumber: 2,
+        weekNumber: 2,
+        dayNumber: 3,
       },
     })
   })

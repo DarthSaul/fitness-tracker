@@ -6,6 +6,7 @@ defineRouteMeta({
     responses: {
       201: { description: 'Workout session started with day template' },
       400: { description: 'No active program' },
+      401: { description: 'Unauthorized' },
       409: { description: 'Session already in progress' },
       500: { description: 'Internal server error' },
     },

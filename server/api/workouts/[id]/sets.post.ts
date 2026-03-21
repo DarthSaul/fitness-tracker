@@ -9,9 +9,10 @@ defineRouteMeta({
     responses: {
       201: { description: 'Completed set recorded' },
       400: { description: 'Missing or invalid fields' },
+      401: { description: 'Unauthorized' },
       403: { description: 'Session belongs to another user' },
       404: { description: 'Session not found' },
-      409: { description: 'Session already completed' },
+      409: { description: 'Session already completed or duplicate set submission' },
       500: { description: 'Internal server error' },
     },
   },
