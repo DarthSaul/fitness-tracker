@@ -26,7 +26,12 @@
 			"Bash(gh repo view:*)",
 			"Bash(npx nuxi:*)",
 			"Bash(npx prisma:*)",
-			"Bash(npx vitest:*)"
+			"Bash(npx vitest:*)",
+			"Bash(curl:*)",
+			"Bash(gtimeout:*)",
+			"Bash(kill:*)",
+			"Bash(lsof:*)",
+			"Bash(xargs kill:*)"
 		]
 	}
 }
