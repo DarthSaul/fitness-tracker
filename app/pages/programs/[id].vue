@@ -7,7 +7,7 @@ const route = useRoute()
 const programId = computed(() => route.params.id as string)
 
 const { data: program, status } = useFetch<ProgramDetail>(() => `/api/programs/${programId.value}`)
-const { isSaved, isSaving, toggleSave } = useUserPrograms()
+const { isSaved, isSaving, toggleSave, isActive, isActivating, toggleActive } = useUserPrograms()
 
 const slideoverOpen = ref(false)
 const selectedWeek = ref<ProgramWeekSummary | null>(null)
@@ -83,18 +83,29 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
         <template v-if="program">{{ program.name }}</template>
         <template v-else>Program</template>
       </h2>
-      <UButton
-        v-if="program"
-        :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
-        :color="isSaved(program.id) ? 'primary' : 'neutral'"
-        :variant="isSaved(program.id) ? 'solid' : 'outline'"
-        size="sm"
-        :loading="isSaving(program.id)"
-        class="ml-auto shrink-0"
-        @click="toggleSave(program.id)"
-      >
-        {{ isSaved(program.id) ? 'Saved' : 'Save' }}
-      </UButton>
+      <div v-if="program" class="ml-auto flex shrink-0 items-center gap-2">
+        <UButton
+          :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
+          :color="isSaved(program.id) ? 'primary' : 'neutral'"
+          :variant="isSaved(program.id) ? 'solid' : 'outline'"
+          size="sm"
+          :loading="isSaving(program.id)"
+          @click="toggleSave(program.id)"
+        >
+          {{ isSaved(program.id) ? 'Saved' : 'Save' }}
+        </UButton>
+        <UButton
+          v-if="isSaved(program.id)"
+          :icon="isActive(program.id) ? 'i-lucide-circle-check' : 'i-lucide-play'"
+          :color="isActive(program.id) ? 'success' : 'neutral'"
+          :variant="isActive(program.id) ? 'soft' : 'outline'"
+          size="sm"
+          :loading="isActivating(program.id)"
+          @click="toggleActive(program.id)"
+        >
+          {{ isActive(program.id) ? 'Active' : 'Start' }}
+        </UButton>
+      </div>
     </div>
 
     <!-- Loading state -->

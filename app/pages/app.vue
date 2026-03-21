@@ -14,6 +14,18 @@ onMounted(() => {
   nowRef.value = new Date()
 })
 
+const { data: activeProgram, status: activeProgramStatus, error: activeProgramError } = useFetch<{
+  id: string
+  programId: string
+  currentWeek: number
+  currentDay: number
+  program: { id: string; name: string; description: string | null }
+}>('/api/user-programs/active')
+
+const isActiveProgramFetchError = computed(() => {
+  return activeProgramError.value && activeProgramError.value.statusCode !== 404
+})
+
 const weekDays = computed(() => {
   if (!nowRef.value) return []
   const today = new Date(nowRef.value.getFullYear(), nowRef.value.getMonth(), nowRef.value.getDate())
@@ -41,15 +53,6 @@ const formattedToday = computed(() => {
   if (!nowRef.value) return ''
   return `Today, ${nowRef.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
 })
-
-// Active program
-interface ActiveProgram {
-  id: string
-  currentWeek: number
-  currentDay: number
-  program: { name: string }
-}
-const { data: activeProgram, status: programStatus } = useFetch<ActiveProgram>('/api/user-programs/active')
 
 // Active workout session
 const { data: activeWorkout } = useFetch<ActiveWorkoutResponse>('/api/workouts/active')
@@ -126,10 +129,8 @@ function resumeWorkout(): void {
     <UCard v-else-if="activeProgram" class="py-1">
       <div class="flex items-center justify-between">
         <div>
-          <p class="font-medium text-white">
-            {{ activeProgram.program.name }}
-          </p>
-          <p class="text-sm text-slate-400">
+          <p class="text-sm text-slate-400">Next up</p>
+          <p class="font-semibold text-white">
             Week {{ activeProgram.currentWeek }}, Day {{ activeProgram.currentDay }}
           </p>
         </div>
@@ -150,18 +151,10 @@ function resumeWorkout(): void {
       />
     </UCard>
 
-    <!-- No active program -->
-    <UCard v-else-if="programStatus !== 'pending'" class="py-1">
-      <div class="text-center text-slate-400">
-        <p>No active program</p>
-        <p class="mt-1 text-sm">
-          Browse programs to get started.
-        </p>
-        <NuxtLink to="/programs">
-          <UButton color="primary" variant="soft" size="sm" class="mt-3">
-            Browse Programs
-          </UButton>
-        </NuxtLink>
+    <!-- No active program placeholder -->
+    <UCard v-else-if="activeProgramStatus !== 'pending'" class="py-1">
+      <div class="text-slate-400">
+        Next day in program
       </div>
     </UCard>
 
@@ -170,23 +163,41 @@ function resumeWorkout(): void {
       My Program
     </h3>
 
-    <UCard v-if="activeProgram" class="py-1">
-      <div>
-        <p class="font-medium text-white">
-          {{ activeProgram.program.name }}
-        </p>
-        <p class="mt-1 text-sm text-slate-400">
-          Week {{ activeProgram.currentWeek }} of program
+    <!-- Loading -->
+    <div v-if="activeProgramStatus === 'pending'" class="h-20 animate-pulse rounded-lg bg-slate-800" />
+
+    <!-- Fetch error (non-404) -->
+    <UCard v-else-if="isActiveProgramFetchError" class="py-1">
+      <div class="text-center text-red-400">
+        <p>Failed to load program.</p>
+        <p class="mt-1 text-sm">
+          Please try again later.
         </p>
       </div>
     </UCard>
 
-    <UCard v-else-if="programStatus !== 'pending'" class="py-1">
+    <!-- Active program -->
+    <UCard v-else-if="activeProgram" class="py-1">
+      <NuxtLink :to="`/programs/${activeProgram.programId}`" class="flex items-center justify-between">
+        <div>
+          <h4 class="font-semibold text-white">
+            {{ activeProgram.program.name }}
+          </h4>
+          <p class="mt-1 text-sm text-slate-400">
+            Week {{ activeProgram.currentWeek }} · Day {{ activeProgram.currentDay }}
+          </p>
+        </div>
+        <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
+      </NuxtLink>
+    </UCard>
+
+    <!-- No active program -->
+    <UCard v-else class="py-1">
       <div class="text-center text-slate-400">
         <p>No active programs yet.</p>
-        <p class="mt-1 text-sm">
+        <NuxtLink to="/programs" class="mt-1 inline-block text-sm text-violet-400 hover:text-violet-300">
           Browse programs to get started.
-        </p>
+        </NuxtLink>
       </div>
     </UCard>
 
