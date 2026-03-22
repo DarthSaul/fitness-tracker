@@ -67,6 +67,14 @@ export default defineEventHandler(async (event) => {
       const targetDay = isRetroactive ? requestedDay : lockedProgram.currentDay
 
       if (isRetroactive) {
+        // Reject sessions ahead of the current program position
+        if (
+          targetWeek > lockedProgram.currentWeek ||
+          (targetWeek === lockedProgram.currentWeek && targetDay > lockedProgram.currentDay)
+        ) {
+          throw createError({ statusCode: 400, statusMessage: 'Cannot create a session ahead of current program position' })
+        }
+
         // For retroactive sessions: only block duplicate at the same position
         const existingAtPosition = await tx.workoutSession.findFirst({
           where: { userProgramId: lockedProgram.id, weekNumber: targetWeek, dayNumber: targetDay },
