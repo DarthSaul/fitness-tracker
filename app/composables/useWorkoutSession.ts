@@ -147,6 +147,9 @@ export function useWorkoutSession() {
       return true
     } catch (e) {
       if ((e as { statusCode?: number }).statusCode === 404) {
+        session.value = null
+        day.value = null
+        completedSets.value = new Map()
         return false
       }
       throw e

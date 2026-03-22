@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const body = await readBody(event).catch(() => null)
+    const body = await readBody(event)
     const requestedCompletedAt = body?.completedAt
 
     // Validate completedAt if provided
@@ -40,6 +40,9 @@ export default defineEventHandler(async (event) => {
       completedAtDate = new Date(requestedCompletedAt)
       if (isNaN(completedAtDate.getTime())) {
         throw createError({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
+      }
+      if (completedAtDate.getTime() > Date.now()) {
+        throw createError({ statusCode: 400, statusMessage: 'completedAt cannot be in the future' })
       }
     }
 

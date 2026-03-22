@@ -35,8 +35,16 @@ const editingSetId = ref<string | null>(null)
 const discardDialogOpen = ref(false)
 const saveDialogOpen = ref(false)
 
+function toLocalDateString(d: Date): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const dayNum = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${dayNum}`
+}
+
 // Date picker for backdating
-const workoutDate = ref(new Date().toISOString().split('T')[0])
+const todayLocal = toLocalDateString(new Date())
+const workoutDate = ref(todayLocal)
 
 onMounted(async () => {
   try {
@@ -46,9 +54,9 @@ onMounted(async () => {
       await loadSession(existingSession.id)
       // Pre-fill date from session
       if (session.value?.completedAt) {
-        workoutDate.value = new Date(session.value.completedAt).toISOString().split('T')[0]
+        workoutDate.value = toLocalDateString(new Date(session.value.completedAt))
       } else if (session.value?.startedAt) {
-        workoutDate.value = new Date(session.value.startedAt).toISOString().split('T')[0]
+        workoutDate.value = toLocalDateString(new Date(session.value.startedAt))
       }
     }
   } catch {
@@ -59,6 +67,7 @@ onMounted(async () => {
 })
 
 async function handleStartLogging(): Promise<void> {
+  pageError.value = null
   startingSession.value = true
   try {
     const sessionId = await startRetroactiveSession(weekNumber.value, dayNumber.value)
@@ -104,7 +113,8 @@ async function confirmSave(): Promise<void> {
     saveDialogOpen.value = false
     await router.push('/program')
   } catch {
-    // Error handled by completing state
+    saveDialogOpen.value = false
+    pageError.value = 'Failed to save workout'
   }
 }
 
@@ -115,7 +125,8 @@ async function confirmDiscard(): Promise<void> {
     discardDialogOpen.value = false
     await router.push('/program')
   } catch {
-    // Error handled by abandoning state
+    discardDialogOpen.value = false
+    pageError.value = 'Failed to discard session'
   }
 }
 </script>
@@ -149,7 +160,7 @@ async function confirmDiscard(): Promise<void> {
     <!-- Loading -->
     <template v-if="pageLoading">
       <div class="h-10 animate-pulse rounded-lg bg-slate-800" />
-      <div class="h-4 w-full animate-pulse rounded bg-slate-800" />
+      <div class="h-4 w-full animate-pulse rounded-lg bg-slate-800" />
       <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-lg bg-slate-800" />
     </template>
 
@@ -183,6 +194,7 @@ async function confirmDiscard(): Promise<void> {
         <input
           v-model="workoutDate"
           type="date"
+          :max="todayLocal"
           class="flex-1 bg-transparent text-sm text-white outline-none"
         >
       </div>

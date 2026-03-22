@@ -31,7 +31,9 @@ function startEditing(): void {
 }
 
 function handleLog(): void {
-  emit('log', editReps.value, editWeight.value)
+  const reps = Number.isFinite(editReps.value) ? editReps.value : null
+  const weight = Number.isFinite(editWeight.value) ? editWeight.value : null
+  emit('log', reps, weight)
 }
 
 function clearLongPress(): void {

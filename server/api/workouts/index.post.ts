@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const body = await readBody(event).catch(() => null)
+    const body = await readBody(event)
     const requestedWeek = body?.weekNumber
     const requestedDay = body?.dayNumber
 
