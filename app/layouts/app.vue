@@ -12,6 +12,11 @@ const userInitial = computed(() => {
   return user.value?.name?.charAt(0).toUpperCase() ?? '?'
 })
 
+const firstName = computed(() => {
+  const name = user.value?.name?.trim()
+  return name ? name.split(' ')[0] : 'there'
+})
+
 const dropdownItems: DropdownMenuItem[] = [
   {
     label: 'Sign out',
@@ -39,11 +44,16 @@ function isActive(to: string): boolean {
     <!-- Header -->
     <header class="fixed top-0 right-0 left-0 z-10 flex items-center justify-start gap-4 px-4 py-3">
       <UDropdownMenu :items="dropdownItems">
-        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer">
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer"
+          aria-haspopup="menu"
+          aria-label="User menu"
+        >
           {{ userInitial }}
-        </div>
+        </button>
       </UDropdownMenu>
-      <span class="text-base font-semibold text-white">Welcome, {{ user?.name?.split(' ')[0] ?? 'there' }}</span>
+      <span class="text-base font-semibold text-white">Welcome, {{ firstName }}</span>
     </header>
 
     <!-- Main content -->

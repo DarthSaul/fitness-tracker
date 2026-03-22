@@ -87,7 +87,8 @@ const activeWorkoutCompletedSets = computed(() => {
 
 const activeWorkoutProgress = computed(() => {
   if (activeWorkoutTotalSets.value === 0) return 0
-  return Math.round((activeWorkoutCompletedSets.value / activeWorkoutTotalSets.value) * 100)
+  const percent = Math.round((activeWorkoutCompletedSets.value / activeWorkoutTotalSets.value) * 100)
+  return Math.max(0, Math.min(100, percent))
 })
 </script>
 
@@ -138,7 +139,16 @@ const activeWorkoutProgress = computed(() => {
     <div v-if="activeWorkoutStatus === 'pending'" class="h-24 animate-pulse rounded-lg bg-slate-800" />
 
     <!-- Resume workout with progress bar -->
-    <UCard v-else-if="activeWorkout?.session" class="border border-violet-500/30 py-1 cursor-pointer" @click="resumeWorkout">
+    <UCard
+      v-else-if="activeWorkout?.session"
+      class="border border-violet-500/30 py-1 cursor-pointer"
+      tabindex="0"
+      role="button"
+      :aria-label="`Resume workout: Week ${activeWorkout.session.weekNumber}, Day ${activeWorkout.session.dayNumber}`"
+      @click="resumeWorkout"
+      @keydown.enter="resumeWorkout"
+      @keydown.space.prevent="resumeWorkout"
+    >
       <div class="flex items-center justify-between">
         <p class="font-medium text-white">
           Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
