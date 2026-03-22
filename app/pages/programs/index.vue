@@ -81,7 +81,8 @@ const filteredPrograms = computed(() => {
         <UCard
           v-for="program in filteredPrograms"
           :key="program.id"
-          class="cursor-pointer"
+          v-wave
+          class="overflow-hidden cursor-pointer"
           @click="navigateTo(`/programs/${program.id}`)"
         >
           <div class="flex items-start justify-between">

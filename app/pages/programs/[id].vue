@@ -142,10 +142,11 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
         <UCard
           v-for="week in program.weeks"
           :key="week.id"
+          v-wave
           role="button"
           tabindex="0"
           :aria-label="`View Week ${week.weekNumber}`"
-          class="cursor-pointer transition-colors hover:bg-slate-800/50"
+          class="overflow-hidden cursor-pointer transition-colors hover:bg-slate-800/50"
           @click="openWeek(week)"
           @keydown="onCardKeydown(week, $event)"
         >

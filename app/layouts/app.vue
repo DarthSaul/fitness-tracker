@@ -37,23 +37,37 @@ function isActive(to: string): boolean {
   if (!to) return false
   return route.path === to || route.path.startsWith(to + '/')
 }
+
+const scrolled = ref(false)
+
+onMounted(() => {
+  window.addEventListener('scroll', () => {
+    scrolled.value = window.scrollY > 10
+  }, { passive: true })
+})
 </script>
 
 <template>
   <div class="flex min-h-dvh flex-col">
     <!-- Header -->
-    <header class="fixed top-0 right-0 left-0 z-10 flex items-center justify-start gap-4 px-4 py-3">
+    <header
+      class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 py-3 transition-colors duration-300"
+      :class="scrolled ? 'bg-slate-950/80 backdrop-blur-md' : ''"
+    >
+      <div>
+        <h1 class="text-base font-semibold text-white">Hello, {{ firstName }} 👋</h1>
+        <p class="text-xs text-slate-400">Let's get after it today.</p>
+      </div>
       <UDropdownMenu :items="dropdownItems">
         <button
           type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer"
+          class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer"
           aria-haspopup="menu"
           aria-label="User menu"
         >
           {{ userInitial }}
         </button>
       </UDropdownMenu>
-      <span class="text-base font-semibold text-white">Welcome, {{ firstName }}</span>
     </header>
 
     <!-- Main content -->
@@ -62,27 +76,29 @@ function isActive(to: string): boolean {
     </main>
 
     <!-- Bottom nav -->
-    <nav class="fixed right-6 bottom-4 left-6 z-10 flex items-center justify-around rounded-2xl bg-slate-800/90 p-2 backdrop-blur-md">
-      <template v-for="item in navItems" :key="item.label">
-        <NuxtLink
-          v-if="item.to"
-          :to="item.to"
-          class="flex flex-col items-center rounded-2xl px-4 py-2.5 transition-colors"
-          :class="isActive(item.to) ? 'bg-slate-700/50' : ''"
-        >
-          <span class="text-lg leading-none">{{ item.icon }}</span>
-          <span
-            class="text-xs"
-            :class="isActive(item.to) ? 'text-violet-400' : 'text-slate-400'"
+    <nav class="fixed right-0 bottom-4 left-0 z-10 mx-auto w-full max-w-lg px-4">
+      <div class="flex items-center justify-around rounded-2xl bg-slate-800/90 p-2 backdrop-blur-md">
+        <template v-for="item in navItems" :key="item.label">
+          <NuxtLink
+            v-if="item.to"
+            :to="item.to"
+            class="flex flex-col items-center rounded-2xl px-4 py-2.5 transition-colors"
+            :class="isActive(item.to) ? 'bg-slate-700/50' : ''"
           >
-            {{ item.label }}
-          </span>
-        </NuxtLink>
-        <div v-else class="flex flex-col items-center rounded-2xl px-4 py-2.5">
-          <span class="text-lg leading-none">{{ item.icon }}</span>
-          <span class="text-xs text-slate-400">{{ item.label }}</span>
-        </div>
-      </template>
+            <span class="text-lg leading-none">{{ item.icon }}</span>
+            <span
+              class="text-xs"
+              :class="isActive(item.to) ? 'text-violet-400' : 'text-slate-400'"
+            >
+              {{ item.label }}
+            </span>
+          </NuxtLink>
+          <div v-else class="flex flex-col items-center rounded-2xl px-4 py-2.5">
+            <span class="text-lg leading-none">{{ item.icon }}</span>
+            <span class="text-xs text-slate-400">{{ item.label }}</span>
+          </div>
+        </template>
+      </div>
     </nav>
   </div>
 </template>
