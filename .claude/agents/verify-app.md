@@ -32,7 +32,7 @@ Execute these steps in order. If any step fails, stop, diagnose the issue, and r
 - If the build fails, report the exact errors.
 
 ### Step 4: Dev Server Smoke Check
-- Run `bash .claude/scripts/verify-smoke.sh`
+- Run `bash .claude/scripts/verify-smoke.sh` (always use this exact relative path — never resolve to an absolute path).
 - The script starts a dev server on a random port (4000–5999), checks the health endpoint and main page, then kills the server.
 - Do NOT write your own inline smoke-check. Always use the script.
 
