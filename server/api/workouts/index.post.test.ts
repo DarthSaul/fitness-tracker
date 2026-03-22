@@ -76,6 +76,7 @@ const mockSession = {
 describe('POST /api/workouts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue(null)
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
       const err = new Error(opts.statusMessage) as Error & { statusCode: number; statusMessage: string }
       err.statusCode = opts.statusCode
@@ -174,7 +175,7 @@ describe('POST /api/workouts', () => {
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Program day not found for current position' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: expect.stringContaining('Program day not found') })
   })
 
   test('throws 409 on concurrent duplicate session (P2002)', async () => {

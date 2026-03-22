@@ -67,10 +67,6 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
       }
 
-      if (session.status === 'COMPLETED') {
-        throw createError({ statusCode: 409, statusMessage: 'Session already completed' })
-      }
-
       // Validate that the exerciseSet belongs to this workout's day
       const exerciseSet = await tx.exerciseSet.findUnique({
         where: { id: exerciseSetId },

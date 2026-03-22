@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Complete a workout day',
-    description: 'Marks the workout session as completed and advances the user\'s position in the program. If the last day of the last week is completed, the program is deactivated.',
+    description: 'Marks the workout session as completed. Advances the user\'s position only when the session matches the current position. Accepts optional completedAt for backdating. If the last day of the last week is completed, the program is deactivated.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
     ],
@@ -31,6 +31,21 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    const body = await readBody(event)
+    const requestedCompletedAt = body?.completedAt
+
+    // Validate completedAt if provided
+    let completedAtDate: Date = new Date()
+    if (requestedCompletedAt) {
+      completedAtDate = new Date(requestedCompletedAt)
+      if (isNaN(completedAtDate.getTime())) {
+        throw createError({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
+      }
+      if (completedAtDate.getTime() > Date.now()) {
+        throw createError({ statusCode: 400, statusMessage: 'completedAt cannot be in the future' })
+      }
+    }
+
     const session = await prisma.workoutSession.findUnique({
       where: { id },
       include: {
@@ -83,45 +98,52 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Only advance position when the session matches the current program position
+    const isAtCurrentPosition =
+      session.weekNumber === userProgram.currentWeek &&
+      session.dayNumber === userProgram.currentDay
+
     let programCompleted = false
     let nextWeek = session.weekNumber
     let nextDay = session.dayNumber
 
-    if (currentWeekData && currentDayIdx >= 0 && currentDayIdx < currentWeekData.days.length - 1) {
-      // Not last day of week — advance to next day in ordered array
-      const nextDayData = currentWeekData.days[currentDayIdx + 1]
-      if (nextDayData) nextDay = nextDayData.dayNumber
-    } else if (currentWeekIdx >= 0 && currentWeekIdx < weeks.length - 1) {
-      // Last day of week, but not last week — scan forward for next week with days
-      let found = false
-      for (let i = currentWeekIdx + 1; i < weeks.length; i++) {
-        const week = weeks[i]
-        if (!week) continue
-        if (week.days.length > 0) {
-          const firstDay = week.days[0]
-          if (!firstDay) continue
-          nextWeek = week.weekNumber
-          nextDay = firstDay.dayNumber
-          found = true
-          break
+    if (isAtCurrentPosition) {
+      if (currentWeekData && currentDayIdx >= 0 && currentDayIdx < currentWeekData.days.length - 1) {
+        // Not last day of week — advance to next day in ordered array
+        const nextDayData = currentWeekData.days[currentDayIdx + 1]
+        if (nextDayData) nextDay = nextDayData.dayNumber
+      } else if (currentWeekIdx >= 0 && currentWeekIdx < weeks.length - 1) {
+        // Last day of week, but not last week — scan forward for next week with days
+        let found = false
+        for (let i = currentWeekIdx + 1; i < weeks.length; i++) {
+          const week = weeks[i]
+          if (!week) continue
+          if (week.days.length > 0) {
+            const firstDay = week.days[0]
+            if (!firstDay) continue
+            nextWeek = week.weekNumber
+            nextDay = firstDay.dayNumber
+            found = true
+            break
+          }
         }
+        if (!found) programCompleted = true
+      } else {
+        // Last day of last week — program complete
+        programCompleted = true
       }
-      if (!found) programCompleted = true
-    } else {
-      // Last day of last week — program complete
-      programCompleted = true
     }
 
     const [updatedSession, updatedUserProgram] = await prisma.$transaction([
       prisma.workoutSession.update({
         where: { id },
-        data: { status: 'COMPLETED', completedAt: new Date() },
+        data: { status: 'COMPLETED', completedAt: completedAtDate },
       }),
       prisma.userProgram.update({
         where: { id: userProgram.id },
-        data: programCompleted
-          ? { isActive: false }
-          : { currentWeek: nextWeek, currentDay: nextDay },
+        data: isAtCurrentPosition
+          ? (programCompleted ? { isActive: false } : { currentWeek: nextWeek, currentDay: nextDay })
+          : {},
       }),
     ])
 
