@@ -19,8 +19,34 @@ const { data: activeProgram, status: activeProgramStatus, error: activeProgramEr
   programId: string
   currentWeek: number
   currentDay: number
-  program: { id: string; name: string; description: string | null }
+  program: {
+    id: string
+    name: string
+    description: string | null
+    weeks: { days: { id: string }[] }[]
+  }
 }>('/api/user-programs/active')
+
+const { data: sessionsData, status: sessionsStatus } = useFetch<{
+  sessions: { status: 'IN_PROGRESS' | 'COMPLETED' }[]
+}>('/api/user-programs/active/sessions', {
+  watch: [activeProgram],
+})
+
+const programTotalDays = computed(() => {
+  if (!activeProgram.value) return 0
+  return activeProgram.value.program.weeks.reduce((sum, w) => sum + w.days.length, 0)
+})
+
+const programCompletedDays = computed(() => {
+  if (!sessionsData.value) return 0
+  return sessionsData.value.sessions.filter(s => s.status === 'COMPLETED').length
+})
+
+const programProgressPercent = computed(() => {
+  if (programTotalDays.value === 0) return 0
+  return Math.round((programCompletedDays.value / programTotalDays.value) * 100)
+})
 
 const isActiveProgramFetchError = computed(() => {
   return activeProgramError.value && activeProgramError.value.statusCode !== 404
@@ -85,7 +111,8 @@ const activeWorkoutProgress = computed(() => {
     <!-- Resume workout with progress bar -->
     <UCard
       v-else-if="activeWorkout?.session"
-      class="border border-violet-500/30 py-1 cursor-pointer"
+      v-wave
+      class="overflow-hidden border border-violet-500/30 py-1 cursor-pointer"
       tabindex="0"
       role="button"
       :aria-label="`Resume workout: Week ${activeWorkout.session.weekNumber}, Day ${activeWorkout.session.dayNumber}`"
@@ -97,7 +124,10 @@ const activeWorkoutProgress = computed(() => {
         <p class="font-medium text-white">
           Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
         </p>
-        <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
+        <span class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+          Resume
+          <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+        </span>
       </div>
       <div class="mt-3 space-y-1">
         <div class="h-3 overflow-hidden rounded-full bg-slate-800">
@@ -113,7 +143,20 @@ const activeWorkoutProgress = computed(() => {
     </UCard>
 
     <!-- Next day / Start workout card -->
-    <UCard v-else-if="activeProgram" class="py-1">
+    <UCard
+      v-else-if="activeProgram"
+      v-wave
+      class="overflow-hidden py-1"
+      :class="startingWorkout ? 'opacity-70 cursor-wait' : 'cursor-pointer'"
+      :tabindex="startingWorkout ? -1 : 0"
+      role="button"
+      :aria-label="`Start workout: Week ${activeProgram.currentWeek}, Day ${activeProgram.currentDay}`"
+      :aria-busy="startingWorkout"
+      :aria-disabled="startingWorkout"
+      @click="!startingWorkout && handleStartWorkout()"
+      @keydown.enter="!startingWorkout && handleStartWorkout()"
+      @keydown.space.prevent="!startingWorkout && handleStartWorkout()"
+    >
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm text-slate-400">Next up</p>
@@ -121,13 +164,16 @@ const activeWorkoutProgress = computed(() => {
             Week {{ activeProgram.currentWeek }}, Day {{ activeProgram.currentDay }}
           </p>
         </div>
-        <UButton
-          color="primary"
-          :loading="startingWorkout"
-          @click="handleStartWorkout"
-        >
-          Start Workout
-        </UButton>
+        <span class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+          <template v-if="startingWorkout">
+            <UIcon name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+            Starting…
+          </template>
+          <template v-else>
+            Start
+            <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+          </template>
+        </span>
       </div>
       <UAlert
         v-if="workoutError"
@@ -145,13 +191,11 @@ const activeWorkoutProgress = computed(() => {
       </div>
     </UCard>
 
-    <!-- My Program section -->
-    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400">
-      My Program
-    </h3>
-
     <!-- Loading -->
-    <div v-if="activeProgramStatus === 'pending'" class="h-20 animate-pulse rounded-lg bg-slate-800" />
+    <div v-if="activeProgramStatus === 'pending' || sessionsStatus === 'pending'" class="grid grid-cols-[1fr_3fr] gap-3">
+      <div class="h-28 animate-pulse rounded-lg bg-slate-800" />
+      <div class="h-28 animate-pulse rounded-lg bg-slate-800" />
+    </div>
 
     <!-- Fetch error (non-404) -->
     <UCard v-else-if="isActiveProgramFetchError" class="py-1">
@@ -164,19 +208,59 @@ const activeWorkoutProgress = computed(() => {
     </UCard>
 
     <!-- Active program -->
-    <UCard v-else-if="activeProgram" class="py-1">
-      <NuxtLink to="/program" class="flex items-center justify-between">
-        <div>
-          <h4 class="font-semibold text-white">
-            {{ activeProgram.program.name }}
-          </h4>
-          <p class="mt-1 text-sm text-slate-400">
-            Week {{ activeProgram.currentWeek }} · Day {{ activeProgram.currentDay }}
-          </p>
+    <div v-else-if="activeProgram" class="grid grid-cols-[1fr_3fr] gap-3">
+      <!-- Circular progress card -->
+      <UCard class="py-0">
+        <div class="flex flex-col items-center justify-center -my-1">
+          <svg class="size-16" viewBox="0 0 64 64">
+            <!-- Background circle -->
+            <circle
+              cx="32" cy="32" r="28"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="5"
+              class="text-slate-700"
+            />
+            <!-- Progress arc -->
+            <circle
+              cx="32" cy="32" r="28"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="5"
+              stroke-linecap="round"
+              class="text-violet-500 transition-all duration-500"
+              :stroke-dasharray="`${programProgressPercent * 1.7593} 175.93`"
+              transform="rotate(-90 32 32)"
+            />
+            <text
+              x="32" y="34"
+              text-anchor="middle"
+              dominant-baseline="middle"
+              fill="white"
+              font-size="13"
+              font-weight="600"
+            >
+              {{ programCompletedDays }}/{{ programTotalDays }}
+            </text>
+          </svg>
         </div>
-        <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
-      </NuxtLink>
-    </UCard>
+      </UCard>
+
+      <!-- Program info card -->
+      <UCard v-wave class="overflow-hidden py-1 cursor-pointer">
+        <NuxtLink to="/program" class="flex h-full items-center justify-between">
+          <div>
+            <h4 class="font-semibold text-white">
+              {{ activeProgram.program.name }}
+            </h4>
+            <p class="mt-1 text-sm text-slate-400">
+              Week {{ activeProgram.currentWeek }} · Day {{ activeProgram.currentDay }}
+            </p>
+          </div>
+          <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
+        </NuxtLink>
+      </UCard>
+    </div>
 
     <!-- No active program -->
     <UCard v-else class="py-1">
@@ -188,17 +272,22 @@ const activeWorkoutProgress = computed(() => {
       </div>
     </UCard>
 
+    <!-- My Fitness section -->
+    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400">
+      My Fitness
+    </h3>
+
     <!-- Quick actions -->
     <div class="grid grid-cols-2 gap-4">
       <NuxtLink to="/analytics">
-        <UCard class="py-5">
+        <UCard v-wave class="overflow-hidden py-5">
           <div class="text-center text-slate-400">
             Analytics
           </div>
         </UCard>
       </NuxtLink>
       <NuxtLink to="/programs">
-        <UCard class="py-5">
+        <UCard v-wave class="overflow-hidden py-5">
           <div class="text-center text-slate-400">
             Browse Programs
           </div>

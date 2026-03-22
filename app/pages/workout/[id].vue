@@ -169,25 +169,25 @@ async function handleDiscard(): Promise<void> {
         />
       </div>
 
-      <!-- Action buttons (sticky bottom) -->
-      <div class="sticky bottom-20 flex gap-3 pt-4">
+      <!-- Action buttons -->
+      <div class="flex gap-3">
         <UButton
           color="neutral"
           variant="outline"
           size="lg"
-          class="flex-1"
+          class="flex-1 justify-center py-4"
           @click="endDialogOpen = true"
         >
-          End Workout
+          End
         </UButton>
         <UButton
           color="primary"
           size="lg"
-          class="flex-1"
+          class="flex-1 justify-center py-4"
           :loading="completing"
           @click="completeDialogOpen = true"
         >
-          Complete Workout
+          Complete
         </UButton>
       </div>
     </template>
