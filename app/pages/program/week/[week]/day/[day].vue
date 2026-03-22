@@ -220,8 +220,9 @@ async function confirmDiscard(): Promise<void> {
       </div>
 
       <!-- Warm-up -->
-      <div v-if="day.warmUp" class="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
-        Warm-up: {{ day.warmUp }}
+      <div v-if="day.warmUp" class="rounded-lg bg-amber-500/10 px-3 py-2.5">
+        <p class="text-[10px] font-medium text-amber-500/70">Warm-up</p>
+        <p class="mt-0.5 text-sm text-amber-400">{{ day.warmUp }}</p>
       </div>
 
       <!-- Exercise groups -->
