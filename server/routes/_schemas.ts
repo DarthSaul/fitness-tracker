@@ -56,6 +56,13 @@ defineRouteMeta({
 								],
 								example: '75% of working weight',
 							},
+							effortTarget: {
+								type: [
+									'string',
+									'null',
+								],
+								example: '60% of Bench 1RM',
+							},
 						},
 					},
 					Exercise: {

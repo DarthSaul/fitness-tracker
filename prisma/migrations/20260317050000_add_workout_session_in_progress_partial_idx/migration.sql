@@ -1,6 +1,6 @@
--- Cancel duplicate IN_PROGRESS sessions, keeping the earliest (smallest id)
+-- Complete duplicate IN_PROGRESS sessions, keeping the earliest (smallest id)
 UPDATE "WorkoutSession"
-SET "status" = 'CANCELLED'
+SET "status" = 'COMPLETED'
 WHERE "status" = 'IN_PROGRESS'
   AND id NOT IN (
     SELECT MIN(id) FROM "WorkoutSession"

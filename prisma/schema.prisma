@@ -132,6 +132,7 @@ model ExerciseSet {
   weight            Float?
   rpe               Float?
   notes             String?
+  effortTarget      String?
 
   programExercise ProgramExercise @relation(fields: [programExerciseId], references: [id], onDelete: Cascade)
   completedSets   CompletedSet[]
