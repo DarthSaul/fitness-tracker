@@ -3,7 +3,19 @@
 # Smoke-checks dev server: starts on a random port, hits health + index, cleans up.
 # Usage: bash .claude/scripts/verify-smoke.sh
 
-set -euo pipefail
+set -uo pipefail
+
+EXIT_CODE=0
+PORT=""
+
+cleanup() {
+  if [ -n "$PORT" ]; then
+    lsof -ti:"$PORT" | xargs kill -9 2>/dev/null || true
+    echo "Dev server stopped"
+  fi
+  exit $EXIT_CODE
+}
+trap cleanup EXIT INT TERM
 
 # Detect timeout command (gtimeout on macOS via coreutils, timeout on Linux)
 if command -v gtimeout &>/dev/null; then
@@ -41,21 +53,13 @@ fi
 
 echo "--- Dev server on port $PORT (PID $DEV_PID) ---"
 
-EXIT_CODE=0
-
 echo "--- Health check ---"
-HEALTH=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/api/health" 2>&1)
+HEALTH=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/api/health" 2>&1) || true
 echo "HTTP $HEALTH"
 if [ "$HEALTH" != "200" ]; then EXIT_CODE=1; fi
 
 echo "--- Main page ---"
-MAIN=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/" 2>&1)
+MAIN=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PORT/" 2>&1) || true
 echo "HTTP $MAIN"
 # Accept 2xx and 3xx (302 redirect to login is expected for auth-protected apps)
 if [[ ! "$MAIN" =~ ^[23] ]]; then EXIT_CODE=1; fi
-
-# Cleanup
-lsof -ti:"$PORT" | xargs kill -9 2>/dev/null || true
-echo "Dev server stopped"
-
-exit $EXIT_CODE
