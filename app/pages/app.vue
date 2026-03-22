@@ -73,6 +73,22 @@ function resumeWorkout(): void {
     router.push(`/workout/${activeWorkout.value.session.id}`)
   }
 }
+
+const activeWorkoutTotalSets = computed(() => {
+  if (!activeWorkout.value?.day) return 0
+  return activeWorkout.value.day.exerciseGroups.reduce(
+    (sum, g) => sum + g.exercises.reduce((s, e) => s + e.sets.length, 0), 0
+  )
+})
+
+const activeWorkoutCompletedSets = computed(() => {
+  return activeWorkout.value?.session?.completedSets?.length ?? 0
+})
+
+const activeWorkoutProgress = computed(() => {
+  if (activeWorkoutTotalSets.value === 0) return 0
+  return Math.round((activeWorkoutCompletedSets.value / activeWorkoutTotalSets.value) * 100)
+})
 </script>
 
 <template>
@@ -119,22 +135,26 @@ function resumeWorkout(): void {
     </h2>
 
     <!-- Workout card skeleton -->
-    <div v-if="activeWorkoutStatus === 'pending'" class="h-16 animate-pulse rounded-lg bg-slate-800" />
+    <div v-if="activeWorkoutStatus === 'pending'" class="h-24 animate-pulse rounded-lg bg-slate-800" />
 
-    <!-- Resume workout banner -->
-    <UCard v-else-if="activeWorkout?.session" class="border border-violet-500/30 py-1">
+    <!-- Resume workout with progress bar -->
+    <UCard v-else-if="activeWorkout?.session" class="border border-violet-500/30 py-1 cursor-pointer" @click="resumeWorkout">
       <div class="flex items-center justify-between">
-        <div>
-          <p class="font-medium text-white">
-            Workout in progress
-          </p>
-          <p class="text-sm text-slate-400">
-            Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
-          </p>
+        <p class="font-medium text-white">
+          Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
+        </p>
+        <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
+      </div>
+      <div class="mt-3 space-y-1">
+        <div class="h-3 overflow-hidden rounded-full bg-slate-800">
+          <div
+            class="h-full rounded-full bg-violet-600 transition-all duration-300"
+            :style="{ width: `${activeWorkoutProgress}%` }"
+          />
         </div>
-        <UButton color="primary" @click="resumeWorkout">
-          Resume
-        </UButton>
+        <p class="text-xs text-slate-400">
+          {{ activeWorkoutCompletedSets }} / {{ activeWorkoutTotalSets }} sets
+        </p>
       </div>
     </UCard>
 
