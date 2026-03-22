@@ -18,6 +18,18 @@ const emit = defineEmits<{
 }>()
 
 const expandedExercises = ref(new Set<string>())
+const notesVisibleFor = ref<string | null>(null)
+
+function exerciseNotes(ex: ExerciseGroupDetail['exercises'][number]): string | null {
+  const trimmed = ex.sets.map(s => s.notes?.trim()).filter((n): n is string => !!n)
+  const unique = [...new Set(trimmed)]
+  return unique.length ? unique.join(' / ') : null
+}
+
+function toggleNotes(exId: string, event: Event): void {
+  event.stopPropagation()
+  notesVisibleFor.value = notesVisibleFor.value === exId ? null : exId
+}
 
 function toggleExercise(id: string): void {
   if (expandedExercises.value.has(id)) {
@@ -58,7 +70,18 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
           @click="toggleExercise(ex.id)"
         >
           <div class="min-w-0 flex-1">
-            <p class="font-medium text-white">{{ ex.exercise.name }}</p>
+            <p class="flex items-center gap-1.5 font-medium text-white">
+              {{ ex.exercise.name }}
+              <span
+                v-if="exerciseNotes(ex)"
+                role="button"
+                tabindex="0"
+                aria-label="Toggle notes"
+                class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[9px] text-slate-400"
+                @click="toggleNotes(ex.id, $event)"
+                @keydown.enter="toggleNotes(ex.id, $event)"
+              >i</span>
+            </p>
             <span v-if="exIdx === group.exercises.length - 1" class="mt-1 block text-xs text-slate-500">
               Rest: {{ group.restSeconds ?? 120 }}s
             </span>
@@ -68,6 +91,11 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
             class="size-6 shrink-0 text-slate-400"
           />
         </button>
+
+        <!-- Notes box -->
+        <div v-if="notesVisibleFor === ex.id && exerciseNotes(ex)" class="mx-3 mb-2 rounded-md bg-slate-700/50 px-3 py-2 text-xs text-slate-300">
+          {{ exerciseNotes(ex) }}
+        </div>
 
         <div
           class="grid overflow-hidden transition-all duration-200 ease-in-out"
@@ -107,7 +135,18 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
       @click="toggleExercise(group.id)"
     >
       <div class="min-w-0 flex-1">
-        <p class="font-medium text-white">{{ group.exercises[0]?.exercise.name }}</p>
+        <p class="flex items-center gap-1.5 font-medium text-white">
+          {{ group.exercises[0]?.exercise.name }}
+          <span
+            v-if="group.exercises[0] && exerciseNotes(group.exercises[0])"
+            role="button"
+            tabindex="0"
+            aria-label="Toggle notes"
+            class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[9px] text-slate-400"
+            @click="toggleNotes(group.exercises[0].id, $event)"
+            @keydown.enter="toggleNotes(group.exercises[0].id, $event)"
+          >i</span>
+        </p>
         <span class="mt-1 block text-xs text-slate-500">
           Rest: {{ group.restSeconds ?? 120 }}s
         </span>
@@ -117,6 +156,11 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
         class="size-6 shrink-0 text-slate-400"
       />
     </button>
+
+    <!-- Notes box -->
+    <div v-if="group.exercises[0] && notesVisibleFor === group.exercises[0].id && exerciseNotes(group.exercises[0])" class="mx-3 mb-2 rounded-md bg-slate-700/50 px-3 py-2 text-xs text-slate-300">
+      {{ exerciseNotes(group.exercises[0]) }}
+    </div>
 
     <div
       class="grid overflow-hidden transition-all duration-200 ease-in-out"
