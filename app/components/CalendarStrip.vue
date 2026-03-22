@@ -9,9 +9,27 @@ defineProps<{
 
 const now = ref<Date | null>(null)
 const weekOffset = ref(0)
+let midnightTimeout: ReturnType<typeof setTimeout> | null = null
+
+function scheduleMidnightUpdate(): void {
+  const current = new Date()
+  const midnight = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1)
+  const msUntilMidnight = midnight.getTime() - current.getTime()
+  midnightTimeout = setTimeout(() => {
+    now.value = new Date()
+    scheduleMidnightUpdate()
+  }, msUntilMidnight)
+}
 
 onMounted(() => {
   now.value = new Date()
+  scheduleMidnightUpdate()
+})
+
+onBeforeUnmount(() => {
+  if (midnightTimeout) {
+    clearTimeout(midnightTimeout)
+  }
 })
 
 function getSundayOfWeek(today: Date, offset: number): Date {
