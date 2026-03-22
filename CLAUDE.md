@@ -63,6 +63,13 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - Bug fixes must include a regression test that reproduces the issue before applying the fix
 - Run the relevant test suite after implementation to confirm tests pass
 
+### Loading Skeletons
+
+- Every UI area that fetches data from an API must display a loading skeleton while the request is pending.
+- Use the established pattern: `<div class="h-[SIZE] animate-pulse rounded-lg bg-slate-800" />` with an appropriate height.
+- For lists, render multiple skeleton items (e.g., `v-for="i in 3"`).
+- Guard skeletons with the `useFetch` status: `v-if="status === 'pending'"`.
+
 ### Nitro API Routes
 
 - All routes live under `server/api/` and are auto-registered by Nuxt.

@@ -78,16 +78,18 @@ const filteredPrograms = computed(() => {
     <!-- Program list -->
     <div v-if="status !== 'pending' && status !== 'error' && programs && programs.length > 0" class="space-y-4">
       <template v-if="filteredPrograms.length > 0">
-        <UCard v-for="program in filteredPrograms" :key="program.id">
+        <UCard
+          v-for="program in filteredPrograms"
+          :key="program.id"
+          class="cursor-pointer"
+          @click="navigateTo(`/programs/${program.id}`)"
+        >
           <div class="flex items-start justify-between">
-            <NuxtLink
-              :to="`/programs/${program.id}`"
-              class="min-w-0 flex-1"
-            >
+            <div class="min-w-0 flex-1">
               <h3 class="font-semibold text-white">
                 {{ program.name }}
               </h3>
-            </NuxtLink>
+            </div>
             <div class="ml-3 flex shrink-0 items-center gap-2">
               <span class="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
                 {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
@@ -98,7 +100,7 @@ const filteredPrograms = computed(() => {
                 :variant="isSaved(program.id) ? 'soft' : 'ghost'"
                 size="sm"
                 :loading="isSaving(program.id)"
-                @click.prevent="toggleSave(program.id)"
+                @click.stop="toggleSave(program.id)"
               />
               <UButton
                 v-if="isSaved(program.id)"
@@ -107,7 +109,7 @@ const filteredPrograms = computed(() => {
                 :variant="isActive(program.id) ? 'soft' : 'outline'"
                 size="sm"
                 :loading="isActivating(program.id)"
-                @click.prevent="toggleActive(program.id)"
+                @click.stop="toggleActive(program.id)"
               >
                 {{ isActive(program.id) ? 'Active' : 'Start' }}
               </UButton>
