@@ -124,7 +124,7 @@ const activeWorkoutProgress = computed(() => {
         <p class="font-medium text-white">
           Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
         </p>
-        <span class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+        <span class="flex items-center gap-1 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
           Resume
           <UIcon name="i-lucide-chevron-right" class="size-3.5" />
         </span>
@@ -157,14 +157,14 @@ const activeWorkoutProgress = computed(() => {
       @keydown.enter="!startingWorkout && handleStartWorkout()"
       @keydown.space.prevent="!startingWorkout && handleStartWorkout()"
     >
-      <div class="flex items-center justify-between">
+      <div class="flex items-end justify-between">
         <div>
           <p class="text-sm text-slate-400">Next up</p>
           <p class="font-semibold text-white">
             Week {{ activeProgram.currentWeek }}, Day {{ activeProgram.currentDay }}
           </p>
         </div>
-        <span class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+        <span class="flex items-center gap-1 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
           <template v-if="startingWorkout">
             <UIcon name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
             Starting…

@@ -31,6 +31,7 @@ export interface ExerciseSetDetail {
   weight: number | null
   rpe: number | null
   notes: string | null
+  effortTarget: string | null
 }
 
 /** Exercise detail with its sets, nested inside ExerciseGroupDetail. */

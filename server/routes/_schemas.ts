@@ -54,7 +54,14 @@ defineRouteMeta({
 									'string',
 									'null',
 								],
-								example: '75% of working weight',
+								example: 'Focus on slow eccentric; pointed toes on extensions',
+							},
+							effortTarget: {
+								type: [
+									'string',
+									'null',
+								],
+								example: '60% of Bench 1RM',
 							},
 						},
 					},
