@@ -32,18 +32,9 @@ Execute these steps in order. If any step fails, stop, diagnose the issue, and r
 - If the build fails, report the exact errors.
 
 ### Step 4: Dev Server Smoke Check
-- Pick a random port in the 4000–5999 range to avoid collisions with other parallel verify-app runs or the user's own dev server on port 3000.
-- Start the dev server **in the background** with output redirected to a temp log file:
-  `gtimeout 15 pnpm dev --port $PORT > /tmp/dev.$PORT.log 2>&1 &`
-  The `gtimeout` wrapper ensures the process is automatically killed after 15 seconds.
-- Sleep briefly (`sleep 3`) to give the server time to start.
-- Inspect the log for errors: run `grep -q EADDRINUSE /tmp/dev.$PORT.log` to check for port conflicts, and verify the background process is still alive (e.g., `lsof -ti:$PORT` returns a PID).
-- If EADDRINUSE is detected or the process died, pick a new random port and retry once using the same approach.
-- After verification is complete, clean up: `lsof -ti:$PORT | xargs kill -9` as a defensive fallback (gtimeout handles the primary kill).
-
-### Step 5: API Health Check (when applicable)
-- While the dev server is still running in the background from Step 4, run `curl -s http://localhost:$PORT/api/health` using the same port to verify a 200 response.
-- Note: Skip this if the health endpoint hasn't been implemented yet.
+- Run `bash .claude/scripts/verify-smoke.sh`
+- The script starts a dev server on a random port (4000–5999), checks the health endpoint and main page, then kills the server.
+- Do NOT write your own inline smoke-check. Always use the script.
 
 ## Reporting Format
 
@@ -57,8 +48,7 @@ After running all steps, provide a clear summary:
 | TypeScript Check | ✅/❌ | ... |
 | Unit Tests | ✅/❌ | X passed, Y failed, Z skipped |
 | Build | ✅/❌ | ... |
-| Dev Server | ✅/❌ | ... |
-| API Health | ✅/❌/⏭️ | ... |
+| Dev Server Smoke Check | ✅/❌ | Health + main page HTTP status codes |
 
 **Overall: PASS / FAIL**
 ```
