@@ -58,7 +58,7 @@ async function openWeek(week: ProgramWeekSummary): Promise<void> {
     )
     if (requestId === openWeekRequestId) {
       weekDays.value = days
-      expandedDays.value = new Set(days.length ? [days[0].id] : [])
+      expandedDays.value = new Set(days.length && days[0] ? [days[0].id] : [])
     }
   } catch {
     if (requestId === openWeekRequestId) {

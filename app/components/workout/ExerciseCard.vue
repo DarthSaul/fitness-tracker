@@ -103,7 +103,14 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
         >
           <div class="min-h-0">
             <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
-              <div class="space-y-1.5">
+              <div class="set-grid border-b border-slate-700/50 pb-1.5 text-[10px] uppercase tracking-wider text-slate-500">
+                <span class="text-center font-medium">#</span>
+                <span class="text-center font-medium">lb</span>
+                <span class="text-center font-medium">Reps</span>
+                <span class="text-center font-medium">Effort</span>
+                <span class="text-center font-medium">Done</span>
+              </div>
+              <div>
                 <WorkoutSetRow
                   v-for="set in ex.sets"
                   :key="set.id"
@@ -188,3 +195,11 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
     </div>
   </div>
 </template>
+
+<style scoped>
+.set-grid {
+  display: grid;
+  grid-template-columns: 0.5fr 1.5fr 1fr 1.5fr 0.75fr;
+  align-items: center;
+}
+</style>

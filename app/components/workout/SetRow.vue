@@ -57,7 +57,6 @@ function onTouchEnd(): void {
 }
 
 function onTouchMove(): void {
-  // User started scrolling — cancel long-press
   clearLongPress()
 }
 
@@ -77,43 +76,52 @@ function dismissActions(): void {
 
 function formatWeight(w: number | null | undefined): string {
   if (w == null) return '—'
-  return `${w} lbs`
+  return `${w}`
+}
+
+function formatEffort(effortTarget: string | null | undefined): string {
+  if (!effortTarget) return '—'
+  const match = effortTarget.match(/^([\d.]+%)/)
+  return match?.[1] ?? effortTarget
 }
 </script>
 
 <template>
-  <div>
-    <!-- Completed set -->
+  <!-- Completed set -->
+  <div
+    v-if="completedSet && !editing"
+    class="set-row relative text-sm"
+    @touchstart.passive="onTouchStart"
+    @touchend="onTouchEnd"
+    @touchmove="onTouchMove"
+    @contextmenu.prevent
+  >
+    <span class="text-center text-xs font-medium text-emerald-400">{{ set.setNumber }}</span>
+    <span class="text-center text-emerald-300">{{ formatWeight(completedSet.weight) }}</span>
+    <span class="text-center text-emerald-300">{{ completedSet.reps ?? '—' }}</span>
+    <span class="text-center text-xs text-emerald-300/70">{{ formatEffort(set.effortTarget) }}</span>
+    <span class="flex items-center justify-center">
+      <UIcon name="i-lucide-check" class="size-4 text-emerald-400" />
+    </span>
+
+    <!-- Long-press action overlay -->
     <div
-      v-if="completedSet && !editing"
-      class="relative flex items-center gap-3 rounded-md bg-emerald-500/10 px-3 py-2 text-sm"
-      @touchstart.passive="onTouchStart"
-      @touchend="onTouchEnd"
-      @touchmove="onTouchMove"
-      @contextmenu.prevent
+      v-if="showActions"
+      class="absolute inset-0 z-10 flex items-center justify-end gap-2 rounded-md bg-slate-800/95 px-3"
     >
-      <span class="w-10 shrink-0 text-xs font-medium text-slate-400">Set {{ set.setNumber }}</span>
-      <span class="text-emerald-300">{{ formatWeight(completedSet.weight) }}</span>
-      <span class="text-emerald-300">{{ completedSet.reps ?? '—' }} reps</span>
-      <UIcon name="i-lucide-check" class="ml-auto size-4 text-emerald-400" />
-
-      <!-- Long-press action overlay -->
-      <div
-        v-if="showActions"
-        class="absolute inset-0 z-10 flex items-center justify-end gap-2 rounded-md bg-slate-800/95 px-3"
-      >
-        <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="handleEdit">
-          Edit
-        </UButton>
-        <UButton size="xs" color="error" variant="soft" icon="i-lucide-trash-2" @click="handleDelete">
-          Delete
-        </UButton>
-        <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-x" @click="dismissActions" />
-      </div>
+      <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="handleEdit">
+        Edit
+      </UButton>
+      <UButton size="xs" color="error" variant="soft" icon="i-lucide-trash-2" @click="handleDelete">
+        Delete
+      </UButton>
+      <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-x" @click="dismissActions" />
     </div>
+  </div>
 
-    <!-- Editing set -->
-    <div v-else-if="editing" class="rounded-md bg-slate-700/50 px-3 py-2">
+  <!-- Editing set -->
+  <div v-else-if="editing" class="col-span-5">
+    <div class="rounded-md bg-slate-700/50 px-3 py-2">
       <div class="mb-2 flex items-center justify-between">
         <span class="text-xs font-medium text-slate-400">Set {{ set.setNumber }}</span>
         <button class="text-slate-500 hover:text-slate-300" @click="emit('cancel')">
@@ -149,18 +157,30 @@ function formatWeight(w: number | null | undefined): string {
         </UButton>
       </div>
     </div>
+  </div>
 
-    <!-- Pending set -->
-    <button
-      v-else
-      class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-slate-700/50 active:bg-slate-700"
-      :disabled="loading"
-      @click="startEditing"
-    >
-      <span class="w-10 shrink-0 text-xs font-medium text-slate-500">Set {{ set.setNumber }}</span>
-      <span class="text-slate-300">{{ formatWeight(set.weight) }}</span>
-      <span class="text-slate-300">{{ set.reps ?? '—' }} reps</span>
-      <span v-if="set.notes" class="ml-auto text-xs text-slate-600" :title="set.notes">*</span>
-    </button>
+  <!-- Pending set -->
+  <div
+    v-else
+    class="set-row cursor-pointer text-sm transition-colors hover:bg-slate-700/50 active:bg-slate-700"
+    :class="{ 'opacity-50': loading }"
+    @click="startEditing"
+  >
+    <span class="text-center text-xs font-medium text-slate-500">{{ set.setNumber }}</span>
+    <span class="text-center text-slate-300">{{ formatWeight(set.weight) }}</span>
+    <span class="text-center text-slate-300">{{ set.reps ?? '—' }}</span>
+    <span class="text-center text-xs text-slate-400">{{ formatEffort(set.effortTarget) }}</span>
+    <span class="flex items-center justify-center">
+      <span v-if="set.notes" class="text-xs text-slate-600" :title="set.notes">*</span>
+    </span>
   </div>
 </template>
+
+<style scoped>
+.set-row {
+  display: grid;
+  grid-template-columns: 0.5fr 1.5fr 1fr 1.5fr 0.75fr;
+  align-items: center;
+  padding: 0.375rem 0;
+}
+</style>
