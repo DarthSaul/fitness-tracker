@@ -14,6 +14,12 @@ ALTER TABLE "Exercise" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "UserProgram" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "WorkoutSession" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "CompletedSet" ENABLE ROW LEVEL SECURITY;
--- Note: _prisma_migrations RLS is handled outside of Prisma migrations
--- because this table doesn't exist in the shadow database during migrate dev.
--- Apply manually: ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
+-- Idempotent: only enable RLS on _prisma_migrations if the table exists.
+-- The shadow database used by `prisma migrate dev` does not have this table.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = '_prisma_migrations') THEN
+    EXECUTE 'ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY';
+  END IF;
+END
+$$;

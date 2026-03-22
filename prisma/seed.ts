@@ -2161,6 +2161,11 @@ const armFarmWeeks: WeekInput[] = [
 // Seed function (reusable for multiple programs)
 // ---------------------------------------------------------------------------
 
+/** Trim and collapse whitespace to prevent accidental duplicates */
+function canonicalizeName(name: string): string {
+	return name.trim().replace(/\s+/g, ' ');
+}
+
 /** Collect all unique exercise names from program week data */
 function collectExerciseNames(
 	...programs: WeekInput[][]
@@ -2171,7 +2176,7 @@ function collectExerciseNames(
 			for (const day of week.days) {
 				for (const group of day.exerciseGroups) {
 					for (const exercise of group.exercises) {
-						names.add(exercise.name);
+						names.add(canonicalizeName(exercise.name));
 					}
 				}
 			}
@@ -2180,20 +2185,19 @@ function collectExerciseNames(
 	return names;
 }
 
-/** Seed a single program (delete existing, create fresh) */
+/** Seed a single program (skip if already exists to preserve user data) */
 async function seedProgram(
 	name: string,
 	description: string,
 	weeks: WeekInput[],
 ): Promise<void> {
-	// Delete existing program (cascade handles children)
-	const deleted = await prisma.program.deleteMany({
+	// Skip if program already exists to preserve UserProgram/WorkoutSession/CompletedSet
+	const existing = await prisma.program.findFirst({
 		where: { name },
 	});
-	if (deleted.count > 0) {
-		console.log(
-			`  Deleted ${deleted.count} existing "${name}" program(s)`,
-		);
+	if (existing) {
+		console.log(`  Program "${name}" already exists — skipping`);
+		return;
 	}
 
 	// Create the full program hierarchy in one nested create
@@ -2225,7 +2229,7 @@ async function seedProgram(
 													exercise: {
 														connect:
 															{
-																name: exercise.name,
+																name: canonicalizeName(exercise.name),
 															},
 													},
 													order:

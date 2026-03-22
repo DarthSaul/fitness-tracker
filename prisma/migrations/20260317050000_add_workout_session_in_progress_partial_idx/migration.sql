@@ -1,11 +1,16 @@
--- Complete duplicate IN_PROGRESS sessions, keeping the earliest (smallest id)
+-- Complete duplicate IN_PROGRESS sessions, keeping the earliest by startedAt
 UPDATE "WorkoutSession"
 SET "status" = 'COMPLETED'
 WHERE "status" = 'IN_PROGRESS'
   AND id NOT IN (
-    SELECT MIN(id) FROM "WorkoutSession"
-    WHERE "status" = 'IN_PROGRESS'
-    GROUP BY "userProgramId"
+    SELECT id FROM (
+      SELECT id, ROW_NUMBER() OVER (
+        PARTITION BY "userProgramId" ORDER BY "startedAt" ASC
+      ) AS rn
+      FROM "WorkoutSession"
+      WHERE "status" = 'IN_PROGRESS'
+    ) sub
+    WHERE rn = 1
   );
 
 -- Partial unique index to enforce one IN_PROGRESS session per userProgram.
