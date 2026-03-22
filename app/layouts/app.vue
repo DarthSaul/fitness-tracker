@@ -40,10 +40,16 @@ function isActive(to: string): boolean {
 
 const scrolled = ref(false)
 
+function onScroll(): void {
+  scrolled.value = window.scrollY > 10
+}
+
 onMounted(() => {
-  window.addEventListener('scroll', () => {
-    scrolled.value = window.scrollY > 10
-  }, { passive: true })
+  window.addEventListener('scroll', onScroll, { passive: true })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
 })
 </script>
 

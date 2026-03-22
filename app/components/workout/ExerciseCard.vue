@@ -21,7 +21,8 @@ const expandedExercises = ref(new Set<string>())
 const notesVisibleFor = ref<string | null>(null)
 
 function exerciseNotes(ex: ExerciseGroupDetail['exercises'][number]): string | null {
-  const unique = [...new Set(ex.sets.map(s => s.notes).filter((n): n is string => n != null))]
+  const trimmed = ex.sets.map(s => s.notes?.trim()).filter((n): n is string => !!n)
+  const unique = [...new Set(trimmed)]
   return unique.length ? unique.join(' / ') : null
 }
 
@@ -73,8 +74,12 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
               {{ ex.exercise.name }}
               <span
                 v-if="exerciseNotes(ex)"
+                role="button"
+                tabindex="0"
+                aria-label="Toggle notes"
                 class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[9px] text-slate-400"
                 @click="toggleNotes(ex.id, $event)"
+                @keydown.enter="toggleNotes(ex.id, $event)"
               >i</span>
             </p>
             <span v-if="exIdx === group.exercises.length - 1" class="mt-1 block text-xs text-slate-500">
@@ -134,8 +139,12 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
           {{ group.exercises[0]?.exercise.name }}
           <span
             v-if="group.exercises[0] && exerciseNotes(group.exercises[0])"
+            role="button"
+            tabindex="0"
+            aria-label="Toggle notes"
             class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[9px] text-slate-400"
             @click="toggleNotes(group.exercises[0].id, $event)"
+            @keydown.enter="toggleNotes(group.exercises[0].id, $event)"
           >i</span>
         </p>
         <span class="mt-1 block text-xs text-slate-500">

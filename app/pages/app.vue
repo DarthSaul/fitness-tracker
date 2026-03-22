@@ -27,7 +27,7 @@ const { data: activeProgram, status: activeProgramStatus, error: activeProgramEr
   }
 }>('/api/user-programs/active')
 
-const { data: sessionsData } = useFetch<{
+const { data: sessionsData, status: sessionsStatus } = useFetch<{
   sessions: { status: 'IN_PROGRESS' | 'COMPLETED' }[]
 }>('/api/user-programs/active/sessions', {
   watch: [activeProgram],
@@ -146,13 +146,16 @@ const activeWorkoutProgress = computed(() => {
     <UCard
       v-else-if="activeProgram"
       v-wave
-      class="overflow-hidden py-1 cursor-pointer"
-      tabindex="0"
+      class="overflow-hidden py-1"
+      :class="startingWorkout ? 'opacity-70 cursor-wait' : 'cursor-pointer'"
+      :tabindex="startingWorkout ? -1 : 0"
       role="button"
       :aria-label="`Start workout: Week ${activeProgram.currentWeek}, Day ${activeProgram.currentDay}`"
-      @click="handleStartWorkout"
-      @keydown.enter="handleStartWorkout"
-      @keydown.space.prevent="handleStartWorkout"
+      :aria-busy="startingWorkout"
+      :aria-disabled="startingWorkout"
+      @click="!startingWorkout && handleStartWorkout()"
+      @keydown.enter="!startingWorkout && handleStartWorkout()"
+      @keydown.space.prevent="!startingWorkout && handleStartWorkout()"
     >
       <div class="flex items-center justify-between">
         <div>
@@ -162,8 +165,14 @@ const activeWorkoutProgress = computed(() => {
           </p>
         </div>
         <span class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
-          Start
-          <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+          <template v-if="startingWorkout">
+            <UIcon name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+            Starting…
+          </template>
+          <template v-else>
+            Start
+            <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+          </template>
         </span>
       </div>
       <UAlert
@@ -183,7 +192,7 @@ const activeWorkoutProgress = computed(() => {
     </UCard>
 
     <!-- Loading -->
-    <div v-if="activeProgramStatus === 'pending'" class="grid grid-cols-[1fr_3fr] gap-3">
+    <div v-if="activeProgramStatus === 'pending' || sessionsStatus === 'pending'" class="grid grid-cols-[1fr_3fr] gap-3">
       <div class="h-28 animate-pulse rounded-lg bg-slate-800" />
       <div class="h-28 animate-pulse rounded-lg bg-slate-800" />
     </div>

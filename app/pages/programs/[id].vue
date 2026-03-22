@@ -17,11 +17,13 @@ let openWeekRequestId = 0
 const expandedDays = ref(new Set<string>())
 
 function toggleDay(dayId: string): void {
-  if (expandedDays.value.has(dayId)) {
-    expandedDays.value.delete(dayId)
+  const next = new Set(expandedDays.value)
+  if (next.has(dayId)) {
+    next.delete(dayId)
   } else {
-    expandedDays.value.add(dayId)
+    next.add(dayId)
   }
+  expandedDays.value = next
 }
 
 function formatRange(values: number[]): string | null {
