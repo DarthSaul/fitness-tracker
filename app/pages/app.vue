@@ -52,29 +52,6 @@ const isActiveProgramFetchError = computed(() => {
   return activeProgramError.value && activeProgramError.value.statusCode !== 404
 })
 
-const weekDays = computed(() => {
-  if (!nowRef.value) return []
-  const today = new Date(nowRef.value.getFullYear(), nowRef.value.getMonth(), nowRef.value.getDate())
-  const dayOfWeek = today.getDay()
-  // Monday-start: shift Sunday (0) to 6, others subtract 1
-  const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - mondayOffset)
-
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(monday)
-    date.setDate(monday.getDate() + i)
-    return {
-      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      dayNumber: date.getDate(),
-      isToday:
-        date.getFullYear() === today.getFullYear() &&
-        date.getMonth() === today.getMonth() &&
-        date.getDate() === today.getDate(),
-    }
-  })
-})
-
 const formattedToday = computed(() => {
   if (!nowRef.value) return ''
   return `Today, ${nowRef.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
@@ -121,40 +98,7 @@ const activeWorkoutProgress = computed(() => {
 <template>
   <div class="space-y-6">
     <!-- Weekly calendar strip -->
-    <div v-if="weekDays.length === 0" class="flex justify-between">
-      <div
-        v-for="i in 7"
-        :key="i"
-        class="flex flex-col items-center gap-1"
-      >
-        <div class="h-4 w-8 animate-pulse rounded bg-slate-800" />
-        <div class="h-10 w-10 animate-pulse rounded-lg bg-slate-800" />
-      </div>
-    </div>
-    <div v-else class="flex justify-between">
-      <div
-        v-for="day in weekDays"
-        :key="day.dayNumber"
-        class="flex flex-col items-center gap-1"
-      >
-        <span
-          class="text-xs"
-          :class="day.isToday ? 'text-white font-semibold' : 'text-slate-400'"
-        >
-          {{ day.dayName }}
-        </span>
-        <div
-          class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium"
-          :class="
-            day.isToday
-              ? 'bg-violet-600 text-white'
-              : 'bg-slate-800 text-slate-400'
-          "
-        >
-          {{ day.dayNumber }}
-        </div>
-      </div>
-    </div>
+    <CalendarStrip :loading="!nowRef" />
 
     <!-- Today header -->
     <h2 class="text-lg font-semibold text-white">
