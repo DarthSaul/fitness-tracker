@@ -149,8 +149,9 @@ async function handleDiscard(): Promise<void> {
       </div>
 
       <!-- Warm-up -->
-      <div v-if="day.warmUp" class="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
-        Warm-up: {{ day.warmUp }}
+      <div v-if="day.warmUp" class="rounded-lg bg-amber-500/10 px-3 py-2.5">
+        <p class="text-[10px] font-medium text-amber-500/70">Warm-up</p>
+        <p class="mt-0.5 text-sm text-amber-400">{{ day.warmUp }}</p>
       </div>
 
       <!-- Exercise groups -->
@@ -169,25 +170,25 @@ async function handleDiscard(): Promise<void> {
         />
       </div>
 
-      <!-- Action buttons (sticky bottom) -->
-      <div class="sticky bottom-20 flex gap-3 pt-4">
+      <!-- Action buttons -->
+      <div class="flex gap-3">
         <UButton
           color="neutral"
           variant="outline"
           size="lg"
-          class="flex-1"
+          class="flex-1 justify-center py-4"
           @click="endDialogOpen = true"
         >
-          End Workout
+          End
         </UButton>
         <UButton
           color="primary"
           size="lg"
-          class="flex-1"
+          class="flex-1 justify-center py-4"
           :loading="completing"
           @click="completeDialogOpen = true"
         >
-          Complete Workout
+          Complete
         </UButton>
       </div>
     </template>

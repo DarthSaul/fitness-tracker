@@ -102,7 +102,8 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
         <div v-for="week in activeProgram.program.weeks" :key="week.id">
           <!-- Week header -->
           <button
-            class="flex w-full items-center justify-between rounded-lg bg-slate-800/50 px-4 py-3"
+            v-wave
+            class="flex w-full items-center justify-between rounded-lg bg-slate-800/50 px-4 py-3 overflow-hidden"
             @click="toggleWeek(week.weekNumber)"
           >
             <div class="flex items-center gap-2">
@@ -125,7 +126,8 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
                 <button
                   v-for="dayItem in week.days"
                   :key="dayItem.id"
-                  class="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors"
+                  v-wave
+                  class="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left overflow-hidden transition-colors"
                   :class="isActiveWorkoutDay(week.weekNumber, dayItem.dayNumber)
                     ? 'bg-slate-800/20 opacity-50 cursor-not-allowed'
                     : 'bg-slate-800/30 hover:bg-slate-800/60 active:bg-slate-700/50'"

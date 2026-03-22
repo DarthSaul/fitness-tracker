@@ -14,6 +14,17 @@ const selectedWeek = ref<ProgramWeekSummary | null>(null)
 const weekDays = ref<ProgramDayDetail[]>([])
 const loadingDays = ref(false)
 let openWeekRequestId = 0
+const expandedDays = ref(new Set<string>())
+
+function toggleDay(dayId: string): void {
+  const next = new Set(expandedDays.value)
+  if (next.has(dayId)) {
+    next.delete(dayId)
+  } else {
+    next.add(dayId)
+  }
+  expandedDays.value = next
+}
 
 function formatRange(values: number[]): string | null {
   if (!values.length) return null
@@ -47,6 +58,7 @@ async function openWeek(week: ProgramWeekSummary): Promise<void> {
     )
     if (requestId === openWeekRequestId) {
       weekDays.value = days
+      expandedDays.value = new Set(days.length ? [days[0].id] : [])
     }
   } catch {
     if (requestId === openWeekRequestId) {
@@ -142,10 +154,11 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
         <UCard
           v-for="week in program.weeks"
           :key="week.id"
+          v-wave
           role="button"
           tabindex="0"
           :aria-label="`View Week ${week.weekNumber}`"
-          class="cursor-pointer transition-colors hover:bg-slate-800/50"
+          class="overflow-hidden cursor-pointer transition-colors hover:bg-slate-800/50"
           @click="openWeek(week)"
           @keydown="onCardKeydown(week, $event)"
         >
@@ -177,65 +190,76 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
         </div>
 
         <!-- Day details -->
-        <div v-else class="space-y-6 p-4">
-          <div v-for="day in weekDays" :key="day.id">
-            <!-- Day header -->
-            <h4 class="text-base font-semibold text-white">
-              Day {{ day.dayNumber }}<span v-if="day.name" class="text-slate-400"> — {{ day.name }}</span>
-            </h4>
+        <div v-else class="space-y-2 p-4">
+          <div
+            v-for="day in weekDays"
+            :key="day.id"
+            class="rounded-lg transition-colors duration-200"
+            :class="expandedDays.has(day.id) ? '' : 'bg-slate-800/40'"
+          >
+            <!-- Day header (toggle) -->
+            <button
+              class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-slate-800/50"
+              @click="toggleDay(day.id)"
+            >
+              <h4 class="min-w-0 flex-1 text-base font-semibold text-white">
+                Day {{ day.dayNumber }}<span v-if="day.name" class="text-slate-400"> — {{ day.name }}</span>
+              </h4>
+              <UIcon
+                :name="expandedDays.has(day.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                class="size-5 shrink-0 text-slate-400"
+              />
+            </button>
 
-            <!-- Warm-up -->
-            <p v-if="day.warmUp" class="mt-1 text-sm text-amber-400/80">
-              Warm-up: {{ day.warmUp }}
-            </p>
+            <!-- Collapsible content -->
+            <div
+              class="grid overflow-hidden transition-all duration-200 ease-in-out"
+              :class="expandedDays.has(day.id) ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+            >
+              <div class="min-h-0">
+                <div class="space-y-4 px-3 pb-3 pt-1">
+                  <!-- Superset group -->
+                  <div
+                    v-for="group in day.exerciseGroups"
+                    :key="group.id"
+                    :class="group.type === 'SUPERSET'
+                      ? 'relative rounded-xl border border-indigo-500/25 p-3 pt-4'
+                      : 'rounded-lg bg-slate-800/50 p-3'"
+                  >
+                    <span
+                      v-if="group.type === 'SUPERSET'"
+                      class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-indigo-500/40 bg-slate-950 text-[8px] font-semibold text-indigo-300"
+                    >SS</span>
 
-            <!-- Exercise groups -->
-            <div class="mt-3 space-y-4">
-              <div
-                v-for="group in day.exerciseGroups"
-                :key="group.id"
-                class="rounded-lg bg-slate-800/50 p-3"
-              >
-                <!-- Superset label -->
-                <span
-                  v-if="group.type === 'SUPERSET'"
-                  class="mb-2 inline-block rounded bg-indigo-500/20 px-2 py-0.5 text-xs font-medium text-indigo-300"
-                >
-                  Superset
-                </span>
+                    <!-- Exercises in group -->
+                    <div
+                      v-for="(ex, exIdx) in group.exercises"
+                      :key="ex.id"
+                      :class="{ 'mt-3 border-t border-slate-700 pt-3': exIdx > 0 }"
+                    >
+                      <p class="font-medium text-white">{{ ex.exercise.name }}</p>
+                      <p v-if="ex.exercise.description" class="mt-0.5 text-xs text-slate-500">
+                        {{ ex.exercise.description }}
+                      </p>
 
-                <!-- Exercises in group -->
-                <div
-                  v-for="(ex, exIdx) in group.exercises"
-                  :key="ex.id"
-                  :class="{ 'mt-3 border-t border-slate-700 pt-3': exIdx > 0 }"
-                >
-                  <p class="font-medium text-white">{{ ex.exercise.name }}</p>
-                  <p v-if="ex.exercise.description" class="mt-0.5 text-xs text-slate-500">
-                    {{ ex.exercise.description }}
-                  </p>
-
-                  <!-- Sets summary -->
-                  <div v-if="ex.sets.length" class="mt-2 flex flex-wrap gap-2 text-xs">
-                    <span class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
-                      {{ ex.sets.length }} {{ ex.sets.length === 1 ? 'set' : 'sets' }}
-                    </span>
-                    <span v-if="repsRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
-                      {{ repsRange(ex.sets) }} reps
-                    </span>
-                    <span v-if="weightRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
-                      {{ weightRange(ex.sets) }}
-                    </span>
-                    <span v-if="rpeRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
-                      RPE {{ rpeRange(ex.sets) }}
-                    </span>
+                      <!-- Sets summary -->
+                      <div v-if="ex.sets.length" class="mt-2 flex flex-wrap gap-2 text-xs">
+                        <span class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                          {{ ex.sets.length }} {{ ex.sets.length === 1 ? 'set' : 'sets' }}
+                        </span>
+                        <span v-if="repsRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                          {{ repsRange(ex.sets) }} reps
+                        </span>
+                        <span v-if="weightRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                          {{ weightRange(ex.sets) }}
+                        </span>
+                        <span v-if="rpeRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                          RPE {{ rpeRange(ex.sets) }}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <!-- Rest period -->
-                <p v-if="group.restSeconds != null" class="mt-2 text-xs text-slate-500">
-                  Rest: {{ group.restSeconds }}s
-                </p>
               </div>
             </div>
           </div>
