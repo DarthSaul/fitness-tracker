@@ -47,6 +47,13 @@ function getCompletedSet(exerciseSetId: string): CompletedSetRecord | null {
   return props.completedSets.get(exerciseSetId) ?? null
 }
 
+function formatRest(seconds: number | null): string {
+  const s = seconds ?? 120
+  if (s < 60) return `${s}s`
+  const min = s / 60
+  return Number.isInteger(min) ? `${min} min` : `${min} min`
+}
+
 function handleLog(exerciseSetId: string, reps: number | null, weight: number | null): void {
   emit('log', exerciseSetId, reps, weight)
 }
@@ -82,8 +89,8 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
                 @keydown.enter="toggleNotes(ex.id, $event)"
               >i</span>
             </p>
-            <span v-if="exIdx === group.exercises.length - 1" class="mt-1 block text-xs text-slate-500">
-              Rest: {{ group.restSeconds ?? 120 }}s
+            <span v-if="exIdx === group.exercises.length - 1" class="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-slate-700/50 px-1.5 py-0.5 text-[10px] text-slate-400">
+              <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
             </span>
           </div>
           <UIcon
@@ -103,7 +110,7 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
         >
           <div class="min-h-0">
             <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
-              <div class="set-grid border-b border-slate-700/50 pb-1.5 text-[10px] uppercase tracking-wider text-slate-500">
+              <div class="set-grid pb-1.5 text-[10px] uppercase tracking-wider text-slate-500">
                 <span class="text-center font-medium">#</span>
                 <span class="text-center font-medium">lb</span>
                 <span class="text-center font-medium">Reps</span>
@@ -154,8 +161,8 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
             @keydown.enter="toggleNotes(group.exercises[0].id, $event)"
           >i</span>
         </p>
-        <span class="mt-1 block text-xs text-slate-500">
-          Rest: {{ group.restSeconds ?? 120 }}s
+        <span class="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-slate-700/50 px-1.5 py-0.5 text-[10px] text-slate-400">
+          <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
         </span>
       </div>
       <UIcon
@@ -175,7 +182,14 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
     >
       <div class="min-h-0">
         <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
-          <div class="space-y-1.5">
+          <div class="set-grid pb-1.5 text-[10px] uppercase tracking-wider text-slate-500">
+            <span class="text-center font-medium">#</span>
+            <span class="text-center font-medium">lb</span>
+            <span class="text-center font-medium">Reps</span>
+            <span class="text-center font-medium">Effort</span>
+            <span class="text-center font-medium">Done</span>
+          </div>
+          <div>
             <WorkoutSetRow
               v-for="set in group.exercises[0]?.sets"
               :key="set.id"
