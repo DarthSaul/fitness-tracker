@@ -191,7 +191,7 @@ function resumeWorkout(): void {
 
     <!-- Active program -->
     <UCard v-else-if="activeProgram" class="py-1">
-      <NuxtLink :to="`/programs/${activeProgram.programId}`" class="flex items-center justify-between">
+      <NuxtLink to="/program" class="flex items-center justify-between">
         <div>
           <h4 class="font-semibold text-white">
             {{ activeProgram.program.name }}

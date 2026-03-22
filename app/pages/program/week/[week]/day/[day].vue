@@ -1,0 +1,274 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'app' })
+
+const route = useRoute()
+const router = useRouter()
+
+const weekNumber = computed(() => Number(route.params.week))
+const dayNumber = computed(() => Number(route.params.day))
+
+const {
+  session,
+  day,
+  completedSets,
+  completing,
+  abandoning,
+  recordingSetId,
+  totalSets,
+  completedSetCount,
+  progressPercent,
+  isSetCompleted,
+  loadSession,
+  recordSet,
+  updateSet,
+  deleteCompletedSet,
+  completeWorkout,
+  abandonWorkout,
+} = useWorkoutSession()
+
+const { startRetroactiveSession, getSessionForDay, refreshSessions } = useProgramManager()
+
+const pageLoading = ref(true)
+const pageError = ref<string | null>(null)
+const startingSession = ref(false)
+const editingSetId = ref<string | null>(null)
+const discardDialogOpen = ref(false)
+const saveDialogOpen = ref(false)
+
+// Date picker for backdating
+const workoutDate = ref(new Date().toISOString().split('T')[0])
+
+onMounted(async () => {
+  try {
+    // Check if a session already exists for this day
+    const existingSession = getSessionForDay(weekNumber.value, dayNumber.value)
+    if (existingSession) {
+      await loadSession(existingSession.id)
+      // Pre-fill date from session
+      if (session.value?.completedAt) {
+        workoutDate.value = new Date(session.value.completedAt).toISOString().split('T')[0]
+      } else if (session.value?.startedAt) {
+        workoutDate.value = new Date(session.value.startedAt).toISOString().split('T')[0]
+      }
+    }
+  } catch {
+    pageError.value = 'Failed to load workout data'
+  } finally {
+    pageLoading.value = false
+  }
+})
+
+async function handleStartLogging(): Promise<void> {
+  startingSession.value = true
+  try {
+    const sessionId = await startRetroactiveSession(weekNumber.value, dayNumber.value)
+    await loadSession(sessionId)
+  } catch (e) {
+    const statusCode = (e as { statusCode?: number }).statusCode
+    if (statusCode === 409) {
+      pageError.value = 'A session already exists for this day'
+    } else {
+      pageError.value = 'Failed to create session'
+    }
+  } finally {
+    startingSession.value = false
+  }
+}
+
+function handleEdit(exerciseSetId: string): void {
+  editingSetId.value = exerciseSetId
+}
+
+function cancelEdit(): void {
+  editingSetId.value = null
+}
+
+async function handleLog(exerciseSetId: string, reps: number | null, weight: number | null): Promise<void> {
+  editingSetId.value = null
+  if (isSetCompleted(exerciseSetId)) {
+    await updateSet(exerciseSetId, { reps, weight })
+  } else {
+    await recordSet(exerciseSetId, { reps, weight })
+  }
+}
+
+async function handleDeleteSet(exerciseSetId: string): Promise<void> {
+  await deleteCompletedSet(exerciseSetId)
+}
+
+async function confirmSave(): Promise<void> {
+  try {
+    const completedAt = new Date(workoutDate.value + 'T12:00:00').toISOString()
+    await completeWorkout(completedAt)
+    await refreshSessions()
+    saveDialogOpen.value = false
+    await router.push('/program')
+  } catch {
+    // Error handled by completing state
+  }
+}
+
+async function confirmDiscard(): Promise<void> {
+  try {
+    await abandonWorkout()
+    await refreshSessions()
+    discardDialogOpen.value = false
+    await router.push('/program')
+  } catch {
+    // Error handled by abandoning state
+  }
+}
+</script>
+
+<template>
+  <div class="space-y-4">
+    <!-- Header -->
+    <div class="flex items-center gap-3">
+      <NuxtLink to="/program">
+        <UButton
+          icon="i-lucide-arrow-left"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+        />
+      </NuxtLink>
+      <h2 class="flex-1 text-lg font-semibold text-white">
+        Week {{ weekNumber }}, Day {{ dayNumber }}
+      </h2>
+      <UButton
+        v-if="session && session.status === 'IN_PROGRESS'"
+        color="error"
+        variant="ghost"
+        size="sm"
+        icon="i-lucide-trash-2"
+        :loading="abandoning"
+        @click="discardDialogOpen = true"
+      />
+    </div>
+
+    <!-- Loading -->
+    <template v-if="pageLoading">
+      <div class="h-10 animate-pulse rounded-lg bg-slate-800" />
+      <div class="h-4 w-full animate-pulse rounded bg-slate-800" />
+      <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-lg bg-slate-800" />
+    </template>
+
+    <!-- Error -->
+    <UAlert v-else-if="pageError" color="error" variant="subtle" :title="pageError" icon="i-lucide-alert-circle" />
+
+    <!-- No session yet — show start logging prompt -->
+    <template v-else-if="!session">
+      <div class="flex flex-col items-center gap-4 py-8 text-center">
+        <UIcon name="i-lucide-clipboard-list" class="size-12 text-slate-600" />
+        <p class="text-slate-400">
+          No workout logged for this day yet.
+        </p>
+        <UButton
+          color="primary"
+          size="lg"
+          :loading="startingSession"
+          @click="handleStartLogging"
+        >
+          Start Logging
+        </UButton>
+      </div>
+    </template>
+
+    <!-- Session exists — show editor -->
+    <template v-else-if="day">
+      <!-- Date picker -->
+      <div class="flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2.5">
+        <UIcon name="i-lucide-calendar" class="size-4 text-slate-400" />
+        <label class="text-sm text-slate-400">Date</label>
+        <input
+          v-model="workoutDate"
+          type="date"
+          class="flex-1 bg-transparent text-sm text-white outline-none"
+        >
+      </div>
+
+      <!-- Completed badge -->
+      <div v-if="session.status === 'COMPLETED'" class="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+        <UIcon name="i-lucide-check-circle" class="size-4" />
+        Workout completed
+      </div>
+
+      <!-- Progress bar -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>Progress</span>
+          <span>{{ completedSetCount }} / {{ totalSets }} sets</span>
+        </div>
+        <div class="h-3 overflow-hidden rounded-full bg-slate-800">
+          <div
+            class="h-full rounded-full bg-violet-600 transition-all duration-300"
+            :style="{ width: `${progressPercent}%` }"
+          />
+        </div>
+      </div>
+
+      <!-- Warm-up -->
+      <div v-if="day.warmUp" class="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
+        Warm-up: {{ day.warmUp }}
+      </div>
+
+      <!-- Exercise groups -->
+      <div class="space-y-3">
+        <WorkoutExerciseCard
+          v-for="group in day.exerciseGroups"
+          :key="group.id"
+          :group="group"
+          :completed-sets="completedSets"
+          :editable="true"
+          :editing-set-id="editingSetId"
+          :recording-set-id="recordingSetId"
+          @log="handleLog"
+          @edit="handleEdit"
+          @cancel-edit="cancelEdit"
+          @delete-set="handleDeleteSet"
+        />
+      </div>
+
+      <!-- Save button (only for IN_PROGRESS sessions) -->
+      <div v-if="session.status === 'IN_PROGRESS'" class="sticky bottom-20 pt-4">
+        <UButton
+          color="primary"
+          size="lg"
+          block
+          :loading="completing"
+          @click="saveDialogOpen = true"
+        >
+          Save
+        </UButton>
+      </div>
+    </template>
+
+    <!-- Discard confirmation dialog -->
+    <UModal v-model:open="discardDialogOpen" title="Discard Session" description="Discard this session and all logged sets?">
+      <template #body>
+        <div class="flex justify-end gap-3">
+          <UButton color="neutral" variant="ghost" @click="discardDialogOpen = false">
+            Cancel
+          </UButton>
+          <UButton color="error" :loading="abandoning" @click="confirmDiscard">
+            Discard
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Save confirmation dialog -->
+    <UModal v-model:open="saveDialogOpen" title="Save Workout" description="Mark this workout as complete?">
+      <template #body>
+        <div class="flex justify-end gap-3">
+          <UButton color="neutral" variant="ghost" @click="saveDialogOpen = false">
+            Cancel
+          </UButton>
+          <UButton color="primary" :loading="completing" @click="confirmSave">
+            Save
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+  </div>
+</template>

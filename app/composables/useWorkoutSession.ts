@@ -5,7 +5,7 @@ import type {
   ActiveWorkoutResponse,
   CompleteWorkoutResponse,
 } from '~/types/workout'
-import type { ProgramDayDetail, ExerciseSetDetail } from '~/types/program'
+import type { ProgramDayDetail } from '~/types/program'
 
 /** Composable for managing an active workout session: start, record sets, complete. */
 export function useWorkoutSession() {
@@ -14,6 +14,7 @@ export function useWorkoutSession() {
   const completedSets = ref(new Map<string, CompletedSetRecord>())
   const loading = ref(false)
   const completing = ref(false)
+  const abandoning = ref(false)
   const recordingSetId = ref<string | null>(null)
   const error = ref<string | null>(null)
 
@@ -107,18 +108,80 @@ export function useWorkoutSession() {
     }
   }
 
-  async function completeWorkout(): Promise<CompleteWorkoutResponse> {
+  async function completeWorkout(completedAt?: string): Promise<CompleteWorkoutResponse> {
     if (!session.value) throw new Error('No active session')
     completing.value = true
     try {
       const result = await $fetch<CompleteWorkoutResponse>(
         `/api/workouts/${session.value.id}/complete`,
-        { method: 'PATCH' },
+        { method: 'PATCH', body: completedAt ? { completedAt } : undefined },
       )
       session.value = result.session
       return result
     } finally {
       completing.value = false
+    }
+  }
+
+  async function abandonWorkout(): Promise<void> {
+    if (!session.value) throw new Error('No active session')
+    abandoning.value = true
+    try {
+      await $fetch<{ deleted: boolean }>(`/api/workouts/${session.value.id}`, { method: 'DELETE' as const })
+      session.value = null
+      day.value = null
+      completedSets.value = new Map()
+    } finally {
+      abandoning.value = false
+    }
+  }
+
+  async function loadSession(sessionId: string): Promise<boolean> {
+    try {
+      const data = await $fetch<ActiveWorkoutResponse>(`/api/workouts/${sessionId}`)
+      session.value = data.session
+      day.value = data.day
+      completedSets.value = new Map(
+        data.session.completedSets.map((cs) => [cs.exerciseSetId, cs]),
+      )
+      return true
+    } catch (e) {
+      if ((e as { statusCode?: number }).statusCode === 404) {
+        return false
+      }
+      throw e
+    }
+  }
+
+  async function updateSet(
+    exerciseSetId: string,
+    data: { reps?: number | null; weight?: number | null; rpe?: number | null; notes?: string | null },
+  ): Promise<void> {
+    if (!session.value) return
+    const existing = completedSets.value.get(exerciseSetId)
+    if (!existing) return
+    recordingSetId.value = exerciseSetId
+    try {
+      const result = await $fetch<CompletedSetRecord>(
+        `/api/workouts/${session.value.id}/sets/${existing.id}`,
+        { method: 'PATCH', body: data },
+      )
+      completedSets.value.set(exerciseSetId, result)
+    } finally {
+      recordingSetId.value = null
+    }
+  }
+
+  async function deleteCompletedSet(exerciseSetId: string): Promise<void> {
+    if (!session.value) return
+    const existing = completedSets.value.get(exerciseSetId)
+    if (!existing) return
+    recordingSetId.value = exerciseSetId
+    try {
+      await $fetch(`/api/workouts/${session.value.id}/sets/${existing.id}`, { method: 'DELETE' })
+      completedSets.value.delete(exerciseSetId)
+    } finally {
+      recordingSetId.value = null
     }
   }
 
@@ -128,6 +191,7 @@ export function useWorkoutSession() {
     completedSets,
     loading,
     completing,
+    abandoning,
     recordingSetId,
     error,
     totalSets,
@@ -136,8 +200,12 @@ export function useWorkoutSession() {
     isSetCompleted,
     getCompletedSet,
     loadActiveSession,
+    loadSession,
     startWorkout,
     recordSet,
+    updateSet,
+    deleteCompletedSet,
     completeWorkout,
+    abandonWorkout,
   }
 }

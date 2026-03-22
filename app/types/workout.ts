@@ -47,3 +47,30 @@ export interface CompleteWorkoutResponse {
   }
   programCompleted: boolean
 }
+
+/** Response from DELETE /api/workouts/:id. */
+export interface DeleteWorkoutResponse {
+  deleted: boolean
+}
+
+/** Summary of a session for the program management view. */
+export interface ProgramSessionSummary {
+  id: string
+  weekNumber: number
+  dayNumber: number
+  status: 'IN_PROGRESS' | 'COMPLETED'
+  startedAt: string
+  completedAt: string | null
+  _count: { completedSets: number }
+}
+
+/** Request body for POST /api/workouts (retroactive mode). */
+export interface StartWorkoutBody {
+  weekNumber?: number
+  dayNumber?: number
+}
+
+/** Request body for PATCH /api/workouts/:id/complete (backdating). */
+export interface CompleteWorkoutBody {
+  completedAt?: string
+}

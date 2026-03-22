@@ -175,13 +175,16 @@ describe('POST /api/workouts/:id/sets', () => {
     ).rejects.toMatchObject({ statusCode: 403, statusMessage: 'Forbidden' })
   })
 
-  test('throws 409 when session is already completed', async () => {
+  test('allows recording a set on a completed session', async () => {
     txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+    txMocks.findUniqueExerciseSet.mockResolvedValueOnce(mockExerciseSet)
+    txMocks.createCompletedSet.mockResolvedValueOnce(mockCompletedSet)
 
     const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session already completed' })
+    const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(result).toEqual(mockCompletedSet)
+    expect(event.node.res.statusCode).toBe(201)
   })
 
   test('throws 400 when exercise set does not belong to this workout day', async () => {

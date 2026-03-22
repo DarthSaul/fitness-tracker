@@ -28,6 +28,8 @@ function makeSession(weekNumber: number, dayNumber: number, weeks: Array<{ weekN
     userProgram: {
       id: 'up001',
       programId: 'prog001',
+      currentWeek: weekNumber,
+      currentDay: dayNumber,
       program: {
         weeks: weeks.map((w) => ({
           weekNumber: w.weekNumber,
@@ -44,6 +46,7 @@ function makeSession(weekNumber: number, dayNumber: number, weeks: Array<{ weekN
 describe('PATCH /api/workouts/:id/complete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue(null)
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
       const err = new Error(opts.statusMessage) as Error & { statusCode: number; statusMessage: string }
       err.statusCode = opts.statusCode
