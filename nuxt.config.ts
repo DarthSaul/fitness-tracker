@@ -24,24 +24,44 @@ export default defineNuxtConfig({
   },
   pwa: {
     registerType: 'autoUpdate',
+    client: {
+      installPrompt: true,
+    },
     manifest: {
       name: 'Workout Tracker',
       short_name: 'Workout',
       start_url: '/app',
+      scope: '/',
+      id: '/app',
       display: 'standalone',
       orientation: 'portrait',
       theme_color: '#0f0a1e',
       background_color: '#0f0a1e',
+      categories: ['fitness', 'health'],
       icons: [
         {
           src: '/icons/icon-192.png',
           sizes: '192x192',
           type: 'image/png',
+          purpose: 'any',
         },
         {
           src: '/icons/icon-512.png',
           sizes: '512x512',
           type: 'image/png',
+          purpose: 'any',
+        },
+        {
+          src: '/icons/icon-192.png',
+          sizes: '192x192',
+          type: 'image/png',
+          purpose: 'maskable',
+        },
+        {
+          src: '/icons/icon-512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable',
         },
       ],
     },
