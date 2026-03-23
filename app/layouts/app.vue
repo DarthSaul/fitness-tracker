@@ -2,9 +2,7 @@
  * Shared authenticated app shell providing a fixed header, bottom navigation, and a centred main content slot.
  */
 <script setup lang="ts">
-import type { DropdownMenuItem } from '@nuxt/ui'
-
-const { user, signOut } = useAuth()
+const { user } = useAuth()
 const route = useRoute()
 
 /** Derives the single uppercase character shown in the avatar from the authenticated user's name. */
@@ -17,13 +15,7 @@ const firstName = computed(() => {
   return name ? name.split(' ')[0] : 'there'
 })
 
-const dropdownItems: DropdownMenuItem[] = [
-  {
-    label: 'Sign out',
-    icon: 'i-lucide-log-out',
-    onSelect: () => signOut(),
-  },
-]
+const settingsOpen = ref(false)
 
 const navItems = [
   { label: 'Home', icon: '🏋️', to: '/app' },
@@ -55,7 +47,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col overflow-hidden" style="height: 100dvh">
+  <div class="flex flex-col overflow-hidden" style="height: 100dvh; background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%)">
     <!-- Header -->
     <header
       class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 pb-3 transition-colors duration-300"
@@ -66,16 +58,14 @@ onUnmounted(() => {
         <h1 class="text-base font-semibold text-white">Hello, {{ firstName }} 👋</h1>
         <p class="text-xs text-slate-400">Let's get after it today.</p>
       </div>
-      <UDropdownMenu :items="dropdownItems">
-        <button
-          type="button"
-          class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer"
-          aria-haspopup="menu"
-          aria-label="User menu"
-        >
-          {{ userInitial }}
-        </button>
-      </UDropdownMenu>
+      <button
+        type="button"
+        class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer"
+        aria-label="Open settings"
+        @click="settingsOpen = true"
+      >
+        {{ userInitial }}
+      </button>
     </header>
 
     <!-- Main content -->
@@ -110,5 +100,6 @@ onUnmounted(() => {
     </nav>
 
     <PwaInstallBanner />
+    <SettingsDrawer v-model:open="settingsOpen" />
   </div>
 </template>

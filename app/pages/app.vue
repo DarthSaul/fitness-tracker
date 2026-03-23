@@ -277,10 +277,7 @@ async function handleUnschedule(): Promise<void> {
               {{ nextWorkoutIsScheduledForFuture ? nextWorkoutScheduledLabel : 'Next up' }}
             </p>
             <p class="font-semibold text-white">
-              Week {{ activeProgram.currentWeek }}, Day {{ activeProgram.currentDay }}
-              <span v-if="getDayName(activeProgram.currentWeek, activeProgram.currentDay)" class="font-normal text-slate-400">
-                — {{ getDayName(activeProgram.currentWeek, activeProgram.currentDay) }}
-              </span>
+              Week {{ activeProgram.currentWeek }} · Day {{ activeProgram.currentDay }}
             </p>
           </div>
           <span class="flex items-center gap-1 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
@@ -427,16 +424,17 @@ async function handleUnschedule(): Promise<void> {
 
       <!-- Program info card -->
       <UCard v-wave class="overflow-hidden py-1 cursor-pointer">
-        <NuxtLink to="/program" class="flex h-full items-center justify-between">
+        <NuxtLink to="/program" class="flex h-full items-end justify-between">
           <div>
+            <p class="text-sm text-slate-400">My Program</p>
             <h4 class="font-semibold text-white">
               {{ activeProgram.program.name }}
             </h4>
-            <p class="mt-1 text-sm text-slate-400">
-              Week {{ activeProgram.currentWeek }} · Day {{ activeProgram.currentDay }}
-            </p>
           </div>
-          <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
+          <span class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+            Manage
+            <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+          </span>
         </NuxtLink>
       </UCard>
     </div>
