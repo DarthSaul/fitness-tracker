@@ -24,6 +24,7 @@ datasource db {
 
 enum SessionStatus {
   IN_PROGRESS
+  EDITING
   COMPLETED
 }
 
@@ -195,12 +196,12 @@ model CompletedSet {
 }
 
 model ScheduledWorkout {
-  id            String      @id @default(cuid())
+  id            String   @id @default(cuid())
   userProgramId String
   weekNumber    Int
   dayNumber     Int
-  scheduledDate DateTime    @db.Date
-  createdAt     DateTime    @default(now())
+  scheduledDate DateTime @db.Date
+  createdAt     DateTime @default(now())
 
   userProgram UserProgram @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
 

@@ -27,12 +27,15 @@ export default defineEventHandler(async (event) => {
 
   try {
     const body = await readBody(event)
-    const requestedCompletedAt = body?.completedAt
+    const hasExplicitDate = body !== undefined && body !== null && 'completedAt' in body
+    let completedAtDate: Date | null
 
-    // Validate completedAt if provided
-    let completedAtDate: Date = new Date()
-    if (requestedCompletedAt) {
-      completedAtDate = new Date(requestedCompletedAt)
+    if (!hasExplicitDate) {
+      completedAtDate = new Date()
+    } else if (body.completedAt === null) {
+      completedAtDate = null
+    } else {
+      completedAtDate = new Date(body.completedAt)
       if (isNaN(completedAtDate.getTime())) {
         throw createError({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
       }

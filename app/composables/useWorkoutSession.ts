@@ -108,13 +108,13 @@ export function useWorkoutSession() {
     }
   }
 
-  async function completeWorkout(completedAt?: string): Promise<CompleteWorkoutResponse> {
+  async function completeWorkout(completedAt?: string | null): Promise<CompleteWorkoutResponse> {
     if (!session.value) throw new Error('No active session')
     completing.value = true
     try {
       const result = await $fetch<CompleteWorkoutResponse>(
         `/api/workouts/${session.value.id}/complete`,
-        { method: 'PATCH', body: completedAt ? { completedAt } : undefined },
+        { method: 'PATCH', body: completedAt === undefined ? undefined : { completedAt } },
       )
       session.value = result.session
       return result

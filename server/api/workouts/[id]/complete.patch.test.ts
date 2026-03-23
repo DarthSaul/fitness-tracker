@@ -246,6 +246,60 @@ describe('PATCH /api/workouts/:id/complete', () => {
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session already completed' })
   })
 
+  test('completes an EDITING session (EDITING → COMPLETED transition)', async () => {
+    const session = { ...makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2] }]), status: 'EDITING' }
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+    const updatedSession = { ...session, status: 'COMPLETED', completedAt: null }
+    const updatedProgram = { id: 'up001', currentWeek: 1, currentDay: 2, isActive: true }
+    mockUpdateSession.mockResolvedValueOnce(updatedSession)
+    mockUpdateUserProgram.mockResolvedValueOnce(updatedProgram)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ session: { status: string }; programCompleted: boolean }>)(event)
+
+    expect(result.session.status).toBe('COMPLETED')
+    expect(result.programCompleted).toBe(false)
+    expect(mockUpdateSession).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'COMPLETED' }) }),
+    )
+  })
+
+  test('stores null completedAt when body explicitly passes completedAt: null', async () => {
+    ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ completedAt: null })
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2] }])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+    const updatedSession = { ...session, status: 'COMPLETED', completedAt: null }
+    mockUpdateSession.mockResolvedValueOnce(updatedSession)
+    mockUpdateUserProgram.mockResolvedValueOnce({ id: 'up001', currentWeek: 1, currentDay: 2, isActive: true })
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockUpdateSession).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ completedAt: null }) }),
+    )
+  })
+
+  test('defaults completedAt to approximately new Date() when no body is provided', async () => {
+    ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue(null)
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2] }])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+    const now = new Date()
+    const updatedSession = { ...session, status: 'COMPLETED', completedAt: now }
+    mockUpdateSession.mockResolvedValueOnce(updatedSession)
+    mockUpdateUserProgram.mockResolvedValueOnce({ id: 'up001', currentWeek: 1, currentDay: 2, isActive: true })
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    const callArgs = mockUpdateSession.mock.calls[0] as [{ data: { completedAt: Date | null } }]
+    const passedDate = callArgs[0].data.completedAt
+    expect(passedDate).not.toBeNull()
+    expect(passedDate).toBeInstanceOf(Date)
+    // Should be within 2 seconds of now
+    expect(Math.abs((passedDate as Date).getTime() - now.getTime())).toBeLessThan(2000)
+  })
+
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
     mockFindUniqueSession.mockRejectedValueOnce(dbError)

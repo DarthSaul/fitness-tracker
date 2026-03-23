@@ -7,7 +7,7 @@ export interface WorkoutSession {
   userProgramId: string
   weekNumber: number
   dayNumber: number
-  status: 'IN_PROGRESS' | 'COMPLETED'
+  status: 'IN_PROGRESS' | 'EDITING' | 'COMPLETED'
   startedAt: string
   completedAt: string | null
 }
@@ -58,7 +58,7 @@ export interface ProgramSessionSummary {
   id: string
   weekNumber: number
   dayNumber: number
-  status: 'IN_PROGRESS' | 'COMPLETED'
+  status: 'IN_PROGRESS' | 'EDITING' | 'COMPLETED'
   startedAt: string
   completedAt: string | null
   _count: { completedSets: number }

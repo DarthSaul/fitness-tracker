@@ -82,6 +82,17 @@ describe('DELETE /api/workouts/:id', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Not Found' })
   })
 
+  test('deletes an EDITING session and returns deleted: true', async () => {
+    mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'EDITING' })
+    mockDeleteSession.mockResolvedValueOnce({ ...mockSession, status: 'EDITING' })
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ deleted: boolean }>)(event)
+
+    expect(result).toEqual({ deleted: true })
+    expect(mockDeleteSession).toHaveBeenCalledWith({ where: { id: 'ws001' } })
+  })
+
   test('throws 409 when session is already completed', async () => {
     mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
 
