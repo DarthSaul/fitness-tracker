@@ -57,9 +57,9 @@ onUnmounted(() => {
   <div class="flex min-h-dvh flex-col">
     <!-- Header -->
     <header
-      class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 py-3 transition-colors duration-300"
+      class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 pb-3 transition-colors duration-300"
       :class="scrolled ? 'bg-slate-950/80 backdrop-blur-md' : ''"
-      style="padding-top: env(safe-area-inset-top)"
+      style="padding-top: calc(env(safe-area-inset-top) + 0.75rem)"
     >
       <div>
         <h1 class="text-base font-semibold text-white">Hello, {{ firstName }} 👋</h1>
@@ -78,7 +78,7 @@ onUnmounted(() => {
     </header>
 
     <!-- Main content -->
-    <main class="mx-auto w-full max-w-lg flex-1 px-4 pt-20 pb-24">
+    <main class="mx-auto w-full max-w-lg flex-1 px-4 pb-24" style="padding-top: calc(env(safe-area-inset-top) + 5rem)">
       <slot />
     </main>
 

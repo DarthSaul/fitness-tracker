@@ -15,7 +15,6 @@ const {
   totalSets,
   completedSetCount,
   progressPercent,
-  isSetCompleted,
   loadActiveSession,
   recordSet,
   completeWorkout,
@@ -45,8 +44,19 @@ onMounted(async () => {
   }
 })
 
+// Find the full set detail object for the currently-editing set
+const editingSet = computed(() => {
+  if (!editingSetId.value || !day.value) return null
+  for (const group of day.value.exerciseGroups) {
+    for (const ex of group.exercises) {
+      const found = ex.sets.find(s => s.id === editingSetId.value)
+      if (found) return found
+    }
+  }
+  return null
+})
+
 function handleEdit(exerciseSetId: string): void {
-  if (isSetCompleted(exerciseSetId)) return
   editingSetId.value = exerciseSetId
 }
 
@@ -162,13 +172,21 @@ async function handleDiscard(): Promise<void> {
           :group="group"
           :completed-sets="completedSets"
           :editable="false"
-          :editing-set-id="editingSetId"
           :recording-set-id="recordingSetId"
-          @log="handleLog"
           @edit="handleEdit"
-          @cancel-edit="cancelEdit"
         />
       </div>
+
+      <!-- Set log drawer -->
+      <WorkoutSetLogDrawer
+        v-if="editingSet"
+        :open="editingSetId !== null"
+        :set="editingSet"
+        :completed-set="editingSetId ? (completedSets.get(editingSetId) ?? null) : null"
+        :loading="recordingSetId !== null"
+        @log="(reps, weight) => editingSetId && handleLog(editingSetId, reps, weight)"
+        @close="cancelEdit"
+      />
 
       <!-- Action buttons -->
       <div class="flex gap-3">
@@ -176,7 +194,7 @@ async function handleDiscard(): Promise<void> {
           color="neutral"
           variant="outline"
           size="lg"
-          class="flex-1 justify-center py-4"
+          class="flex-1 justify-center py-5 text-base"
           @click="endDialogOpen = true"
         >
           End
@@ -184,7 +202,7 @@ async function handleDiscard(): Promise<void> {
         <UButton
           color="primary"
           size="lg"
-          class="flex-1 justify-center py-4"
+          class="flex-1 justify-center py-5 text-base"
           :loading="completing"
           @click="completeDialogOpen = true"
         >

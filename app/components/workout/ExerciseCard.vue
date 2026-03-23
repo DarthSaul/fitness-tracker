@@ -10,14 +10,11 @@ const props = defineProps<{
   group: ExerciseGroupDetail
   completedSets: Map<string, CompletedSetRecord>
   editable: boolean
-  editingSetId: string | null
   recordingSetId: string | null
 }>()
 
 const emit = defineEmits<{
-  log: [exerciseSetId: string, reps: number | null, weight: number | null]
   edit: [exerciseSetId: string]
-  cancelEdit: []
   deleteSet: [exerciseSetId: string]
 }>()
 
@@ -58,9 +55,6 @@ function formatRest(seconds: number | null): string {
   return Number.isInteger(min) ? `${min} min` : `${min} min`
 }
 
-function handleLog(exerciseSetId: string, reps: number | null, weight: number | null): void {
-  emit('log', exerciseSetId, reps, weight)
-}
 </script>
 
 <template>
@@ -127,12 +121,9 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
                   :key="set.id"
                   :set="set"
                   :completed-set="getCompletedSet(set.id)"
-                  :editing="editingSetId === set.id"
                   :loading="recordingSetId === set.id"
                   :editable="editable"
-                  @log="(reps, weight) => handleLog(set.id, reps, weight)"
                   @edit="emit('edit', set.id)"
-                  @cancel="emit('cancelEdit')"
                   @delete="emit('deleteSet', set.id)"
                 />
               </div>
@@ -199,12 +190,9 @@ function handleLog(exerciseSetId: string, reps: number | null, weight: number | 
               :key="set.id"
               :set="set"
               :completed-set="getCompletedSet(set.id)"
-              :editing="editingSetId === set.id"
               :loading="recordingSetId === set.id"
               :editable="editable"
-              @log="(reps, weight) => handleLog(set.id, reps, weight)"
               @edit="emit('edit', set.id)"
-              @cancel="emit('cancelEdit')"
               @delete="emit('deleteSet', set.id)"
             />
           </div>
