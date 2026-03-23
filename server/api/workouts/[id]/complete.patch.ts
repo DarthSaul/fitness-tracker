@@ -9,7 +9,7 @@ defineRouteMeta({
     responses: {
       200: { description: 'Session completed with updated user program position' },
       400: { description: 'Missing session ID' },
-      403: { description: 'Session belongs to another user' },
+
       404: { description: 'Session not found' },
       409: { description: 'Session already completed' },
       500: { description: 'Internal server error' },
@@ -19,11 +19,6 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
-
-  if (!userId) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
   const id = getRouterParam(event, 'id')
 
   if (!id?.trim()) {
@@ -74,7 +69,7 @@ export default defineEventHandler(async (event) => {
     }
 
     if (session.userId !== userId) {
-      throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+      throw createError({ statusCode: 404, statusMessage: 'Not Found' })
     }
 
     if (session.status === 'COMPLETED') {

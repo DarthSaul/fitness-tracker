@@ -49,6 +49,7 @@ const weekDays = computed(() => {
     const date = new Date(sunday)
     date.setDate(sunday.getDate() + i)
     return {
+      isoDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
       dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
       dayNumber: date.getDate(),
       isToday:
@@ -140,7 +141,7 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
       <div class="flex justify-between">
         <div
           v-for="day in weekDays"
-          :key="day.dayNumber"
+          :key="day.isoDate"
           class="flex flex-col items-center gap-1"
         >
           <span

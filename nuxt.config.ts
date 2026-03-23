@@ -30,6 +30,7 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
+      // Disabled until offline support is implemented (Phase 5)
       navigateFallback: undefined,
     },
   },

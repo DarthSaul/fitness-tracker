@@ -99,18 +99,7 @@ describe('POST /api/workouts/:id/sets', () => {
     })
   })
 
-  test('throws 401 when userId is missing', async () => {
-    mockGetRouterParam.mockReturnValue('ws001')
-    const event = {
-      path: '/api/workouts/ws001/sets',
-      context: { userId: undefined },
-      node: { res: { statusCode: 200 } },
-    }
 
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
-  })
 
   test('throws 400 when exerciseSetId is not a string', async () => {
     mockReadBody.mockResolvedValueOnce({ exerciseSetId: 123 })
@@ -172,7 +161,7 @@ describe('POST /api/workouts/:id/sets', () => {
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 403, statusMessage: 'Forbidden' })
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Not Found' })
   })
 
   test('allows recording a set on a completed session', async () => {
