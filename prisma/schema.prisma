@@ -156,7 +156,8 @@ model UserProgram {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
 
-  workoutSessions WorkoutSession[]
+  workoutSessions   WorkoutSession[]
+  scheduledWorkouts ScheduledWorkout[]
 
   @@unique([userId, programId])
 }
@@ -191,4 +192,18 @@ model CompletedSet {
   exerciseSet    ExerciseSet    @relation(fields: [exerciseSetId], references: [id], onDelete: Cascade)
 
   @@unique([workoutSessionId, exerciseSetId])
+}
+
+model ScheduledWorkout {
+  id            String      @id @default(cuid())
+  userProgramId String
+  weekNumber    Int
+  dayNumber     Int
+  scheduledDate DateTime    @db.Date
+  createdAt     DateTime    @default(now())
+
+  userProgram UserProgram @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
+
+  @@unique([userProgramId, weekNumber, dayNumber])
+  @@unique([userProgramId, scheduledDate])
 }
