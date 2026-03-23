@@ -73,9 +73,11 @@ async function handleStartLogging(): Promise<void> {
     const sessionId = await startRetroactiveSession(weekNumber.value, dayNumber.value)
     await loadSession(sessionId)
   } catch (e) {
-    const statusCode = (e as { statusCode?: number }).statusCode
-    if (statusCode === 409) {
+    const err = e as { statusCode?: number; statusMessage?: string }
+    if (err.statusCode === 409) {
       pageError.value = 'A session already exists for this day'
+    } else if (err.statusCode === 400 && err.statusMessage) {
+      pageError.value = err.statusMessage
     } else {
       pageError.value = 'Failed to create session'
     }
