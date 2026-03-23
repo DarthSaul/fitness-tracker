@@ -74,10 +74,12 @@ Follow the **[Conventional Commits v1.0.0](https://www.conventionalcommits.org/e
 - For each checklist item, mark it `- [x]` if it applies to this PR. If an item is not applicable, replace the checkbox with `N/A` and a brief reason (e.g. `- N/A — no API routes added`).
 - Target the default branch (usually `main` or `develop`). Do NOT hard-code a target — let `gh` infer it, or check with `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`.
 
-> **Important — avoid the command injection detector:**
-> The PR body contains markdown headings (`#` lines) which trigger Bash's injection detection when passed inline. You **must** use this two-step approach:
+> **Critical — avoid the command injection detector:**
+> The PR body contains markdown headings (`#` lines) which trigger Bash's
+> injection detection when passed as part of any Bash command.
 >
-> 1. Use the **Write** tool to save the PR body to `/tmp/pr-body.md`.
-> 2. Run `gh pr create --title "..." --body-file /tmp/pr-body.md`.
+> 1. Use the **Write** tool (NOT Bash, NOT `cat`, NOT a heredoc) to save
+>    the PR body to `/tmp/pr-body.md`.
+> 2. Then run `gh pr create --title "..." --body-file /tmp/pr-body.md`.
 >
-> Do **NOT** pass the body inline via `--body`.
+> Do **NOT** pass the body via `--body` or write it with a Bash heredoc.
