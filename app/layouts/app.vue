@@ -59,6 +59,7 @@ onUnmounted(() => {
     <header
       class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 py-3 transition-colors duration-300"
       :class="scrolled ? 'bg-slate-950/80 backdrop-blur-md' : ''"
+      style="padding-top: env(safe-area-inset-top)"
     >
       <div>
         <h1 class="text-base font-semibold text-white">Hello, {{ firstName }} 👋</h1>
@@ -82,7 +83,7 @@ onUnmounted(() => {
     </main>
 
     <!-- Bottom nav -->
-    <nav class="fixed right-0 bottom-4 left-0 z-10 mx-auto w-full max-w-lg px-4">
+    <nav class="fixed right-0 bottom-0 left-0 z-10 mx-auto w-full max-w-lg px-4 pb-4" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem)">
       <div class="flex items-center justify-around rounded-2xl bg-slate-800/90 p-2 backdrop-blur-md">
         <template v-for="item in navItems" :key="item.label">
           <NuxtLink

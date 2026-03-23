@@ -7,7 +7,23 @@ export default defineNuxtConfig({
   colorMode: {
     preference: 'dark',
   },
+  app: {
+    head: {
+      htmlAttrs: { lang: 'en' },
+      meta: [
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-title', content: 'Workout' },
+        { name: 'theme-color', content: '#0f0a1e' },
+      ],
+      link: [
+        { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon-180.png' },
+      ],
+    },
+  },
   pwa: {
+    registerType: 'autoUpdate',
     manifest: {
       name: 'Workout Tracker',
       short_name: 'Workout',
@@ -30,7 +46,9 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: undefined,
+      navigateFallback: '/offline',
+      globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      navigateFallbackDenylist: [/^\/api\//],
     },
   },
   nitro: {
