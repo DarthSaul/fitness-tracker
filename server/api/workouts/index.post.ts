@@ -125,6 +125,7 @@ export default defineEventHandler(async (event) => {
           userProgramId: lockedProgram.id,
           weekNumber: targetWeek,
           dayNumber: targetDay,
+          status: isRetroactive ? 'EDITING' : 'IN_PROGRESS',
         },
       })
 

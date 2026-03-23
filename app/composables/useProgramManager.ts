@@ -61,6 +61,11 @@ export function useProgramManager() {
     return getSessionForDay(week, day)?.status === 'IN_PROGRESS'
   }
 
+  function isDayBeingEdited(weekNumber: number, dayNumber: number): boolean {
+    const session = getSessionForDay(weekNumber, dayNumber)
+    return session?.status === 'EDITING'
+  }
+
   /** Count total sets in a day from the program structure. */
   function getTotalSetsForDay(weekNumber: number, dayNumber: number): number {
     if (!activeProgram.value) return 0
@@ -94,6 +99,7 @@ export function useProgramManager() {
     getSessionForDay,
     isDayCompleted,
     isDayInProgress,
+    isDayBeingEdited,
     getTotalSetsForDay,
     startRetroactiveSession,
     refreshSessions,

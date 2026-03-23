@@ -132,8 +132,46 @@ describe('POST /api/workouts', () => {
         userProgramId: 'up001',
         weekNumber: 2,
         dayNumber: 3,
+        status: 'IN_PROGRESS',
       },
     })
+  })
+
+  test('live session (no body params) is created with status IN_PROGRESS', async () => {
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.queryRawUnsafe.mockResolvedValueOnce([mockLockedProgram])
+    txMocks.findFirstSession.mockResolvedValueOnce(null)
+    txMocks.findFirstDay.mockResolvedValueOnce({ ...mockDay, dayNumber: 3 })
+    const liveSession = { ...mockSession, weekNumber: 2, dayNumber: 3, status: 'IN_PROGRESS' }
+    txMocks.createSession.mockResolvedValueOnce(liveSession)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ session: { status: string } }>)(event)
+
+    expect(result.session.status).toBe('IN_PROGRESS')
+    expect(txMocks.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'IN_PROGRESS' }) }),
+    )
+  })
+
+  test('retroactive session (body with weekNumber + dayNumber) is created with status EDITING', async () => {
+    ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber: 1, dayNumber: 1 })
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.queryRawUnsafe.mockResolvedValueOnce([mockLockedProgram])
+    // No duplicate at that position
+    txMocks.findFirstSession.mockResolvedValueOnce(null)
+    const retroDay = { ...mockDay, dayNumber: 1 }
+    txMocks.findFirstDay.mockResolvedValueOnce(retroDay)
+    const retroSession = { ...mockSession, weekNumber: 1, dayNumber: 1, status: 'EDITING' }
+    txMocks.createSession.mockResolvedValueOnce(retroSession)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ session: { status: string } }>)(event)
+
+    expect(result.session.status).toBe('EDITING')
+    expect(txMocks.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'EDITING' }) }),
+    )
   })
 
   test('throws 400 when no active program', async () => {

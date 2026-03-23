@@ -127,16 +127,19 @@ async function onDeleteSet(): Promise<void> {
 }
 
 async function confirmSave(): Promise<void> {
+  saveDialogOpen.value = false
   try {
-    const completedAt = new Date(workoutDate.value + 'T12:00:00').toISOString()
+    const completedAt = workoutDate.value
+      ? new Date(workoutDate.value + 'T12:00:00').toISOString()
+      : null
     await completeWorkout(completedAt)
-    await refreshSessions()
-    saveDialogOpen.value = false
-    await router.push('/program')
   } catch {
-    saveDialogOpen.value = false
     pageError.value = 'Failed to save workout'
+    return
   }
+  // Save succeeded — navigate away; don't let refresh failure block the user
+  refreshSessions().catch(() => {})
+  await router.push('/program')
 }
 
 async function confirmDiscard(): Promise<void> {
@@ -168,7 +171,7 @@ async function confirmDiscard(): Promise<void> {
         Week {{ weekNumber }}, Day {{ dayNumber }}
       </h2>
       <UButton
-        v-if="session && session.status === 'IN_PROGRESS'"
+        v-if="session && session.status === 'EDITING'"
         color="error"
         variant="ghost"
         size="sm"
@@ -211,7 +214,7 @@ async function confirmDiscard(): Promise<void> {
       <!-- Date picker -->
       <div class="flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2.5">
         <UIcon name="i-lucide-calendar" class="size-4 text-slate-400" />
-        <label class="text-sm text-slate-400">Date</label>
+        <label class="text-sm text-slate-400">Date <span class="text-slate-500">(optional)</span></label>
         <input
           v-model="workoutDate"
           type="date"
@@ -272,8 +275,8 @@ async function confirmDiscard(): Promise<void> {
         @close="cancelEdit"
       />
 
-      <!-- Save button (only for IN_PROGRESS sessions) -->
-      <div v-if="session.status === 'IN_PROGRESS'" class="pt-4 pb-2">
+      <!-- Save button (only for EDITING sessions) -->
+      <div v-if="session.status === 'EDITING'" class="pt-4 pb-2">
         <UButton
           color="primary"
           size="lg"

@@ -113,6 +113,21 @@ describe('GET /api/workouts/active', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'No active workout session' })
   })
 
+  test('returns 404 when only an EDITING session exists (not IN_PROGRESS)', async () => {
+    // The route filters status: 'IN_PROGRESS' — findFirst returns null for EDITING sessions
+    mockFindFirstSession.mockResolvedValueOnce(null)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'No active workout session' })
+
+    // Confirm the query uses the IN_PROGRESS filter (not EDITING)
+    expect(mockFindFirstSession).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: 'IN_PROGRESS' }) }),
+    )
+  })
+
   test('throws 500 when program day not found', async () => {
     mockFindFirstSession.mockResolvedValueOnce(mockSession)
     mockFindFirstDay.mockResolvedValueOnce(null)
