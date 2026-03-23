@@ -1,10 +1,16 @@
 /**
  * Weekly calendar strip with month/year header and week navigation.
- * Displays Sun–Sat, highlights today, and allows navigating between weeks.
+ * Displays Sun–Sat, highlights today, supports date selection and schedule dot indicators.
  */
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   loading?: boolean
+  modelValue?: Date
+  scheduledDates?: string[]
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [date: Date]
 }>()
 
 const now = ref<Date | null>(null)
@@ -40,6 +46,12 @@ function getSundayOfWeek(today: Date, offset: number): Date {
   return sunday
 }
 
+import { toDateString, isSameDay } from '~/utils/date'
+
+const selectedDate = computed(() => props.modelValue ?? null)
+
+const scheduledSet = computed(() => new Set(props.scheduledDates ?? []))
+
 const weekDays = computed(() => {
   if (!now.value) return []
   const sunday = getSundayOfWeek(now.value, weekOffset.value)
@@ -48,15 +60,11 @@ const weekDays = computed(() => {
   return Array.from({ length: 7 }, (_, i) => {
     const date = new Date(sunday)
     date.setDate(sunday.getDate() + i)
-    return {
-      isoDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
-      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
-      dayNumber: date.getDate(),
-      isToday:
-        date.getFullYear() === today.getFullYear() &&
-        date.getMonth() === today.getMonth() &&
-        date.getDate() === today.getDate(),
-    }
+    const isToday = isSameDay(date, today)
+    const isSelected = selectedDate.value ? isSameDay(date, selectedDate.value) : false
+    const dateStr = toDateString(date)
+    const hasScheduled = scheduledSet.value.has(dateStr)
+    return { date, dateKey: dateStr, dayName: date.toLocaleDateString('en-US', { weekday: 'short' }), dayNumber: date.getDate(), isToday, isSelected, hasScheduled }
   })
 })
 
@@ -76,6 +84,13 @@ function nextWeek(): void {
 
 function goToToday(): void {
   weekOffset.value = 0
+  if (now.value) {
+    emit('update:modelValue', new Date(now.value.getFullYear(), now.value.getMonth(), now.value.getDate()))
+  }
+}
+
+function selectDay(date: Date): void {
+  emit('update:modelValue', new Date(date.getFullYear(), date.getMonth(), date.getDate()))
 }
 
 const isCurrentWeek = computed(() => weekOffset.value === 0)
@@ -139,28 +154,42 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
 
       <!-- Day strip -->
       <div class="flex justify-between">
-        <div
+        <button
           v-for="day in weekDays"
-          :key="day.isoDate"
+          :key="day.dateKey"
           class="flex flex-col items-center gap-1"
+          :aria-label="`Select ${day.dayName} ${day.dayNumber}`"
+          :aria-pressed="day.isSelected"
+          @click="selectDay(day.date)"
         >
           <span
             class="text-xs"
-            :class="day.isToday ? 'text-white font-semibold' : 'text-slate-400'"
+            :class="day.isToday || day.isSelected ? 'text-white font-semibold' : 'text-slate-400'"
           >
             {{ day.dayName }}
           </span>
           <div
-            class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium"
-            :class="
-              day.isToday
+            class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium transition-colors"
+            :class="[
+              day.isSelected && day.isToday
                 ? 'bg-violet-600 text-white'
-                : 'bg-slate-800 text-slate-400'
-            "
+                : day.isSelected
+                  ? 'bg-violet-600/30 text-violet-300 ring-1 ring-violet-500'
+                  : day.isToday
+                    ? 'bg-violet-600/20 text-violet-400'
+                    : 'bg-slate-800 text-slate-400',
+            ]"
           >
             {{ day.dayNumber }}
           </div>
-        </div>
+          <!-- Schedule dot indicator -->
+          <div class="h-1.5">
+            <div
+              v-if="day.hasScheduled"
+              class="h-1.5 w-1.5 rounded-full bg-emerald-400"
+            />
+          </div>
+        </button>
       </div>
     </template>
   </div>
