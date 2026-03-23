@@ -15,10 +15,6 @@ defineRouteMeta({
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
-  if (!userId) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
   try {
     const activeProgram = await prisma.userProgram.findFirst({
       where: { userId, isActive: true },

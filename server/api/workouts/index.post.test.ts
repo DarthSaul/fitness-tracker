@@ -136,18 +136,6 @@ describe('POST /api/workouts', () => {
     })
   })
 
-  test('throws 401 when userId is missing', async () => {
-    const event = {
-      path: '/api/workouts',
-      context: { userId: undefined },
-      node: { res: { statusCode: 200 } },
-    }
-
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
-  })
-
   test('throws 400 when no active program', async () => {
     txMocks.findFirstUserProgram.mockResolvedValueOnce(null)
 

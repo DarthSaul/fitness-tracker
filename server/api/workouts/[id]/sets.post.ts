@@ -10,7 +10,7 @@ defineRouteMeta({
       201: { description: 'Completed set recorded' },
       400: { description: 'Missing or invalid fields' },
       401: { description: 'Unauthorized' },
-      403: { description: 'Session belongs to another user' },
+
       404: { description: 'Session not found' },
       409: { description: 'Session already completed or duplicate set submission' },
       500: { description: 'Internal server error' },
@@ -20,11 +20,6 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
-
-  if (!userId) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
   const id = getRouterParam(event, 'id')
 
   if (!id?.trim()) {
@@ -64,7 +59,7 @@ export default defineEventHandler(async (event) => {
       }
 
       if (session.userId !== userId) {
-        throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+        throw createError({ statusCode: 404, statusMessage: 'Not Found' })
       }
 
       // Validate that the exerciseSet belongs to this workout's day

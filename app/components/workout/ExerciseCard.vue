@@ -1,3 +1,7 @@
+/**
+ * Displays a single exercise group within a workout session, handling both standard and superset
+ * layouts with collapsible set rows, inline notes, and rest-time display.
+ */
 <script setup lang="ts">
 import type { ExerciseGroupDetail } from '~/types/program'
 import type { CompletedSetRecord } from '~/types/workout'
