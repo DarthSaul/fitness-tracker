@@ -107,5 +107,7 @@ onUnmounted(() => {
         </template>
       </div>
     </nav>
+
+    <PwaInstallBanner />
   </div>
 </template>
