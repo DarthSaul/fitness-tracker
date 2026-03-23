@@ -113,8 +113,15 @@ async function handleLog(exerciseSetId: string, reps: number | null, weight: num
   }
 }
 
-async function handleDeleteSet(exerciseSetId: string): Promise<void> {
-  await deleteCompletedSet(exerciseSetId)
+async function onDeleteSet(): Promise<void> {
+  if (!editingSetId.value) return
+  const id = editingSetId.value
+  try {
+    await deleteCompletedSet(id)
+    cancelEdit()
+  } catch {
+    pageError.value = 'Failed to delete set'
+  }
 }
 
 async function confirmSave(): Promise<void> {
@@ -259,7 +266,7 @@ async function confirmDiscard(): Promise<void> {
         :loading="recordingSetId !== null"
         :can-delete="editingSetId ? completedSets.has(editingSetId) : false"
         @log="(reps, weight) => editingSetId && handleLog(editingSetId, reps, weight)"
-        @delete="editingSetId && handleDeleteSet(editingSetId); cancelEdit()"
+        @delete="onDeleteSet"
         @close="cancelEdit"
       />
 
