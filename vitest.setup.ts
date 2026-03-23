@@ -52,6 +52,26 @@ vi.stubGlobal('prisma', {
   completedSet: { create: vi.fn(), findMany: vi.fn() },
 })
 
+// ── Supabase client global (used in Nitro server route handlers via auto-import) ─
+vi.stubGlobal('supabase', {
+  auth: {
+    signUp: vi.fn(),
+    signInWithPassword: vi.fn(),
+    resetPasswordForEmail: vi.fn(),
+    setSession: vi.fn(),
+    updateUser: vi.fn(),
+  },
+})
+
+// ── H3 request helpers ───────────────────────────────────────────────────────
+vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/email/test')))
+
+// ── Nuxt runtime config ─────────────────────────────────────────────────────
+vi.stubGlobal('useRuntimeConfig', vi.fn(() => ({
+  supabaseUrl: 'https://test.supabase.co',
+  supabaseAnonKey: 'test-anon-key',
+})))
+
 // ── Nuxt composable / navigation globals (used in app/composables) ────────────
 vi.stubGlobal('useUserSession', vi.fn())
 vi.stubGlobal('navigateTo', vi.fn())
