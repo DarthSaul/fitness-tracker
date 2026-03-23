@@ -8,6 +8,7 @@ defineRouteMeta({
       400: { description: 'Invalid or missing fields' },
       401: { description: 'Unauthorized' },
       403: { description: 'Forbidden — program belongs to another user' },
+      404: { description: 'User program not found' },
       409: { description: 'Conflict — date or day already scheduled' },
     },
   },

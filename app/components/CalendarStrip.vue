@@ -46,16 +46,7 @@ function getSundayOfWeek(today: Date, offset: number): Date {
   return sunday
 }
 
-function toDateString(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
+import { toDateString, isSameDay } from '~/utils/date'
 
 const selectedDate = computed(() => props.modelValue ?? null)
 
@@ -73,7 +64,7 @@ const weekDays = computed(() => {
     const isSelected = selectedDate.value ? isSameDay(date, selectedDate.value) : false
     const dateStr = toDateString(date)
     const hasScheduled = scheduledSet.value.has(dateStr)
-    return { date, dayName: date.toLocaleDateString('en-US', { weekday: 'short' }), dayNumber: date.getDate(), isToday, isSelected, hasScheduled }
+    return { date, dateKey: dateStr, dayName: date.toLocaleDateString('en-US', { weekday: 'short' }), dayNumber: date.getDate(), isToday, isSelected, hasScheduled }
   })
 })
 
@@ -165,7 +156,7 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
       <div class="flex justify-between">
         <button
           v-for="day in weekDays"
-          :key="day.dayNumber"
+          :key="day.dateKey"
           class="flex flex-col items-center gap-1"
           :aria-label="`Select ${day.dayName} ${day.dayNumber}`"
           :aria-pressed="day.isSelected"

@@ -18,16 +18,7 @@ onMounted(() => {
 
 const selectedDate = ref<Date>(new Date())
 
-function toDateString(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
+import { toDateString, isSameDay } from '~/utils/date'
 
 const isViewingToday = computed(() => {
   if (!nowRef.value) return true
@@ -184,15 +175,30 @@ const completedDaysList = computed(() => {
     .map(s => ({ weekNumber: s.weekNumber, dayNumber: s.dayNumber }))
 })
 
+const scheduleError = ref<string | null>(null)
+const unscheduling = ref(false)
+
 async function handleSchedule(weekNumber: number, dayNumber: number): Promise<void> {
-  const dateStr = toDateString(selectedDate.value)
-  await scheduleWorkout(weekNumber, dayNumber, dateStr)
-  scheduleModalOpen.value = false
+  scheduleError.value = null
+  try {
+    const dateStr = toDateString(selectedDate.value)
+    await scheduleWorkout(weekNumber, dayNumber, dateStr)
+    scheduleModalOpen.value = false
+  } catch (error) {
+    scheduleError.value = (error as Error).message || 'Failed to schedule workout'
+  }
 }
 
 async function handleUnschedule(): Promise<void> {
-  if (scheduledForSelectedDate.value) {
+  if (!scheduledForSelectedDate.value || unscheduling.value) return
+  unscheduling.value = true
+  scheduleError.value = null
+  try {
     await unscheduleWorkout(scheduledForSelectedDate.value.id)
+  } catch (error) {
+    scheduleError.value = (error as Error).message || 'Failed to unschedule workout'
+  } finally {
+    unscheduling.value = false
   }
 }
 </script>
@@ -321,11 +327,23 @@ async function handleUnschedule(): Promise<void> {
           </div>
           <button
             class="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            :disabled="unscheduling"
+            :class="unscheduling ? 'opacity-50 cursor-wait' : ''"
             @click="handleUnschedule"
           >
-            Unschedule
+            <template v-if="unscheduling">
+              <UIcon name="i-lucide-loader-circle" class="size-3 animate-spin inline" />
+            </template>
+            <template v-else>Unschedule</template>
           </button>
         </div>
+        <UAlert
+          v-if="scheduleError"
+          color="error"
+          variant="subtle"
+          :title="scheduleError"
+          class="mt-3"
+        />
       </UCard>
 
       <!-- No workout scheduled for this date -->

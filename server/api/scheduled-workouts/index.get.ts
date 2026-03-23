@@ -5,9 +5,11 @@ defineRouteMeta({
     description: 'Returns all scheduled workouts for a user program. Optionally filter by date range.',
     responses: {
       200: { description: 'Array of scheduled workouts' },
-      400: { description: 'Missing userProgramId' },
+      400: { description: 'Missing userProgramId or invalid date params' },
       401: { description: 'Unauthorized' },
       403: { description: 'Forbidden — program belongs to another user' },
+      404: { description: 'User program not found' },
+      500: { description: 'Internal server error' },
     },
   },
 })
@@ -46,14 +48,32 @@ export default defineEventHandler(async (event) => {
 
   if (from || to) {
     where.scheduledDate = {}
-    if (from) where.scheduledDate.gte = new Date(from)
-    if (to) where.scheduledDate.lte = new Date(to)
+    if (from) {
+      const fromDate = new Date(from)
+      if (isNaN(fromDate.getTime())) {
+        throw createError({ statusCode: 400, statusMessage: 'Invalid "from" date' })
+      }
+      where.scheduledDate.gte = fromDate
+    }
+    if (to) {
+      const toDate = new Date(to)
+      if (isNaN(toDate.getTime())) {
+        throw createError({ statusCode: 400, statusMessage: 'Invalid "to" date' })
+      }
+      where.scheduledDate.lte = toDate
+    }
   }
 
-  const scheduledWorkouts = await prisma.scheduledWorkout.findMany({
-    where,
-    orderBy: { scheduledDate: 'asc' },
-  })
+  try {
+    const scheduledWorkouts = await prisma.scheduledWorkout.findMany({
+      where,
+      orderBy: { scheduledDate: 'asc' },
+    })
 
-  return { scheduledWorkouts }
+    return { scheduledWorkouts }
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode) throw error
+    console.error('[GET /api/scheduled-workouts] Failed to fetch scheduled workouts', error)
+    throw createError({ statusCode: 500, statusMessage: 'Failed to fetch scheduled workouts' })
+  }
 })

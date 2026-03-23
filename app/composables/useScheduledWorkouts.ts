@@ -25,6 +25,9 @@ export function useScheduledWorkouts(userProgramId: Ref<string | undefined>) {
   }
 
   async function scheduleWorkout(weekNumber: number, dayNumber: number, scheduledDate: string): Promise<ScheduledWorkout> {
+    if (!userProgramId.value) {
+      throw new Error('userProgramId is required to schedule a workout')
+    }
     const data = await $fetch<{ scheduledWorkout: ScheduledWorkout }>('/api/scheduled-workouts', {
       method: 'POST',
       body: { userProgramId: userProgramId.value, weekNumber, dayNumber, scheduledDate },
@@ -55,7 +58,11 @@ export function useScheduledWorkouts(userProgramId: Ref<string | undefined>) {
 
   // Fetch when userProgramId becomes available
   watch(userProgramId, (newId) => {
-    if (newId) fetchScheduledWorkouts()
+    if (newId) {
+      fetchScheduledWorkouts()
+    } else {
+      scheduledWorkouts.value = []
+    }
   }, { immediate: true })
 
   return {
