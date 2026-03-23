@@ -19,7 +19,7 @@ const errorMessages: Record<string, string> = {
   apple_failed: 'Apple sign-in failed. Please try again.',
   apple_no_email: 'Apple sign-in did not provide an email address.',
   upsert: 'Account setup failed. Please try again.',
-  email_confirmed: undefined as unknown as string,
+  email_confirmed: '',
 }
 
 const errorParam = computed(() => {
@@ -57,9 +57,7 @@ async function handleEmailSubmit() {
     else if (mode.value === 'signup') {
       const result = await signUpWithEmail(email.value, password.value, name.value || undefined)
       if (result.confirmationRequired) {
-        successMessage.value = 'Check your email to confirm your account before signing in.'
         switchMode('signin')
-        // Preserve the success message after mode switch
         successMessage.value = 'Check your email to confirm your account before signing in.'
       }
       else {
@@ -148,7 +146,7 @@ async function handleEmailSubmit() {
               icon="i-lucide-lock"
               required
               :minlength="mode === 'signup' ? 8 : undefined"
-              autocomplete="current-password"
+              :autocomplete="mode === 'signup' ? 'new-password' : 'current-password'"
               :ui="{ base: 'px-4 py-3.5', leading: 'ps-4', trailing: 'pe-4' }"
             />
           </div>
