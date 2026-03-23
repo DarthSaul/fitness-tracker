@@ -356,7 +356,7 @@ async function handleUnschedule(): Promise<void> {
             class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400 transition-colors hover:bg-violet-600/30"
             @click="scheduleModalOpen = true"
           >
-            Schedule a workout
+            Add
             <UIcon name="i-lucide-plus" class="size-3.5" />
           </button>
         </div>
