@@ -38,23 +38,24 @@ function isActive(to: string): boolean {
   return route.path === to || route.path.startsWith(to + '/')
 }
 
+const mainEl = ref<HTMLElement | null>(null)
 const scrolled = ref(false)
 
 function onScroll(): void {
-  scrolled.value = window.scrollY > 10
+  scrolled.value = (mainEl.value?.scrollTop ?? 0) > 10
 }
 
 onMounted(() => {
-  window.addEventListener('scroll', onScroll, { passive: true })
+  mainEl.value?.addEventListener('scroll', onScroll, { passive: true })
 })
 
 onUnmounted(() => {
-  window.removeEventListener('scroll', onScroll)
+  mainEl.value?.removeEventListener('scroll', onScroll)
 })
 </script>
 
 <template>
-  <div class="flex min-h-dvh flex-col">
+  <div class="flex flex-col overflow-hidden" style="height: 100dvh">
     <!-- Header -->
     <header
       class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 pb-3 transition-colors duration-300"
@@ -78,12 +79,12 @@ onUnmounted(() => {
     </header>
 
     <!-- Main content -->
-    <main class="mx-auto w-full max-w-lg flex-1 px-4 pb-24" style="padding-top: calc(env(safe-area-inset-top) + 5rem)">
+    <main ref="mainEl" class="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-4 pb-6" style="padding-top: calc(env(safe-area-inset-top) + 5rem)">
       <slot />
     </main>
 
     <!-- Bottom nav -->
-    <nav class="fixed right-0 bottom-0 left-0 z-10 mx-auto w-full max-w-lg px-4 pb-4" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem)">
+    <nav class="z-10 mx-auto w-full shrink-0 max-w-lg px-4 pt-2" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem)">
       <div class="flex items-center justify-around rounded-2xl bg-slate-800/90 p-2 backdrop-blur-md">
         <template v-for="item in navItems" :key="item.label">
           <NuxtLink
