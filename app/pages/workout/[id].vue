@@ -194,7 +194,7 @@ async function handleDiscard(): Promise<void> {
           color="neutral"
           variant="outline"
           size="lg"
-          class="flex-1 justify-center py-4"
+          class="flex-1 justify-center py-5 text-base"
           @click="endDialogOpen = true"
         >
           End
@@ -202,7 +202,7 @@ async function handleDiscard(): Promise<void> {
         <UButton
           color="primary"
           size="lg"
-          class="flex-1 justify-center py-4"
+          class="flex-1 justify-center py-5 text-base"
           :loading="completing"
           @click="completeDialogOpen = true"
         >

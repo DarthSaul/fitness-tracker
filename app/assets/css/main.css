@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+html {
+  background-color: #020617; /* slate-950: matches gradient edge, prevents white overscroll flash */
+}
+
 body {
   @apply text-white;
   background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%);

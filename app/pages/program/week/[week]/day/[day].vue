@@ -268,6 +268,7 @@ async function confirmDiscard(): Promise<void> {
           color="primary"
           size="lg"
           block
+          class="py-5 text-base"
           :loading="completing"
           @click="saveDialogOpen = true"
         >

@@ -81,8 +81,8 @@ function formatTarget(): string {
         </p>
 
         <!-- Inputs -->
-        <div class="mb-5 space-y-4">
-          <div>
+        <div class="mb-5 flex gap-4">
+          <div class="flex-1">
             <label for="drawer-weight" class="mb-1.5 block text-sm font-medium text-slate-300">
               Weight (lbs)
             </label>
@@ -97,7 +97,7 @@ function formatTarget(): string {
               class="w-full rounded-lg bg-slate-800 px-4 py-3 text-lg text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
             >
           </div>
-          <div>
+          <div class="flex-1">
             <label for="drawer-reps" class="mb-1.5 block text-sm font-medium text-slate-300">
               Reps
             </label>
@@ -106,7 +106,7 @@ function formatTarget(): string {
               v-model.number="editReps"
               type="number"
               inputmode="numeric"
-              placeholder="0"
+              :placeholder="set.reps != null ? String(set.reps) : '0'"
               class="w-full rounded-lg bg-slate-800 px-4 py-3 text-lg text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
             >
           </div>
@@ -117,6 +117,7 @@ function formatTarget(): string {
           color="primary"
           size="lg"
           block
+          class="py-5 text-base"
           :loading="loading"
           @click="handleLog"
         >
