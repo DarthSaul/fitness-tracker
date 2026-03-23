@@ -84,6 +84,18 @@ async function handleStartLogging(): Promise<void> {
   }
 }
 
+// Find the full set detail object for the currently-editing set
+const editingSet = computed(() => {
+  if (!editingSetId.value || !day.value) return null
+  for (const group of day.value.exerciseGroups) {
+    for (const ex of group.exercises) {
+      const found = ex.sets.find(s => s.id === editingSetId.value)
+      if (found) return found
+    }
+  }
+  return null
+})
+
 function handleEdit(exerciseSetId: string): void {
   editingSetId.value = exerciseSetId
 }
@@ -233,14 +245,22 @@ async function confirmDiscard(): Promise<void> {
           :group="group"
           :completed-sets="completedSets"
           :editable="true"
-          :editing-set-id="editingSetId"
           :recording-set-id="recordingSetId"
-          @log="handleLog"
           @edit="handleEdit"
-          @cancel-edit="cancelEdit"
           @delete-set="handleDeleteSet"
         />
       </div>
+
+      <!-- Set log drawer -->
+      <WorkoutSetLogDrawer
+        v-if="editingSet"
+        :open="editingSetId !== null"
+        :set="editingSet"
+        :completed-set="editingSetId ? (completedSets.get(editingSetId) ?? null) : null"
+        :loading="recordingSetId !== null"
+        @log="(reps, weight) => editingSetId && handleLog(editingSetId, reps, weight)"
+        @close="cancelEdit"
+      />
 
       <!-- Save button (only for IN_PROGRESS sessions) -->
       <div v-if="session.status === 'IN_PROGRESS'" class="sticky bottom-20 pt-4">

@@ -1,6 +1,7 @@
 /**
- * Renders a single prescribed set as pending, editing, or completed, with long-press support
- * to reveal edit and delete actions on completed sets.
+ * Renders a single prescribed set as pending or completed, with long-press support
+ * to reveal edit and delete actions on completed sets. Tapping a pending set emits
+ * 'edit' so the parent can open the SetLogDrawer.
  */
 <script setup lang="ts">
 import type { ExerciseSetDetail } from '~/types/program'
@@ -9,35 +10,21 @@ import type { CompletedSetRecord } from '~/types/workout'
 const props = defineProps<{
   set: ExerciseSetDetail
   completedSet: CompletedSetRecord | null
-  editing: boolean
   loading: boolean
   editable: boolean
 }>()
 
 const emit = defineEmits<{
-  log: [reps: number | null, weight: number | null]
   edit: []
-  cancel: []
   delete: []
 }>()
-
-const editReps = ref<number | null>(null)
-const editWeight = ref<number | null>(null)
 
 // Long-press state for editable completed sets
 const longPressTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const showActions = ref(false)
 
 function startEditing(): void {
-  editReps.value = props.completedSet?.reps ?? props.set.reps
-  editWeight.value = props.completedSet?.weight ?? props.set.weight
   emit('edit')
-}
-
-function handleLog(): void {
-  const reps = Number.isFinite(editReps.value) ? editReps.value : null
-  const weight = Number.isFinite(editWeight.value) ? editWeight.value : null
-  emit('log', reps, weight)
 }
 
 function clearLongPress(): void {
@@ -93,7 +80,7 @@ function formatEffort(effortTarget: string | null | undefined): string {
 <template>
   <!-- Completed set -->
   <div
-    v-if="completedSet && !editing"
+    v-if="completedSet"
     class="set-row relative text-sm"
     @touchstart.passive="onTouchStart"
     @touchend="onTouchEnd"
@@ -120,46 +107,6 @@ function formatEffort(effortTarget: string | null | undefined): string {
         Delete
       </UButton>
       <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-x" @click="dismissActions" />
-    </div>
-  </div>
-
-  <!-- Editing set -->
-  <div v-else-if="editing" class="col-span-5">
-    <div class="rounded-md bg-slate-700/50 px-3 py-2">
-      <div class="mb-2 flex items-center justify-between">
-        <span class="text-xs font-medium text-slate-400">Set {{ set.setNumber }}</span>
-        <button class="text-slate-500 hover:text-slate-300" @click="emit('cancel')">
-          <UIcon name="i-lucide-x" class="size-4" />
-        </button>
-      </div>
-      <div class="flex items-end gap-2">
-        <div class="flex-1">
-          <label class="mb-0.5 block text-xs text-slate-500">Weight</label>
-          <input
-            v-model.number="editWeight"
-            type="number"
-            inputmode="decimal"
-            step="any"
-            class="w-full rounded bg-slate-800 px-2 py-1.5 text-sm text-white outline-none ring-1 ring-slate-600 focus:ring-violet-500"
-            placeholder="lbs"
-          >
-        </div>
-        <div class="flex-1">
-          <label class="mb-0.5 block text-xs text-slate-500">Reps</label>
-          <input
-            v-model.number="editReps"
-            type="number"
-            inputmode="numeric"
-            class="w-full rounded bg-slate-800 px-2 py-1.5 text-sm text-white outline-none ring-1 ring-slate-600 focus:ring-violet-500"
-            placeholder="reps"
-          >
-        </div>
-      </div>
-      <div class="mt-2">
-        <UButton color="primary" size="xs" block class="rounded-sm" :loading="loading" @click="handleLog">
-          Log
-        </UButton>
-      </div>
     </div>
   </div>
 
