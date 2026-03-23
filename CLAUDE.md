@@ -182,3 +182,7 @@ Custom subagents are defined in `.claude/agents/`. Available agents:
 - **code-reviewer** — Pre-PR code review (read-only).
 - **observability** — Logging and Sentry instrumentation verification.
 - **jsdoc-generator** — Add or improve JSDoc comments in JavaScript/TypeScript files.
+
+### Third-party Agent Skills
+
+Third-party skills (e.g., Supabase Postgres best practices) are installed locally in `.agents/` and **gitignored**. They are development tooling, not application code — do not commit them. Developers can install skills locally as needed.
