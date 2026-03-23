@@ -38,7 +38,9 @@ workout-tracker/
 │   ├── components/            # Reusable Vue components
 │   ├── composables/           # Shared logic (useAuth, useWorkout)
 │   ├── layouts/               # App shell layouts
-│   └── plugins/
+│   ├── types/                 # TypeScript type definitions
+│   ├── middleware/            # Client-side route middleware
+│   └── plugins/               # Nuxt plugins (v-wave, etc.)
 │       └── sentry.client.ts   # Sentry client-side init
 ├── public/                    # Static assets, PWA icons
 ├── nuxt.config.ts             # Nuxt + PWA + module config
@@ -127,7 +129,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ## Roadmap
 
-**Current phase: Phase 2 — API Iteration**
+**Current phase: Phase 3 — Frontend**
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
@@ -143,7 +145,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [x] Unit test harness
 - [x] Deploy to Vercel (initial production environment)
 
-### Phase 2 — API Iteration
+### Phase 2 — API Iteration ✅
 - [x] User-program management endpoints (save, activate, deactivate)
 - [x] Workout session lifecycle (start → complete sets → complete day)
 - [x] Day/week advancement logic
@@ -153,15 +155,15 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 ### Phase 3 — Frontend
 - [x] Mobile-first layout with Tailwind + Nuxt UI
 - [x] Program browser page
-- [ ] Active workout session UI
-- [ ] Auth flow pages (login, callback)
+- [x] Active workout session UI
+- [x] Auth flow pages (login, callback)
 - [ ] PWA install / offline config
 
 ### Phase 4 — Observability
 - [ ] pino structured logging middleware
 - [ ] Sentry error tracking (client + server)
 - [ ] Sentry performance tracing (API routes + Prisma)
-- [ ] `/api/health` endpoint
+- [x] `/api/health` endpoint
 
 ### Phase 5 — Polish & Iteration
 - [ ] Workout history views
@@ -179,9 +181,15 @@ Custom subagents are defined in `.claude/agents/`. Available agents:
 
 - **prisma-db** — Schema changes, migrations, seed scripts.
 - **nuxt-api** — Nitro server route implementation.
+- **nuxt-frontend** — Frontend pages, components, composables, and Vue/Nuxt client-side code.
 - **code-reviewer** — Pre-PR code review (read-only).
 - **observability** — Logging and Sentry instrumentation verification.
 - **jsdoc-generator** — Add or improve JSDoc comments in JavaScript/TypeScript files.
+- **verify-app** — Full QA pipeline verification (TypeScript, tests, build, smoke check).
+- **unit-test-writer** — Unit test creation for API routes, components, and composables.
+- **user-guide-writer** — User guide documentation updates for new features.
+- **vercel-deployment** — Vercel deployment debugging, configuration, and optimization.
+- **task-manager** — Save/restore context and maintain CLAUDE.md Roadmap.
 
 ### Third-party Agent Skills
 

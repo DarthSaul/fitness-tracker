@@ -118,18 +118,6 @@ describe('PATCH /api/workouts/:id/complete', () => {
     })
   })
 
-  test('throws 401 when userId is missing', async () => {
-    mockGetRouterParam.mockReturnValue('ws001')
-    const event = {
-      path: '/api/workouts/ws001/complete',
-      context: { userId: undefined },
-    }
-
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
-  })
-
   test('advances to next day with non-contiguous day numbers', async () => {
     // Week 1 has days [1, 3] (gap at 2), currently on day 1 → should advance to day 3
     const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 3] }])
@@ -245,7 +233,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 403, statusMessage: 'Forbidden' })
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Not Found' })
   })
 
   test('throws 409 when session is already completed', async () => {

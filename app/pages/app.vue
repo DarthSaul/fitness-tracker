@@ -1,5 +1,6 @@
 /**
  * Home dashboard page — shows weekly calendar strip, today's workout prompt, and active program status.
+ * Supports date selection to view scheduled workouts and schedule new ones.
  */
 <script setup lang="ts">
 definePageMeta({ layout: 'app' })
@@ -12,6 +13,16 @@ const nowRef = ref<Date | null>(null)
 
 onMounted(() => {
   nowRef.value = new Date()
+  selectedDate.value = new Date(nowRef.value.getFullYear(), nowRef.value.getMonth(), nowRef.value.getDate())
+})
+
+const selectedDate = ref<Date>(new Date())
+
+import { toDateString, isSameDay } from '~/utils/date'
+
+const isViewingToday = computed(() => {
+  if (!nowRef.value) return true
+  return isSameDay(selectedDate.value, nowRef.value)
 })
 
 const { data: activeProgram, status: activeProgramStatus, error: activeProgramError } = useFetch<{
@@ -23,15 +34,40 @@ const { data: activeProgram, status: activeProgramStatus, error: activeProgramEr
     id: string
     name: string
     description: string | null
-    weeks: { days: { id: string }[] }[]
+    weeks: Array<{
+      id: string
+      weekNumber: number
+      days: Array<{
+        id: string
+        dayNumber: number
+        name: string | null
+        exerciseGroups: Array<{
+          exercises: Array<{
+            sets: Array<{ id: string }>
+          }>
+        }>
+      }>
+    }>
   }
 }>('/api/user-programs/active')
 
 const { data: sessionsData, status: sessionsStatus } = useFetch<{
-  sessions: { status: 'IN_PROGRESS' | 'COMPLETED' }[]
+  sessions: Array<{ weekNumber: number; dayNumber: number; status: 'IN_PROGRESS' | 'COMPLETED' }>
 }>('/api/user-programs/active/sessions', {
   watch: [activeProgram],
 })
+
+// Scheduled workouts
+const userProgramId = computed(() => activeProgram.value?.id)
+const {
+  scheduledWorkouts,
+  scheduledDateStrings,
+  getScheduleForDate,
+  getScheduleForDay,
+  scheduleWorkout,
+  unscheduleWorkout,
+  fetchScheduledWorkouts,
+} = useScheduledWorkouts(userProgramId)
 
 const programTotalDays = computed(() => {
   if (!activeProgram.value) return 0
@@ -52,9 +88,12 @@ const isActiveProgramFetchError = computed(() => {
   return activeProgramError.value && activeProgramError.value.statusCode !== 404
 })
 
-const formattedToday = computed(() => {
+const formattedSelectedDate = computed(() => {
   if (!nowRef.value) return ''
-  return `Today, ${nowRef.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  if (isViewingToday.value) {
+    return `Today, ${selectedDate.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  }
+  return selectedDate.value.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
 })
 
 // Active workout session
@@ -93,103 +132,243 @@ const activeWorkoutProgress = computed(() => {
   const percent = Math.round((activeWorkoutCompletedSets.value / activeWorkoutTotalSets.value) * 100)
   return Math.max(0, Math.min(100, percent))
 })
+
+// Scheduled workout for the selected non-today date
+const scheduledForSelectedDate = computed(() => {
+  return getScheduleForDate(toDateString(selectedDate.value))
+})
+
+// For today view: check if next workout is scheduled for a future date
+const nextWorkoutSchedule = computed(() => {
+  if (!activeProgram.value) return null
+  return getScheduleForDay(activeProgram.value.currentWeek, activeProgram.value.currentDay)
+})
+
+const nextWorkoutIsScheduledForFuture = computed(() => {
+  if (!nextWorkoutSchedule.value || !nowRef.value) return false
+  const scheduledDate = new Date(nextWorkoutSchedule.value.scheduledDate)
+  const today = new Date(nowRef.value.getFullYear(), nowRef.value.getMonth(), nowRef.value.getDate())
+  return scheduledDate > today
+})
+
+const nextWorkoutScheduledLabel = computed(() => {
+  if (!nextWorkoutSchedule.value) return ''
+  const d = new Date(nextWorkoutSchedule.value.scheduledDate)
+  return `Scheduled for ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+})
+
+// Get the day name for a scheduled workout
+function getDayName(weekNumber: number, dayNumber: number): string | null {
+  if (!activeProgram.value) return null
+  const week = activeProgram.value.program.weeks.find(w => w.weekNumber === weekNumber)
+  const day = week?.days.find(d => d.dayNumber === dayNumber)
+  return day?.name ?? null
+}
+
+// Schedule modal
+const scheduleModalOpen = ref(false)
+
+const completedDaysList = computed(() => {
+  if (!sessionsData.value) return []
+  return sessionsData.value.sessions
+    .filter(s => s.status === 'COMPLETED')
+    .map(s => ({ weekNumber: s.weekNumber, dayNumber: s.dayNumber }))
+})
+
+const scheduleError = ref<string | null>(null)
+const unscheduling = ref(false)
+
+async function handleSchedule(weekNumber: number, dayNumber: number): Promise<void> {
+  scheduleError.value = null
+  try {
+    const dateStr = toDateString(selectedDate.value)
+    await scheduleWorkout(weekNumber, dayNumber, dateStr)
+    scheduleModalOpen.value = false
+  } catch (error) {
+    scheduleError.value = (error as Error).message || 'Failed to schedule workout'
+  }
+}
+
+async function handleUnschedule(): Promise<void> {
+  if (!scheduledForSelectedDate.value || unscheduling.value) return
+  unscheduling.value = true
+  scheduleError.value = null
+  try {
+    await unscheduleWorkout(scheduledForSelectedDate.value.id)
+  } catch (error) {
+    scheduleError.value = (error as Error).message || 'Failed to unschedule workout'
+  } finally {
+    unscheduling.value = false
+  }
+}
 </script>
 
 <template>
   <div class="space-y-6">
     <!-- Weekly calendar strip -->
-    <CalendarStrip :loading="!nowRef" />
+    <CalendarStrip
+      v-model="selectedDate"
+      :loading="!nowRef"
+      :scheduled-dates="scheduledDateStrings"
+    />
 
-    <!-- Today header -->
+    <!-- Date header -->
     <h2 class="text-lg font-semibold text-white">
-      {{ formattedToday }}
+      {{ formattedSelectedDate }}
     </h2>
 
-    <!-- Workout card skeleton -->
-    <div v-if="activeWorkoutStatus === 'pending'" class="h-24 animate-pulse rounded-lg bg-slate-800" />
+    <!-- ===== TODAY VIEW ===== -->
+    <template v-if="isViewingToday">
+      <!-- Workout card skeleton -->
+      <div v-if="activeWorkoutStatus === 'pending'" class="h-24 animate-pulse rounded-lg bg-slate-800" />
 
-    <!-- Resume workout with progress bar -->
-    <UCard
-      v-else-if="activeWorkout?.session"
-      v-wave
-      class="overflow-hidden border border-violet-500/30 py-1 cursor-pointer"
-      tabindex="0"
-      role="button"
-      :aria-label="`Resume workout: Week ${activeWorkout.session.weekNumber}, Day ${activeWorkout.session.dayNumber}`"
-      @click="resumeWorkout"
-      @keydown.enter="resumeWorkout"
-      @keydown.space.prevent="resumeWorkout"
-    >
-      <div class="flex items-center justify-between">
-        <p class="font-medium text-white">
-          Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
-        </p>
-        <span class="flex items-center gap-1 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
-          Resume
-          <UIcon name="i-lucide-chevron-right" class="size-3.5" />
-        </span>
-      </div>
-      <div class="mt-3 space-y-1">
-        <div class="h-3 overflow-hidden rounded-full bg-slate-800">
-          <div
-            class="h-full rounded-full bg-violet-600 transition-all duration-300"
-            :style="{ width: `${activeWorkoutProgress}%` }"
-          />
+      <!-- Resume workout with progress bar -->
+      <UCard
+        v-else-if="activeWorkout?.session"
+        v-wave
+        class="overflow-hidden border border-violet-500/30 py-1 cursor-pointer"
+        tabindex="0"
+        role="button"
+        :aria-label="`Resume workout: Week ${activeWorkout.session.weekNumber}, Day ${activeWorkout.session.dayNumber}`"
+        @click="resumeWorkout"
+        @keydown.enter="resumeWorkout"
+        @keydown.space.prevent="resumeWorkout"
+      >
+        <div class="flex items-center justify-between">
+          <p class="font-medium text-white">
+            Week {{ activeWorkout.session.weekNumber }}, Day {{ activeWorkout.session.dayNumber }}
+          </p>
+          <span class="flex items-center gap-1 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
+            Resume
+            <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+          </span>
         </div>
-        <p class="text-xs text-slate-400">
-          {{ activeWorkoutCompletedSets }} / {{ activeWorkoutTotalSets }} sets
-        </p>
-      </div>
-    </UCard>
-
-    <!-- Next day / Start workout card -->
-    <UCard
-      v-else-if="activeProgram"
-      v-wave
-      class="overflow-hidden py-1"
-      :class="startingWorkout ? 'opacity-70 cursor-wait' : 'cursor-pointer'"
-      :tabindex="startingWorkout ? -1 : 0"
-      role="button"
-      :aria-label="`Start workout: Week ${activeProgram.currentWeek}, Day ${activeProgram.currentDay}`"
-      :aria-busy="startingWorkout"
-      :aria-disabled="startingWorkout"
-      @click="!startingWorkout && handleStartWorkout()"
-      @keydown.enter="!startingWorkout && handleStartWorkout()"
-      @keydown.space.prevent="!startingWorkout && handleStartWorkout()"
-    >
-      <div class="flex items-end justify-between">
-        <div>
-          <p class="text-sm text-slate-400">Next up</p>
-          <p class="font-semibold text-white">
-            Week {{ activeProgram.currentWeek }}, Day {{ activeProgram.currentDay }}
+        <div class="mt-3 space-y-1">
+          <div class="h-3 overflow-hidden rounded-full bg-slate-800">
+            <div
+              class="h-full rounded-full bg-violet-600 transition-all duration-300"
+              :style="{ width: `${activeWorkoutProgress}%` }"
+            />
+          </div>
+          <p class="text-xs text-slate-400">
+            {{ activeWorkoutCompletedSets }} / {{ activeWorkoutTotalSets }} sets
           </p>
         </div>
-        <span class="flex items-center gap-1 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
-          <template v-if="startingWorkout">
-            <UIcon name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
-            Starting…
-          </template>
-          <template v-else>
-            Start
-            <UIcon name="i-lucide-chevron-right" class="size-3.5" />
-          </template>
-        </span>
-      </div>
-      <UAlert
-        v-if="workoutError"
-        color="error"
-        variant="subtle"
-        :title="workoutError"
-        class="mt-3"
-      />
-    </UCard>
+      </UCard>
 
-    <!-- No active program placeholder -->
-    <UCard v-else-if="activeProgramStatus !== 'pending'" class="py-1">
-      <div class="text-slate-400">
-        Next day in program
-      </div>
-    </UCard>
+      <!-- Next day / Start workout card -->
+      <UCard
+        v-else-if="activeProgram"
+        v-wave
+        class="overflow-hidden py-1"
+        :class="startingWorkout ? 'opacity-70 cursor-wait' : 'cursor-pointer'"
+        :tabindex="startingWorkout ? -1 : 0"
+        role="button"
+        :aria-label="`Start workout: Week ${activeProgram.currentWeek}, Day ${activeProgram.currentDay}`"
+        :aria-busy="startingWorkout"
+        :aria-disabled="startingWorkout"
+        @click="!startingWorkout && handleStartWorkout()"
+        @keydown.enter="!startingWorkout && handleStartWorkout()"
+        @keydown.space.prevent="!startingWorkout && handleStartWorkout()"
+      >
+        <div class="flex items-end justify-between">
+          <div>
+            <p class="text-sm text-slate-400">
+              {{ nextWorkoutIsScheduledForFuture ? nextWorkoutScheduledLabel : 'Next up' }}
+            </p>
+            <p class="font-semibold text-white">
+              Week {{ activeProgram.currentWeek }}, Day {{ activeProgram.currentDay }}
+              <span v-if="getDayName(activeProgram.currentWeek, activeProgram.currentDay)" class="font-normal text-slate-400">
+                — {{ getDayName(activeProgram.currentWeek, activeProgram.currentDay) }}
+              </span>
+            </p>
+          </div>
+          <span class="flex items-center gap-1 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
+            <template v-if="startingWorkout">
+              <UIcon name="i-lucide-loader-circle" class="size-3.5 animate-spin" />
+              Starting…
+            </template>
+            <template v-else>
+              {{ nextWorkoutIsScheduledForFuture ? 'Start early' : 'Start' }}
+              <UIcon name="i-lucide-chevron-right" class="size-3.5" />
+            </template>
+          </span>
+        </div>
+        <UAlert
+          v-if="workoutError"
+          color="error"
+          variant="subtle"
+          :title="workoutError"
+          class="mt-3"
+        />
+      </UCard>
+
+      <!-- No active program placeholder -->
+      <UCard v-else-if="activeProgramStatus !== 'pending'" class="py-1">
+        <div class="text-slate-400">
+          Next day in program
+        </div>
+      </UCard>
+    </template>
+
+    <!-- ===== NON-TODAY VIEW ===== -->
+    <template v-else>
+      <!-- Scheduled workout for this date -->
+      <UCard v-if="scheduledForSelectedDate" class="overflow-hidden py-1">
+        <div class="flex items-end justify-between">
+          <div>
+            <p class="text-sm text-slate-400">Scheduled</p>
+            <p class="font-semibold text-white">
+              Week {{ scheduledForSelectedDate.weekNumber }}, Day {{ scheduledForSelectedDate.dayNumber }}
+              <span v-if="getDayName(scheduledForSelectedDate.weekNumber, scheduledForSelectedDate.dayNumber)" class="font-normal text-slate-400">
+                — {{ getDayName(scheduledForSelectedDate.weekNumber, scheduledForSelectedDate.dayNumber) }}
+              </span>
+            </p>
+          </div>
+          <button
+            class="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            :disabled="unscheduling"
+            :class="unscheduling ? 'opacity-50 cursor-wait' : ''"
+            @click="handleUnschedule"
+          >
+            <template v-if="unscheduling">
+              <UIcon name="i-lucide-loader-circle" class="size-3 animate-spin inline" />
+            </template>
+            <template v-else>Unschedule</template>
+          </button>
+        </div>
+        <UAlert
+          v-if="scheduleError"
+          color="error"
+          variant="subtle"
+          :title="scheduleError"
+          class="mt-3"
+        />
+      </UCard>
+
+      <!-- No workout scheduled for this date -->
+      <UCard v-else-if="activeProgram" class="overflow-hidden py-1">
+        <div class="flex items-end justify-between">
+          <div>
+            <p class="font-medium text-slate-400">No workout scheduled</p>
+          </div>
+          <button
+            class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400 transition-colors hover:bg-violet-600/30"
+            @click="scheduleModalOpen = true"
+          >
+            Schedule a workout
+            <UIcon name="i-lucide-plus" class="size-3.5" />
+          </button>
+        </div>
+      </UCard>
+
+      <!-- No active program -->
+      <UCard v-else-if="activeProgramStatus !== 'pending'" class="py-1">
+        <div class="text-slate-400">
+          No active program
+        </div>
+      </UCard>
+    </template>
 
     <!-- Loading -->
     <div v-if="activeProgramStatus === 'pending' || sessionsStatus === 'pending'" class="grid grid-cols-[1fr_3fr] gap-3">
@@ -294,5 +473,16 @@ const activeWorkoutProgress = computed(() => {
         </UCard>
       </NuxtLink>
     </div>
+
+    <!-- Schedule workout modal -->
+    <ScheduleWorkoutModal
+      v-if="activeProgram"
+      v-model:open="scheduleModalOpen"
+      :target-date="selectedDate"
+      :program="activeProgram.program"
+      :scheduled-workouts="scheduledWorkouts"
+      :completed-days="completedDaysList"
+      @schedule="handleSchedule"
+    />
   </div>
 </template>

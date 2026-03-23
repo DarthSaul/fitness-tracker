@@ -47,9 +47,9 @@ vi.stubGlobal('prisma', {
   program: { findMany: vi.fn(), findUnique: vi.fn() },
   programDay: { findUnique: vi.fn(), findFirst: vi.fn() },
   userProgram: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
-  workoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+  workoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   exerciseSet: { findUnique: vi.fn() },
-  completedSet: { create: vi.fn(), findMany: vi.fn() },
+  completedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
 })
 
 // ── Supabase client global (used in Nitro server route handlers via auto-import) ─

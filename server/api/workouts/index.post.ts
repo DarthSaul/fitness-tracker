@@ -16,10 +16,6 @@ defineRouteMeta({
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
-  if (!userId) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
   try {
     const body = await readBody(event)
     const requestedWeek = body?.weekNumber
@@ -53,7 +49,8 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: 'No active program' })
       }
 
-      // Acquire row-level lock and re-read to get fresh values after any concurrent updates
+      // $queryRawUnsafe is needed for FOR UPDATE row-level locks (not expressible via Prisma's typed API).
+      // Safe: the only interpolated value ($1) uses parameterized binding, not string concatenation.
       const [lockedProgram] = await tx.$queryRawUnsafe<Array<{ currentWeek: number; currentDay: number; isActive: boolean; programId: string; id: string }>>(
         'SELECT id, "currentWeek", "currentDay", "isActive", "programId" FROM "UserProgram" WHERE id = $1 FOR UPDATE',
         activeProgram.id,

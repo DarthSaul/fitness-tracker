@@ -1,3 +1,4 @@
+/** Shared PrismaClient singleton — reuses the global instance in development to survive hot reloads. */
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => new PrismaClient();

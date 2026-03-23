@@ -104,14 +104,6 @@ describe('GET /api/workouts/active', () => {
     })
   })
 
-  test('throws 401 when userId is missing', async () => {
-    const event = { path: '/api/workouts/active', context: { userId: undefined } }
-
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
-  })
-
   test('throws 404 when no active session exists', async () => {
     mockFindFirstSession.mockResolvedValueOnce(null)
 

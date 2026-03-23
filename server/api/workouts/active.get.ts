@@ -15,10 +15,6 @@ defineRouteMeta({
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
-  if (!userId) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
-
   try {
     const session = await prisma.workoutSession.findFirst({
       where: { userId, status: 'IN_PROGRESS' },

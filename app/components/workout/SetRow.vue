@@ -1,3 +1,7 @@
+/**
+ * Renders a single prescribed set as pending, editing, or completed, with long-press support
+ * to reveal edit and delete actions on completed sets.
+ */
 <script setup lang="ts">
 import type { ExerciseSetDetail } from '~/types/program'
 import type { CompletedSetRecord } from '~/types/workout'
