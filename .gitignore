@@ -28,3 +28,6 @@ logs
 # Claude Code agent memory (machine-specific runtime data)
 .claude/agent-memory/
 .claude/worktrees/
+
+# Third-party agent skills (installed locally, not tracked)
+.agents/
