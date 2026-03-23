@@ -42,7 +42,7 @@
 			"Bash(gh pr list:*)",
 			"Bash(gh repo view:*)",
 			"Bash(gh api:*)",
-			"Bash(bash .claude/scripts/:*)"
+			"Bash(bash .claude/scripts/*)"
 		]
 	}
 }
