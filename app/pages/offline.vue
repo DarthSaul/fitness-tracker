@@ -2,6 +2,10 @@
 definePageMeta({
   layout: 'default',
 })
+
+function reload(): void {
+  window.location.reload()
+}
 </script>
 
 <template>
@@ -13,7 +17,7 @@ definePageMeta({
     </p>
     <button
       class="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white"
-      @click="() => window.location.reload()"
+      @click="reload"
     >
       Retry
     </button>

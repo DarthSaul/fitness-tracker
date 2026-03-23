@@ -11,11 +11,13 @@ const props = defineProps<{
   completedSet: CompletedSetRecord | null
   open: boolean
   loading: boolean
+  canDelete?: boolean
 }>()
 
 const emit = defineEmits<{
   log: [reps: number | null, weight: number | null]
   close: []
+  delete: []
 }>()
 
 const editWeight = ref<number | null>(null)
@@ -30,7 +32,7 @@ const isOpen = computed({
   },
 })
 
-// Reset form values when drawer opens
+// Reset form values when drawer opens (immediate: true handles the v-if mount-with-open=true case)
 watch(() => props.open, async (opened) => {
   if (opened) {
     editWeight.value = props.completedSet?.weight ?? props.set.weight
@@ -38,7 +40,7 @@ watch(() => props.open, async (opened) => {
     await nextTick()
     weightInputRef.value?.focus()
   }
-})
+}, { immediate: true })
 
 function handleLog(): void {
   const weight = Number.isFinite(editWeight.value) ? editWeight.value : null
@@ -122,6 +124,19 @@ function formatTarget(): string {
           @click="handleLog"
         >
           Log Set
+        </UButton>
+
+        <!-- Delete (only for already-completed sets) -->
+        <UButton
+          v-if="canDelete"
+          color="error"
+          variant="ghost"
+          size="sm"
+          block
+          class="mt-2"
+          @click="emit('delete'); emit('close')"
+        >
+          Delete Set
         </UButton>
       </div>
     </template>

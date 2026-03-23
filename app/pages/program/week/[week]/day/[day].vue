@@ -247,7 +247,6 @@ async function confirmDiscard(): Promise<void> {
           :editable="true"
           :recording-set-id="recordingSetId"
           @edit="handleEdit"
-          @delete-set="handleDeleteSet"
         />
       </div>
 
@@ -258,12 +257,14 @@ async function confirmDiscard(): Promise<void> {
         :set="editingSet"
         :completed-set="editingSetId ? (completedSets.get(editingSetId) ?? null) : null"
         :loading="recordingSetId !== null"
+        :can-delete="editingSetId ? completedSets.has(editingSetId) : false"
         @log="(reps, weight) => editingSetId && handleLog(editingSetId, reps, weight)"
+        @delete="editingSetId && handleDeleteSet(editingSetId); cancelEdit()"
         @close="cancelEdit"
       />
 
       <!-- Save button (only for IN_PROGRESS sessions) -->
-      <div v-if="session.status === 'IN_PROGRESS'" class="sticky bottom-20 pt-4">
+      <div v-if="session.status === 'IN_PROGRESS'" class="pt-4 pb-2">
         <UButton
           color="primary"
           size="lg"

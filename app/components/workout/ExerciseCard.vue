@@ -15,7 +15,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   edit: [exerciseSetId: string]
-  deleteSet: [exerciseSetId: string]
 }>()
 
 const expandedExercises = ref(new Set<string>())
@@ -124,7 +123,6 @@ function formatRest(seconds: number | null): string {
                   :loading="recordingSetId === set.id"
                   :editable="editable"
                   @edit="emit('edit', set.id)"
-                  @delete="emit('deleteSet', set.id)"
                 />
               </div>
             </div>
@@ -193,7 +191,6 @@ function formatRest(seconds: number | null): string {
               :loading="recordingSetId === set.id"
               :editable="editable"
               @edit="emit('edit', set.id)"
-              @delete="emit('deleteSet', set.id)"
             />
           </div>
         </div>
