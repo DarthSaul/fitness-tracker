@@ -49,6 +49,7 @@ model User {
 
   userPrograms    UserProgram[]
   workoutSessions WorkoutSession[]
+  feedback        Feedback[]
 
   @@unique([provider, providerId])
 }
@@ -207,4 +208,20 @@ model ScheduledWorkout {
 
   @@unique([userProgramId, weekNumber, dayNumber])
   @@unique([userProgramId, scheduledDate])
+}
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+model Feedback {
+  id         String   @id @default(cuid())
+  userId     String
+  content    String
+  addressed  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
