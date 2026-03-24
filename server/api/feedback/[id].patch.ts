@@ -14,7 +14,10 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
-  const id = getRouterParam(event, 'id') as string
+  const id = getRouterParam(event, 'id')
+  if (!id?.trim()) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing feedback ID' })
+  }
   const body = await readBody(event)
 
   if (typeof body?.addressed !== 'boolean') {
