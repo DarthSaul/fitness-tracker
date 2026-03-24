@@ -347,7 +347,8 @@ async function handleUnschedule(): Promise<void> {
       <UCard v-else-if="activeProgram" class="overflow-hidden py-1">
         <div class="flex items-end justify-between">
           <div>
-            <p class="font-medium text-slate-400">No workout scheduled</p>
+            <p class="text-sm text-slate-400">Scheduled</p>
+            <p class="font-semibold text-white">No workout scheduled</p>
           </div>
           <button
             class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400 transition-colors hover:bg-violet-600/30"

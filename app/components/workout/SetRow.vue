@@ -74,6 +74,6 @@ function formatEffort(effortTarget: string | null | undefined): string {
   display: grid;
   grid-template-columns: 0.5fr 1.5fr 1fr 1.5fr 0.75fr;
   align-items: center;
-  padding: 0.375rem 0;
+  padding: 0.5rem 0;
 }
 </style>
