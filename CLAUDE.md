@@ -170,10 +170,12 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [ ] Additional programs seeded
 - [ ] Offline support (service worker caching)
 - [ ] Invite system
+- [ ] Accessibility review (aria-labels, aria-pressed, keyboard nav, screen reader testing)
 
 ### Backlog
 - [ ] Configure Apple OAuth
 - [ ] RPE tracking (optional, user-enabled in settings)
+- [ ] Fix iPadOS desktop UA detection in `PwaInstallBanner.vue` — iPads in Safari desktop-class mode (iPadOS 13+) report `Macintosh` UA; extend `isIOS` computed to also check `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1`
 
 ## Subagents
 
