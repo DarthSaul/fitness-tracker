@@ -189,7 +189,7 @@ function formatRest(seconds: number | null): string {
     >
       <div class="min-h-0">
         <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
-          <div class="set-grid pb-1.5 text-[10px] uppercase tracking-wider text-slate-500">
+          <div class="set-grid pb-2 text-[10px] uppercase tracking-wider text-slate-500">
             <span class="text-center font-medium">#</span>
             <span class="text-center font-medium">lb</span>
             <span class="text-center font-medium">Reps</span>
