@@ -21,7 +21,7 @@ const navItems = [
   { label: 'Home', icon: '🏋️', to: '/app' },
   { label: 'Programs', icon: '📋', to: '/programs' },
   { label: 'Analytics', icon: '📊', to: '/analytics' },
-  { label: 'Settings', icon: '⚙️', to: '/settings' },
+  { label: 'Feedback', icon: '💬', to: '/feedback' },
 ]
 
 /** Returns true when the given route path matches or is a child of the current route, used to highlight the active nav item. */
