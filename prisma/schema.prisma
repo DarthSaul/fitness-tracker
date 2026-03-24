@@ -215,10 +215,11 @@ model ScheduledWorkout {
 // ---------------------------------------------------------------------------
 
 model Feedback {
-  id        String   @id @default(cuid())
-  userId    String
-  content   String
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  content    String
+  addressed  Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
