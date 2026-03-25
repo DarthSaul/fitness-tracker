@@ -47,7 +47,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col overflow-hidden" style="height: 100dvh; background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%)">
+  <div class="fixed inset-0 flex flex-col overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%)">
     <!-- Header -->
     <header
       class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 pb-3 transition-colors duration-300"

@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
+  ssr: false,
   devtools: { enabled: true },
   modules: ['nuxt-auth-utils', '@nuxt/ui', '@vite-pwa/nuxt'],
   runtimeConfig: {
@@ -70,9 +71,7 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: '/offline',
       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-      navigateFallbackDenylist: [/^\/api\//],
     },
   },
   nitro: {
