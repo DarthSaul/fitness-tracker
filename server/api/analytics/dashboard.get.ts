@@ -79,7 +79,15 @@ export default defineEventHandler(async (event) => {
     const sessions = await prisma.workoutSession.findMany({
       where: { userId, status: 'COMPLETED' },
       include: {
-        completedSets: { select: { reps: true, weight: true } },
+        completedSets: {
+          select: {
+            reps: true,
+            weight: true,
+            exerciseSet: {
+              include: { programExercise: { select: { exerciseId: true } } },
+            },
+          },
+        },
       },
       orderBy: { completedAt: 'asc' },
     })
@@ -87,13 +95,18 @@ export default defineEventHandler(async (event) => {
     const totalSessions = sessions.length
 
     let totalVolumeLbs = 0
+    const exerciseIdSet = new Set<string>()
+
     for (const session of sessions) {
       for (const set of session.completedSets) {
         if (set.reps != null && set.weight != null) {
           totalVolumeLbs += set.reps * set.weight
         }
+        exerciseIdSet.add(set.exerciseSet.programExercise.exerciseId)
       }
     }
+
+    const totalExercises = exerciseIdSet.size
 
     const lastSession = sessions[sessions.length - 1]
     const lastWorkoutAt = lastSession?.completedAt?.toISOString() ?? null
@@ -103,29 +116,6 @@ export default defineEventHandler(async (event) => {
       .filter((d): d is Date => d != null)
 
     const { longestStreakDays, currentStreakDays } = computeStreaks(completedAtDates)
-
-    // Fetch distinct exercise IDs via completed sets in completed sessions
-    const exerciseSets = await prisma.completedSet.findMany({
-      where: {
-        workoutSession: { userId, status: 'COMPLETED' },
-      },
-      include: {
-        exerciseSet: {
-          include: {
-            programExercise: {
-              select: { exerciseId: true },
-            },
-          },
-        },
-      },
-    })
-
-    const exerciseIdSet = new Set<string>()
-    for (const cs of exerciseSets) {
-      exerciseIdSet.add(cs.exerciseSet.programExercise.exerciseId)
-    }
-
-    const totalExercises = exerciseIdSet.size
 
     return {
       totalSessions,

@@ -49,23 +49,48 @@ export function useAnalytics() {
   const exerciseHistory = ref<AnalyticsExerciseHistory | null>(null)
   const historyStatus = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
 
+  // Tracks the AbortController for the in-flight request. When a new exercise
+  // is selected before the previous fetch completes, the old controller is
+  // aborted and its result is ignored even if the response still arrives.
+  let currentController: AbortController | null = null
+
   async function selectExercise(id: string) {
+    // Toggle off when the same exercise is tapped again
     if (selectedExerciseId.value === id) {
+      currentController?.abort()
+      currentController = null
       selectedExerciseId.value = null
       exerciseHistory.value = null
       historyStatus.value = 'idle'
       return
     }
+
+    // Cancel any in-flight request for a previous selection
+    currentController?.abort()
+    const controller = new AbortController()
+    currentController = controller
+
     selectedExerciseId.value = id
     exerciseHistory.value = null
     historyStatus.value = 'pending'
+
     try {
-      exerciseHistory.value = await $fetch<AnalyticsExerciseHistory>(
-        `/api/analytics/exercises/${id}`
+      const result = await $fetch<AnalyticsExerciseHistory>(
+        `/api/analytics/exercises/${encodeURIComponent(id)}`,
+        { signal: controller.signal },
       )
-      historyStatus.value = 'success'
+
+      // Ignore stale responses if a newer request has already started
+      if (currentController === controller) {
+        exerciseHistory.value = result
+        historyStatus.value = 'success'
+        currentController = null
+      }
     } catch {
-      historyStatus.value = 'error'
+      if (currentController === controller) {
+        historyStatus.value = 'error'
+        currentController = null
+      }
     }
   }
 

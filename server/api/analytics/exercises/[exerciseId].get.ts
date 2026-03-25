@@ -67,10 +67,14 @@ export default defineEventHandler(async (event) => {
     for (const cs of completedSets) {
       const { id: sessionId, completedAt, weekNumber, dayNumber } = cs.workoutSession
 
+      // completedAt is nullable in the schema; COMPLETED sessions always have it
+      // in practice, but skip defensively to avoid a runtime crash if null.
+      if (!completedAt) continue
+
       if (!sessionMap.has(sessionId)) {
         sessionMap.set(sessionId, {
           sessionId,
-          completedAt: completedAt!,
+          completedAt,
           weekNumber,
           dayNumber,
           sets: [],

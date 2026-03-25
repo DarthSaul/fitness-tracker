@@ -2,9 +2,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 import handler from './[exerciseId].get'
 
-// prisma.exercise is not in the global stub — cast through any to access it.
-// NOTE: vitest.setup.ts will need `exercise: { findUnique: vi.fn() }` added to
-// the prisma global stub for this to work at runtime.
+// prisma.exercise exists in the global stub (vitest.setup.ts). Cast through
+// unknown so TypeScript resolves the mock type without needing to import Prisma.
 const mockFindUniqueExercise = (prisma as unknown as { exercise: { findUnique: ReturnType<typeof vi.fn> } }).exercise.findUnique as ReturnType<typeof vi.fn>
 const mockFindManyCompletedSets = (prisma as typeof prisma).completedSet.findMany as ReturnType<typeof vi.fn>
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
