@@ -18,7 +18,7 @@ const firstName = computed(() => {
 const settingsOpen = ref(false)
 
 const navItems = [
-  { label: 'Home', icon: '🏋️', to: '/app' },
+  { label: 'Home', icon: '🏋️', to: '/' },
   { label: 'Programs', icon: '📋', to: '/programs' },
   { label: 'Analytics', icon: '📊', to: '/analytics' },
   { label: 'Feedback', icon: '💬', to: '/feedback' },

@@ -8,7 +8,7 @@ const isUnauthorized = computed(
 )
 
 function handleError() {
-  clearError({ redirect: isUnauthorized.value ? '/login' : '/app' })
+  clearError({ redirect: isUnauthorized.value ? '/login' : '/' })
 }
 </script>
 

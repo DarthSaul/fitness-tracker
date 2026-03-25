@@ -35,9 +35,9 @@ export default defineNuxtConfig({
     manifest: {
       name: 'Workout Tracker',
       short_name: 'Workout',
-      start_url: '/app',
+      start_url: '/',
       scope: '/',
-      id: '/app',
+      id: '/',
       display: 'standalone',
       orientation: 'portrait',
       theme_color: '#0f0a1e',

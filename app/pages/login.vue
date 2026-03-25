@@ -61,12 +61,12 @@ async function handleEmailSubmit() {
         successMessage.value = 'Check your email to confirm your account before signing in.'
       }
       else {
-        await navigateTo('/app')
+        await navigateTo('/')
       }
     }
     else {
       await signInWithEmail(email.value, password.value)
-      await navigateTo('/app')
+      await navigateTo('/')
     }
   }
   catch (err: unknown) {

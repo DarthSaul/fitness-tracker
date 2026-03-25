@@ -2,10 +2,10 @@ defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
     summary: 'Google OAuth login',
-    description: 'Initiates the Google OAuth authorization redirect. On successful callback, upserts the user and establishes a session, then redirects to /app.',
+    description: 'Initiates the Google OAuth authorization redirect. On successful callback, upserts the user and establishes a session, then redirects to /.',
     responses: {
       302: {
-        description: 'Redirects to Google OAuth consent screen or to /app after successful login',
+        description: 'Redirects to Google OAuth consent screen or to / after successful login',
       },
     },
   },
@@ -55,7 +55,7 @@ export default defineOAuthGoogleEventHandler({
         },
       })
 
-      return sendRedirect(event, '/app')
+      return sendRedirect(event, '/')
     }
     catch (error) {
       console.error('Google OAuth upsert error:', error)

@@ -60,7 +60,7 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
   <div class="space-y-4">
     <!-- Header -->
     <div class="flex items-center gap-3">
-      <NuxtLink to="/app">
+      <NuxtLink to="/">
         <UButton
           icon="i-lucide-arrow-left"
           color="neutral"
