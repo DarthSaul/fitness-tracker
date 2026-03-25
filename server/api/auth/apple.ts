@@ -2,10 +2,10 @@ defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
     summary: 'Apple OAuth login',
-    description: 'Handles Apple OAuth flow (GET redirect + POST callback via form_post). On success, upserts the user and establishes a session, then redirects to /app.',
+    description: 'Handles Apple OAuth flow (GET redirect + POST callback via form_post). On success, upserts the user and establishes a session, then redirects to /.',
     responses: {
       302: {
-        description: 'Redirects to Apple OAuth consent screen or to /app after successful login',
+        description: 'Redirects to Apple OAuth consent screen or to / after successful login',
       },
     },
   },
@@ -66,7 +66,7 @@ export default defineOAuthAppleEventHandler({
         },
       })
 
-      return sendRedirect(event, '/app')
+      return sendRedirect(event, '/')
     }
     catch (error) {
       console.error('Apple OAuth upsert error:', error)

@@ -2,16 +2,13 @@
  * Tests for app/middleware/auth.global.ts
  *
  * Coverage strategy:
- *  - Root redirect: / → /app (logged in) or /login (logged out)
+ *  - Root path (/): unauthenticated redirects to /login; authenticated passes through
  *  - /programs protection: unauthenticated redirects to /login
  *  - /programs sub-paths: unauthenticated redirects to /login
  *  - /programs does NOT redirect authenticated users
- *  - /app protection: unauthenticated redirects to /login (regression guard)
- *  - /app sub-paths: unauthenticated redirects to /login
- *  - /app does NOT redirect authenticated users
  *  - /workout protection: unauthenticated redirects to /login
  *  - /workout does NOT redirect authenticated users
- *  - /login redirect: authenticated users are sent to /app
+ *  - /login redirect: authenticated users are sent to /
  *  - /login is accessible to unauthenticated users (no redirect)
  *  - Unrelated public paths pass through without redirecting
  *
@@ -50,24 +47,16 @@ describe('app/middleware/auth.global', () => {
   }
 
   describe('root path (/)', () => {
-    test('redirects authenticated users to /app', () => {
-      setLoggedIn(true)
-      ;(middleware as MiddlewareFn)(makeTo('/'))
-      expect(mockNavigateTo).toHaveBeenCalledWith('/app')
-    })
-
     test('redirects unauthenticated users to /login', () => {
       setLoggedIn(false)
       ;(middleware as MiddlewareFn)(makeTo('/'))
       expect(mockNavigateTo).toHaveBeenCalledWith('/login')
     })
 
-    test('does not fall through to the protected-prefix check', () => {
-      setLoggedIn(false)
+    test('does NOT redirect authenticated users on /', () => {
+      setLoggedIn(true)
       ;(middleware as MiddlewareFn)(makeTo('/'))
-      // navigateTo is called once for the root redirect, not again for a
-      // protected-prefix 401 redirect
-      expect(mockNavigateTo).toHaveBeenCalledOnce()
+      expect(mockNavigateTo).not.toHaveBeenCalled()
     })
   })
 
@@ -103,42 +92,30 @@ describe('app/middleware/auth.global', () => {
     })
   })
 
-  describe('/app route protection (regression guard)', () => {
-    test('redirects unauthenticated users on /app to /login', () => {
-      setLoggedIn(false)
-      ;(middleware as MiddlewareFn)(makeTo('/app'))
-      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
-    })
-
-    test('redirects unauthenticated users on /app/dashboard to /login', () => {
-      setLoggedIn(false)
-      ;(middleware as MiddlewareFn)(makeTo('/app/dashboard'))
-      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
-    })
-
-    test('does NOT redirect authenticated users on /app', () => {
-      setLoggedIn(true)
-      ;(middleware as MiddlewareFn)(makeTo('/app'))
-      expect(mockNavigateTo).not.toHaveBeenCalled()
-    })
-
-    test('does NOT redirect authenticated users on /app sub-paths', () => {
-      setLoggedIn(true)
-      ;(middleware as MiddlewareFn)(makeTo('/app/workout/active'))
-      expect(mockNavigateTo).not.toHaveBeenCalled()
-    })
-  })
-
   describe('/login route behaviour', () => {
-    test('redirects authenticated users on /login to /app', () => {
+    test('redirects authenticated users on /login to /', () => {
       setLoggedIn(true)
       ;(middleware as MiddlewareFn)(makeTo('/login'))
-      expect(mockNavigateTo).toHaveBeenCalledWith('/app')
+      expect(mockNavigateTo).toHaveBeenCalledWith('/')
     })
 
     test('does NOT redirect unauthenticated users on /login', () => {
       setLoggedIn(false)
       ;(middleware as MiddlewareFn)(makeTo('/login'))
+      expect(mockNavigateTo).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('/feedback route protection', () => {
+    test('redirects unauthenticated users on /feedback to /login', () => {
+      setLoggedIn(false)
+      ;(middleware as MiddlewareFn)(makeTo('/feedback'))
+      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
+    })
+
+    test('does NOT redirect authenticated users on /feedback', () => {
+      setLoggedIn(true)
+      ;(middleware as MiddlewareFn)(makeTo('/feedback'))
       expect(mockNavigateTo).not.toHaveBeenCalled()
     })
   })
@@ -162,12 +139,6 @@ describe('app/middleware/auth.global', () => {
       setLoggedIn(false)
       // e.g., a hypothetical /programslist path must not be treated as /programs
       ;(middleware as MiddlewareFn)(makeTo('/programslist'))
-      expect(mockNavigateTo).not.toHaveBeenCalled()
-    })
-
-    test('does not redirect unauthenticated users on a path that starts with /app but is not /app or /app/', () => {
-      setLoggedIn(false)
-      ;(middleware as MiddlewareFn)(makeTo('/application'))
       expect(mockNavigateTo).not.toHaveBeenCalled()
     })
   })

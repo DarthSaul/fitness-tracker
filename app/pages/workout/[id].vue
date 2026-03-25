@@ -34,7 +34,7 @@ onMounted(async () => {
   try {
     const found = await loadActiveSession()
     if (!found || session.value?.id !== sessionId.value) {
-      await router.replace('/app')
+      await router.replace('/')
       return
     }
   } catch {
@@ -76,7 +76,7 @@ async function confirmComplete(): Promise<void> {
     if (result.programCompleted) {
       programCompleted.value = true
     } else {
-      await router.push('/app')
+      await router.push('/')
     }
   } catch {
     // Error is handled by completing state resetting
@@ -85,14 +85,14 @@ async function confirmComplete(): Promise<void> {
 
 async function handlePause(): Promise<void> {
   endDialogOpen.value = false
-  await router.push('/app')
+  await router.push('/')
 }
 
 async function handleDiscard(): Promise<void> {
   try {
     await abandonWorkout()
     endDialogOpen.value = false
-    await router.push('/app')
+    await router.push('/')
   } catch {
     // Error handled by abandoning state
   }
@@ -122,7 +122,7 @@ async function handleDiscard(): Promise<void> {
       <p class="text-slate-400">
         Congratulations! You've finished every workout in this program.
       </p>
-      <UButton color="primary" size="lg" @click="router.push('/app')">
+      <UButton color="primary" size="lg" @click="router.push('/')">
         Back to Home
       </UButton>
     </div>
@@ -131,7 +131,7 @@ async function handleDiscard(): Promise<void> {
     <template v-else-if="session && day">
       <!-- Header -->
       <div class="flex items-center gap-3">
-        <NuxtLink to="/app">
+        <NuxtLink to="/">
           <UButton
             icon="i-lucide-arrow-left"
             color="neutral"
