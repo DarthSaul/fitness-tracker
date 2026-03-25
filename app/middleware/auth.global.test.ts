@@ -106,6 +106,20 @@ describe('app/middleware/auth.global', () => {
     })
   })
 
+  describe('/feedback route protection', () => {
+    test('redirects unauthenticated users on /feedback to /login', () => {
+      setLoggedIn(false)
+      ;(middleware as MiddlewareFn)(makeTo('/feedback'))
+      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
+    })
+
+    test('does NOT redirect authenticated users on /feedback', () => {
+      setLoggedIn(true)
+      ;(middleware as MiddlewareFn)(makeTo('/feedback'))
+      expect(mockNavigateTo).not.toHaveBeenCalled()
+    })
+  })
+
   describe('/workout route protection', () => {
     test('redirects unauthenticated users on /workout/abc to /login', () => {
       setLoggedIn(false)
