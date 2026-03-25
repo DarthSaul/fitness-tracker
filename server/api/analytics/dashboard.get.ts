@@ -108,12 +108,13 @@ export default defineEventHandler(async (event) => {
 
     const totalExercises = exerciseIdSet.size
 
-    const lastSession = sessions[sessions.length - 1]
-    const lastWorkoutAt = lastSession?.completedAt?.toISOString() ?? null
-
     const completedAtDates = sessions
       .map((s) => s.completedAt)
       .filter((d): d is Date => d != null)
+
+    const lastWorkoutAt = completedAtDates.length > 0
+      ? completedAtDates[completedAtDates.length - 1]!.toISOString()
+      : null
 
     const { longestStreakDays, currentStreakDays } = computeStreaks(completedAtDates)
 

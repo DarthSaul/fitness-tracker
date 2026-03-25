@@ -200,6 +200,20 @@ describe('GET /api/analytics/dashboard', () => {
     expect(result.lastWorkoutAt).toBeNull()
   })
 
+  test('lastWorkoutAt returns most recent non-null completedAt when last session has null completedAt', async () => {
+    // The final session (by ascending sort) has null completedAt — lastWorkoutAt must use the earlier non-null date
+    const nonNullDate = new Date('2026-03-22T12:00:00.000Z')
+    mockFindManySessions.mockResolvedValueOnce([
+      makeSession({ id: 'ws001', completedAt: nonNullDate }),
+      makeSession({ id: 'ws002', completedAt: null }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ lastWorkoutAt: string | null }>)(event)
+
+    expect(result.lastWorkoutAt).toBe(nonNullDate.toISOString())
+  })
+
   test('totalExercises counts distinct exercises from session completedSets', async () => {
     // Two sets for same exercise (ex001) across two sessions + one for a different exercise (ex002)
     mockFindManySessions.mockResolvedValueOnce([
@@ -223,21 +237,26 @@ describe('GET /api/analytics/dashboard', () => {
   })
 
   test('currentStreakDays is 1 when only today has a session', async () => {
-    const todayStr = new Date().toISOString().slice(0, 10)
-    const todayDate = new Date(`${todayStr}T10:00:00.000Z`)
-    mockFindManySessions.mockResolvedValueOnce([makeSession({ completedAt: todayDate })])
+    const fixedNow = new Date('2026-03-24T12:00:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNow)
+
+    mockFindManySessions.mockResolvedValueOnce([makeSession({ completedAt: fixedNow })])
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<{ currentStreakDays: number }>)(event)
 
+    vi.useRealTimers()
     expect(result.currentStreakDays).toBe(1)
   })
 
   test('currentStreakDays counts consecutive days ending today', async () => {
-    const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
+    const fixedNow = new Date('2026-03-24T12:00:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNow)
+
     const makeDay = (daysAgo: number) => {
-      const d = new Date(`${todayStr}T10:00:00.000Z`)
+      const d = new Date('2026-03-24T10:00:00.000Z')
       d.setUTCDate(d.getUTCDate() - daysAgo)
       return d
     }
@@ -250,16 +269,21 @@ describe('GET /api/analytics/dashboard', () => {
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<{ currentStreakDays: number }>)(event)
 
+    vi.useRealTimers()
     expect(result.currentStreakDays).toBe(3)
   })
 
   test('currentStreakDays is 0 when last session was more than one day ago', async () => {
-    const threeDaysAgo = new Date('2026-03-21T10:00:00.000Z')
-    mockFindManySessions.mockResolvedValueOnce([makeSession({ completedAt: threeDaysAgo })])
+    const fixedNow = new Date('2026-03-24T12:00:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNow)
+
+    mockFindManySessions.mockResolvedValueOnce([makeSession({ completedAt: new Date('2026-03-21T10:00:00.000Z') })])
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<{ currentStreakDays: number }>)(event)
 
+    vi.useRealTimers()
     expect(result.currentStreakDays).toBe(0)
   })
 

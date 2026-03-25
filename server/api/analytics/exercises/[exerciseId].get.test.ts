@@ -24,7 +24,7 @@ function makeCompletedSet(overrides: {
   reps?: number | null
   weight?: number | null
   workoutSessionId?: string
-  completedAt?: Date
+  completedAt?: Date | null
   weekNumber?: number
   dayNumber?: number
 } = {}) {
@@ -343,6 +343,23 @@ describe('GET /api/analytics/exercises/:exerciseId', () => {
       dbError,
     )
     consoleSpy.mockRestore()
+  })
+
+  test('skips completed sets where workoutSession.completedAt is null (no crash, row not counted)', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([
+      makeCompletedSet({ id: 'cs001', completedAt: null }),
+      makeCompletedSet({ id: 'cs002', reps: 10, weight: 135 }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{
+      history: { sessionId: string; sets: unknown[] }[]
+    }>)(event)
+
+    // Only the set with a valid completedAt is included
+    expect(result.history).toHaveLength(1)
+    expect(result.history[0]!.sets).toHaveLength(1)
   })
 
   test('re-throws H3 errors without wrapping as 500', async () => {
