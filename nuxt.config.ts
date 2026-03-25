@@ -72,6 +72,8 @@ export default defineNuxtConfig({
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+      navigateFallback: '/',
+      navigateFallbackDenylist: [/^\/api\//],
     },
   },
   nitro: {
