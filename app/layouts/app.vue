@@ -69,13 +69,16 @@ onUnmounted(() => {
     </header>
 
     <!-- Main content -->
-    <main ref="mainEl" class="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-4 pb-6" style="padding-top: calc(env(safe-area-inset-top) + 5rem)">
+    <main ref="mainEl" class="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-4" style="padding-top: calc(env(safe-area-inset-top) + 5rem); padding-bottom: calc(env(safe-area-inset-bottom) + 5rem)">
       <slot />
     </main>
 
     <!-- Bottom nav -->
-    <nav class="z-10 mx-auto w-full shrink-0 max-w-lg px-4 pt-2" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem)">
-      <div class="flex items-center justify-around rounded-2xl bg-slate-800/90 p-2 backdrop-blur-md">
+    <nav
+      class="fixed bottom-0 left-0 right-0 z-10 bg-slate-900/95 backdrop-blur-md"
+      style="padding-bottom: env(safe-area-inset-bottom)"
+    >
+      <div class="mx-auto flex max-w-lg items-center justify-around px-4 py-2">
         <template v-for="item in navItems" :key="item.label">
           <NuxtLink
             v-if="item.to"
