@@ -187,7 +187,8 @@ const nextWorkoutSchedule = computed(() => {
 
 const nextWorkoutIsScheduledForFuture = computed(() => {
 	if (!nextWorkoutSchedule.value || !nowRef.value) return false;
-	const scheduledDate = new Date(nextWorkoutSchedule.value.scheduledDate);
+	const [y, m, d] = nextWorkoutSchedule.value.scheduledDate.split('-').map(Number);
+	const scheduledDate = new Date(y, m - 1, d);
 	const today = new Date(
 		nowRef.value.getFullYear(),
 		nowRef.value.getMonth(),
@@ -198,8 +199,9 @@ const nextWorkoutIsScheduledForFuture = computed(() => {
 
 const nextWorkoutScheduledLabel = computed(() => {
 	if (!nextWorkoutSchedule.value) return '';
-	const d = new Date(nextWorkoutSchedule.value.scheduledDate);
-	return `Scheduled for ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+	const [y, m, d] = nextWorkoutSchedule.value.scheduledDate.split('-').map(Number);
+	const date = new Date(y, m - 1, d);
+	return `Scheduled for ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 });
 
 const nextWorkoutExercises = computed(() => {
@@ -426,8 +428,8 @@ async function handleUnschedule(): Promise<void> {
 						class="mt-2 space-y-1"
 					>
 						<li
-							v-for="name in nextWorkoutExercises.slice(0, 3)"
-							:key="name"
+							v-for="(name, i) in nextWorkoutExercises.slice(0, 3)"
+							:key="i"
 							class="flex items-center gap-2 text-sm text-slate-300"
 						>
 							<span
