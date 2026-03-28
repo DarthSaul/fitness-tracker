@@ -42,12 +42,29 @@ You are an expert Nuxt 4 frontend developer with deep knowledge of Vue 3 Composi
 - Use `lazy: true` when the data isn't needed for SSR
 - Use `server: false` for client-only data that shouldn't block SSR
 
+### Data Caching
+
+- Every `useFetch` call for server data that should persist across client-side navigations must include `key` + `getCachedData`:
+  ```typescript
+  useFetch('/api/some-endpoint', {
+    key: CACHE_KEYS.SOME_KEY,
+    getCachedData: (key) => getCached(key),
+  })
+  ```
+- `CACHE_KEYS` and `getCached` are defined in `app/composables/useAppCache.ts` and auto-imported.
+- After any mutation that changes server state, call `clearNuxtData(CACHE_KEYS.RELEVANT_KEY)` for all affected keys so the next navigation re-fetches fresh data.
+- Do **not** add new cache keys ad-hoc — add them to `CACHE_KEYS` in `useAppCache.ts` to keep the full list in one place.
+
 ### Component Design
 
 - Mobile-first responsive design with Tailwind
 - Use Nuxt UI components where available
 - TypeScript props with explicit types using `defineProps<T>()`
 - Emit types with `defineEmits<T>()`
+
+### Mobile / WebKit
+
+- All interactive inputs (`input`, `textarea`, `select`) must have a minimum font size of 16px (`text-base` or larger in Tailwind). iOS/WebKit auto-zooms the viewport on focus for any input with font-size < 16px and does **not** zoom back out on blur — this permanently shifts the viewport until the user manually pinches out.
 
 ### SSR Best Practices
 

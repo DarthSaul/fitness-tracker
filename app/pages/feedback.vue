@@ -81,7 +81,7 @@ function formatDate(iso: string) {
         v-model="content"
         rows="4"
         placeholder="What's on your mind?"
-        class="w-full resize-none rounded-xl bg-slate-800 px-4 py-3 text-sm text-white placeholder-slate-500 outline-none ring-1 ring-slate-700 focus:ring-violet-500 transition-colors"
+        class="w-full resize-none rounded-xl bg-slate-800 px-4 py-3 text-base text-white placeholder-slate-500 outline-none ring-1 ring-slate-700 focus:ring-violet-500 transition-colors"
       />
 
       <button

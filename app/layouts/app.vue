@@ -2,6 +2,8 @@
  * Shared authenticated app shell providing a fixed header, bottom navigation, and a centred main content slot.
  */
 <script setup lang="ts">
+import type { ActiveWorkoutResponse } from '~/types/workout'
+
 const { user } = useAuth()
 const route = useRoute()
 
@@ -16,6 +18,15 @@ const firstName = computed(() => {
 })
 
 const settingsOpen = ref(false)
+
+const { data: activeWorkout } = useFetch<ActiveWorkoutResponse>('/api/workouts/active', {
+  key: CACHE_KEYS.ACTIVE_WORKOUT,
+  getCachedData: (key) => getCached<ActiveWorkoutResponse>(key),
+  server: false,
+})
+
+const isOnWorkoutPage = computed(() => route.path.startsWith('/workout/'))
+const showResumeChip = computed(() => !!activeWorkout.value?.session && !isOnWorkoutPage.value)
 
 const navItems = [
   { label: 'Home', icon: '🏋️', to: '/' },
@@ -50,26 +61,43 @@ onUnmounted(() => {
   <div class="fixed inset-0 flex flex-col overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%)">
     <!-- Header -->
     <header
-      class="fixed top-0 right-0 left-0 z-10 flex items-center justify-between px-4 pb-3 transition-colors duration-300"
+      class="fixed top-0 right-0 left-0 z-10 px-4 pb-3 transition-colors duration-300"
       :class="scrolled ? 'bg-slate-950/80 backdrop-blur-md' : ''"
       style="padding-top: calc(env(safe-area-inset-top) + 0.75rem)"
     >
-      <div>
-        <h1 class="text-base font-semibold text-white">Hello, {{ firstName }} 👋</h1>
-        <p class="text-xs text-slate-400">Let's get after it today.</p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-base font-semibold text-white">Hello, {{ firstName }} 👋</h1>
+          <p class="text-xs text-slate-400">Let's get after it today.</p>
+        </div>
+        <button
+          type="button"
+          class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer"
+          aria-label="Open settings"
+          @click="settingsOpen = true"
+        >
+          {{ userInitial }}
+        </button>
       </div>
-      <button
-        type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white cursor-pointer"
-        aria-label="Open settings"
-        @click="settingsOpen = true"
+      <NuxtLink
+        v-if="showResumeChip && activeWorkout?.session"
+        :to="`/workout/${activeWorkout.session.id}`"
+        class="mt-2 inline-flex items-center gap-1 rounded-md bg-emerald-600/20 px-2.5 py-1 text-sm font-medium text-emerald-400"
       >
-        {{ userInitial }}
-      </button>
+        Resume workout
+        <UIcon name="i-lucide-chevron-right" class="size-4" />
+      </NuxtLink>
     </header>
 
     <!-- Main content -->
-    <main ref="mainEl" class="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-4" style="padding-top: calc(env(safe-area-inset-top) + 5rem); padding-bottom: calc(env(safe-area-inset-bottom) + 5rem)">
+    <main
+      ref="mainEl"
+      class="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-4"
+      :style="{
+        paddingTop: `calc(env(safe-area-inset-top) + ${showResumeChip ? '6.5' : '5'}rem)`,
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)',
+      }"
+    >
       <slot />
     </main>
 
