@@ -22,6 +22,7 @@ onMounted(() => {
 const selectedDate = ref<Date>(new Date());
 
 import { toDateString, isSameDay } from '~/utils/date';
+import { findNextActiveExercise } from '~/utils/workout';
 
 const isViewingToday = computed(() => {
 	if (!nowRef.value) return true;
@@ -171,20 +172,9 @@ const activeWorkoutProgress = computed(() => {
 	return Math.max(0, Math.min(100, percent));
 });
 
-const activeWorkoutNextExercise = computed(() => {
-	if (!activeWorkout.value?.day) return null;
-	const completedSetIds = new Set(
-		activeWorkout.value.session.completedSets.map((s) => s.exerciseSetId),
-	);
-	for (const group of activeWorkout.value.day.exerciseGroups) {
-		for (const ex of group.exercises) {
-			if (ex.sets.some((s) => !completedSetIds.has(s.id))) {
-				return ex.exercise.name;
-			}
-		}
-	}
-	return null;
-});
+const activeWorkoutNextExercise = computed(() =>
+	findNextActiveExercise(activeWorkout.value ?? null),
+);
 
 // Scheduled workout for the selected non-today date
 const scheduledForSelectedDate = computed(() => {

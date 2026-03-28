@@ -38,6 +38,7 @@ function formatEffort(effortTarget: string | null | undefined): string {
   <!-- Completed set -->
   <div
     v-if="completedSet"
+    data-testid="set-row"
     class="set-row select-none cursor-pointer text-sm transition-colors hover:bg-slate-700/50 active:bg-slate-700"
     :class="{ 'opacity-50': loading }"
     @click="startEditing"
@@ -55,6 +56,7 @@ function formatEffort(effortTarget: string | null | undefined): string {
   <!-- Pending set -->
   <div
     v-else
+    data-testid="set-row"
     class="set-row cursor-pointer text-sm transition-colors hover:bg-slate-700/50 active:bg-slate-700"
     :class="{ 'opacity-50': loading }"
     @click="startEditing"
