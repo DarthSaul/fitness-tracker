@@ -22,6 +22,7 @@ onMounted(() => {
 const selectedDate = ref<Date>(new Date());
 
 import { toDateString, isSameDay } from '~/utils/date';
+import { findNextActiveExercise } from '~/utils/workout';
 
 const isViewingToday = computed(() => {
 	if (!nowRef.value) return true;
@@ -178,6 +179,10 @@ const activeWorkoutProgress = computed(() => {
 	);
 	return Math.max(0, Math.min(100, percent));
 });
+
+const activeWorkoutNextExercise = computed(() =>
+	findNextActiveExercise(activeWorkout.value ?? null),
+);
 
 // Scheduled workout for the selected non-today date
 const scheduledForSelectedDate = computed(() => {
@@ -365,6 +370,12 @@ async function handleUnschedule(): Promise<void> {
 							sets
 						</p>
 					</div>
+					<ul v-if="activeWorkoutNextExercise" class="mt-2 space-y-1">
+						<li class="flex items-center gap-2 text-sm text-slate-300">
+							<span class="size-1.5 shrink-0 rounded-full bg-violet-400" />
+							Next: {{ activeWorkoutNextExercise }}
+						</li>
+					</ul>
 					<span
 						class="mt-auto flex items-center justify-between gap-1 rounded-md bg-emerald-600/20 px-2.5 py-1 text-sm font-medium text-emerald-400"
 					>
