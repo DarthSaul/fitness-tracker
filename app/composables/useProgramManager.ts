@@ -86,6 +86,9 @@ export function useProgramManager() {
       method: 'POST',
       body: { weekNumber, dayNumber },
     })
+    clearNuxtData(CACHE_KEYS.ACTIVE_WORKOUT)
+    clearNuxtData(CACHE_KEYS.ACTIVE_PROGRAM)
+    clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
     await refreshSessions()
     return data.session.id
   }

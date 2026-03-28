@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { useAnalytics, type AnalyticsExerciseHistory } from './useAnalytics'
 
-const mockFetch = $fetch as ReturnType<typeof vi.fn>
+const mockFetch = $fetch as unknown as ReturnType<typeof vi.fn>
 
 function makeHistory(exerciseId: string, name: string): AnalyticsExerciseHistory {
   return { exercise: { id: exerciseId, name }, history: [] }

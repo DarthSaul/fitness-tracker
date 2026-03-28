@@ -303,23 +303,23 @@ const displayHistory = computed(() => {
                   <!-- Selected point label -->
                   <template v-if="selectedPoint !== null && sparklinePoints[selectedPoint]">
                     <text
-                      :x="sparklinePoints[selectedPoint].x"
-                      :y="sparklinePoints[selectedPoint].y - 12"
+                      :x="sparklinePoints[selectedPoint]!.x"
+                      :y="sparklinePoints[selectedPoint]!.y - 12"
                       text-anchor="middle"
                       fill="#c4b5fd"
                       font-size="9"
                       font-weight="600"
                     >
-                      {{ formatE1rm(sparklinePoints[selectedPoint].session.bestE1rm as number) }}
+                      {{ formatE1rm(sparklinePoints[selectedPoint]!.session.bestE1rm as number) }}
                     </text>
                     <text
-                      :x="sparklinePoints[selectedPoint].x"
-                      :y="sparklinePoints[selectedPoint].y - 22"
+                      :x="sparklinePoints[selectedPoint]!.x"
+                      :y="sparklinePoints[selectedPoint]!.y - 22"
                       text-anchor="middle"
                       fill="#94a3b8"
                       font-size="8"
                     >
-                      {{ formatSessionDate(sparklinePoints[selectedPoint].session.completedAt) }}
+                      {{ formatSessionDate(sparklinePoints[selectedPoint]!.session.completedAt) }}
                     </text>
                   </template>
                 </svg>

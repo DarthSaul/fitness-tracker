@@ -57,7 +57,10 @@ const {
 			}>;
 		}>;
 	};
-}>('/api/user-programs/active');
+}>('/api/user-programs/active', {
+	key: CACHE_KEYS.ACTIVE_PROGRAM,
+	getCachedData: (key) => getCached(key),
+});
 
 const { data: sessionsData, status: sessionsStatus } = useFetch<{
 	sessions: Array<{
@@ -66,6 +69,8 @@ const { data: sessionsData, status: sessionsStatus } = useFetch<{
 		status: 'IN_PROGRESS' | 'COMPLETED';
 	}>;
 }>('/api/user-programs/active/sessions', {
+	key: CACHE_KEYS.ACTIVE_SESSIONS,
+	getCachedData: (key) => getCached(key),
 	watch: [activeProgram],
 });
 
@@ -124,7 +129,10 @@ const formattedSelectedDate = computed(() => {
 
 // Active workout session
 const { data: activeWorkout, status: activeWorkoutStatus } =
-	useFetch<ActiveWorkoutResponse>('/api/workouts/active');
+	useFetch<ActiveWorkoutResponse>('/api/workouts/active', {
+		key: CACHE_KEYS.ACTIVE_WORKOUT,
+		getCachedData: (key) => getCached(key),
+	});
 
 const {
 	startWorkout,
@@ -187,7 +195,7 @@ const nextWorkoutSchedule = computed(() => {
 
 const nextWorkoutIsScheduledForFuture = computed(() => {
 	if (!nextWorkoutSchedule.value || !nowRef.value) return false;
-	const [y, m, d] = nextWorkoutSchedule.value.scheduledDate.split('-').map(Number);
+	const [y, m, d] = nextWorkoutSchedule.value.scheduledDate.split('-').map(Number) as [number, number, number];
 	const scheduledDate = new Date(y, m - 1, d);
 	const today = new Date(
 		nowRef.value.getFullYear(),
@@ -199,7 +207,7 @@ const nextWorkoutIsScheduledForFuture = computed(() => {
 
 const nextWorkoutScheduledLabel = computed(() => {
 	if (!nextWorkoutSchedule.value) return '';
-	const [y, m, d] = nextWorkoutSchedule.value.scheduledDate.split('-').map(Number);
+	const [y, m, d] = nextWorkoutSchedule.value.scheduledDate.split('-').map(Number) as [number, number, number];
 	const date = new Date(y, m - 1, d);
 	return `Scheduled for ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 });
@@ -447,26 +455,21 @@ async function handleUnschedule(): Promise<void> {
 					<span
 						class="mt-auto flex items-center justify-between gap-1 rounded-md bg-emerald-600/20 px-2.5 py-1 text-sm font-medium text-emerald-400"
 					>
-						<template
+						{{
+							nextWorkoutIsScheduledForFuture
+								? 'Start next workout early'
+								: 'Start next workout'
+						}}
+						<UIcon
 							v-if="startingWorkout"
-						>
-							<UIcon
-								name="i-lucide-loader-circle"
-								class="size-3.5 animate-spin"
-							/>
-							Starting…
-						</template>
-						<template v-else>
-							{{
-								nextWorkoutIsScheduledForFuture
-									? 'Start next workout early'
-									: 'Start next workout'
-							}}
-							<UIcon
-								name="i-lucide-chevron-right"
-								class="size-4.5"
-							/>
-						</template>
+							name="i-lucide-loader-circle"
+							class="size-4.5 animate-spin"
+						/>
+						<UIcon
+							v-else
+							name="i-lucide-chevron-right"
+							class="size-4.5"
+						/>
 					</span>
 					<UAlert
 						v-if="workoutError"

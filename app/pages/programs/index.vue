@@ -3,7 +3,10 @@ definePageMeta({ layout: 'app' })
 
 import type { ProgramSummary } from '~/types/program'
 
-const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs')
+const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs', {
+  key: CACHE_KEYS.PROGRAMS,
+  getCachedData: (key) => getCached(key),
+})
 const { isSaved, isSaving, toggleSave, isActive, isActivating, toggleActive } = useUserPrograms()
 
 const filter = ref<'all' | 'saved'>('all')

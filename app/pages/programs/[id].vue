@@ -6,7 +6,10 @@ import type { ProgramDetail, ProgramWeekSummary, ProgramDayDetail, ExerciseSetDe
 const route = useRoute()
 const programId = computed(() => route.params.id as string)
 
-const { data: program, status } = useFetch<ProgramDetail>(() => `/api/programs/${programId.value}`)
+const { data: program, status } = useFetch<ProgramDetail>(() => `/api/programs/${programId.value}`, {
+  key: computed(() => `program-detail-${programId.value}`),
+  getCachedData: (key) => getCached(key),
+})
 const { isSaved, isSaving, toggleSave, isActive, isActivating, toggleActive } = useUserPrograms()
 
 const slideoverOpen = ref(false)

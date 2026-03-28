@@ -69,6 +69,9 @@ export function useWorkoutSession() {
       session.value = data.session
       day.value = data.day
       completedSets.value = new Map()
+      clearNuxtData(CACHE_KEYS.ACTIVE_WORKOUT)
+      clearNuxtData(CACHE_KEYS.ACTIVE_PROGRAM)
+      clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
       return data.session.id
     } catch (e) {
       const statusCode = (e as { statusCode?: number }).statusCode
@@ -117,6 +120,9 @@ export function useWorkoutSession() {
         { method: 'PATCH', body: completedAt === undefined ? undefined : { completedAt } },
       )
       session.value = result.session
+      clearNuxtData(CACHE_KEYS.ACTIVE_WORKOUT)
+      clearNuxtData(CACHE_KEYS.ACTIVE_PROGRAM)
+      clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
       return result
     } finally {
       completing.value = false
@@ -131,6 +137,9 @@ export function useWorkoutSession() {
       session.value = null
       day.value = null
       completedSets.value = new Map()
+      clearNuxtData(CACHE_KEYS.ACTIVE_WORKOUT)
+      clearNuxtData(CACHE_KEYS.ACTIVE_PROGRAM)
+      clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
     } finally {
       abandoning.value = false
     }
