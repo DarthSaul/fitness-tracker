@@ -171,6 +171,21 @@ const activeWorkoutProgress = computed(() => {
 	return Math.max(0, Math.min(100, percent));
 });
 
+const activeWorkoutNextExercise = computed(() => {
+	if (!activeWorkout.value?.day) return null;
+	const completedSetIds = new Set(
+		activeWorkout.value.session.completedSets.map((s) => s.exerciseSetId),
+	);
+	for (const group of activeWorkout.value.day.exerciseGroups) {
+		for (const ex of group.exercises) {
+			if (ex.sets.some((s) => !completedSetIds.has(s.id))) {
+				return ex.exercise.name;
+			}
+		}
+	}
+	return null;
+});
+
 // Scheduled workout for the selected non-today date
 const scheduledForSelectedDate = computed(() => {
 	return getScheduleForDate(toDateString(selectedDate.value));
@@ -357,6 +372,12 @@ async function handleUnschedule(): Promise<void> {
 							sets
 						</p>
 					</div>
+					<ul v-if="activeWorkoutNextExercise" class="mt-2 space-y-1">
+						<li class="flex items-center gap-2 text-sm text-slate-300">
+							<span class="size-1.5 shrink-0 rounded-full bg-violet-400" />
+							Next: {{ activeWorkoutNextExercise }}
+						</li>
+					</ul>
 					<span
 						class="mt-auto flex items-center justify-between gap-1 rounded-md bg-emerald-600/20 px-2.5 py-1 text-sm font-medium text-emerald-400"
 					>

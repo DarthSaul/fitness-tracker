@@ -171,7 +171,7 @@ async function handleDiscard(): Promise<void> {
           :key="group.id"
           :group="group"
           :completed-sets="completedSets"
-          :editable="false"
+          :editable="true"
           :recording-set-id="recordingSetId"
           @edit="handleEdit"
         />

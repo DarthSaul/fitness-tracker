@@ -3,6 +3,7 @@
  * Replaces the cramped inline editing form to prevent iOS auto-zoom and improve mobile UX.
  */
 <script setup lang="ts">
+import { VisuallyHidden, DialogTitle, DialogDescription } from 'reka-ui'
 import type { ExerciseSetDetail } from '~/types/program'
 import type { CompletedSetRecord } from '~/types/workout'
 
@@ -65,9 +66,9 @@ function formatTarget(): string {
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">
+          <DialogTitle as="h3" class="text-lg font-semibold text-white">
             Set {{ set.setNumber }}
-          </h3>
+          </DialogTitle>
           <button
             class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
             aria-label="Close"
@@ -76,6 +77,10 @@ function formatTarget(): string {
             <UIcon name="i-lucide-x" class="size-5" />
           </button>
         </div>
+
+        <VisuallyHidden>
+          <DialogDescription>Enter weight and reps for set {{ set.setNumber }}</DialogDescription>
+        </VisuallyHidden>
 
         <!-- Target context -->
         <p v-if="formatTarget()" class="mb-5 text-sm text-slate-400">
