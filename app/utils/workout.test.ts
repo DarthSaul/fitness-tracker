@@ -1,4 +1,5 @@
-import { findNextActiveExercise } from '~/app/utils/workout'
+import { describe, test, expect } from 'vitest'
+import { findNextActiveExercise } from './workout'
 
 describe('findNextActiveExercise', () => {
   test('returns name of first exercise that has at least one incomplete set', () => {

@@ -1,6 +1,7 @@
+import { describe, test, expect, vi } from 'vitest'
 import { ref, computed, watch, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
-import SetRow from '~/app/components/workout/SetRow.vue'
+import SetRow from './SetRow.vue'
 
 // vitest.setup.ts stubs ref/computed for composable tests; restore real Vue
 // reactivity so the component's setup() function runs correctly when mounted.
@@ -15,6 +16,7 @@ const mockSet = {
   reps: 10,
   weight: 135,
   effortTarget: null,
+  rpe: null,
   notes: null,
 }
 
