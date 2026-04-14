@@ -32,7 +32,7 @@ export default defineOAuthAppleEventHandler({
     }
 
     if (!isEmailAllowed(email)) {
-      console.warn('Apple OAuth blocked — email not on allow-list:', email)
+      console.warn('Apple OAuth blocked — email not on allow-list')
       return sendRedirect(event, '/login?error=not_invited')
     }
 

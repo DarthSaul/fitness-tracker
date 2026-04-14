@@ -22,6 +22,7 @@ defineRouteMeta({
     responses: {
       200: { description: 'Account created and session established' },
       400: { description: 'Validation error or sign-up failed' },
+      403: { description: 'Forbidden — email not invited' },
     },
   },
 })

@@ -25,7 +25,7 @@ export default defineOAuthGoogleEventHandler({
    */
   async onSuccess(event, { user }) {
     if (!isEmailAllowed(user.email)) {
-      console.warn('Google OAuth blocked — email not on allow-list:', user.email)
+      console.warn('Google OAuth blocked — email not on allow-list')
       return sendRedirect(event, '/login?error=not_invited')
     }
 

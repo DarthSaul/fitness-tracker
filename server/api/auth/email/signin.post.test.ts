@@ -41,6 +41,28 @@ describe('POST /api/auth/email/signin', () => {
     await expect(handler(makeEvent())).rejects.toThrow('Email and password are required.')
   })
 
+  describe('allow-list gate', () => {
+    afterEach(() => {
+      (isEmailAllowed as ReturnType<typeof vi.fn>).mockRestore()
+    })
+
+    test('throws 403 when email is not on allow-list', async () => {
+      (isEmailAllowed as ReturnType<typeof vi.fn>).mockReturnValueOnce(false)
+      mockReadBody.mockResolvedValueOnce({ email: 'blocked@example.com', password: 'testpass123' })
+
+      await expect(handler(makeEvent())).rejects.toThrow('You are not invited to use this app.')
+    })
+
+    test('does not call supabase when email is blocked', async () => {
+      (isEmailAllowed as ReturnType<typeof vi.fn>).mockReturnValueOnce(false)
+      mockReadBody.mockResolvedValueOnce({ email: 'blocked@example.com', password: 'testpass123' })
+
+      await handler(makeEvent()).catch(() => {})
+
+      expect(mockSupabaseSignIn).not.toHaveBeenCalled()
+    })
+  })
+
   test('throws 401 when Supabase returns invalid credentials', async () => {
     mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'wrong' })
     mockSupabaseSignIn.mockResolvedValueOnce({
