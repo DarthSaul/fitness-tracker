@@ -218,7 +218,7 @@ model Feedback {
   id            String   @id @default(cuid())
   userId        String
   content       String
-  screenshotUrl String?
+  screenshotPath String?
   addressed     Boolean  @default(false)
   createdAt     DateTime @default(now())
 

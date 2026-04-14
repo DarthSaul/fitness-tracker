@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "Feedback" ADD COLUMN "screenshotUrl" TEXT;
+ALTER TABLE "Feedback" ADD COLUMN "screenshotPath" TEXT;

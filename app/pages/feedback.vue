@@ -12,6 +12,7 @@ type FeedbackItem = {
 
 type FilterOption = 'all' | 'unaddressed' | 'addressed'
 
+const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef')
 const content = ref('')
 const screenshot = ref<File | null>(null)
 const screenshotPreview = ref<string | null>(null)
@@ -52,6 +53,7 @@ function clearScreenshot() {
     URL.revokeObjectURL(screenshotPreview.value)
     screenshotPreview.value = null
   }
+  if (fileInputRef.value) fileInputRef.value.value = ''
 }
 
 async function submit() {
@@ -119,7 +121,7 @@ function formatDate(iso: string) {
       <!-- Screenshot picker -->
       <div class="space-y-2">
         <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors">
-          <input type="file" accept="image/*" class="sr-only" @change="onFileChange" />
+          <input ref="fileInputRef" type="file" accept="image/*" class="sr-only" @change="onFileChange" />
           <span>📎</span>
           <span v-if="screenshot" class="max-w-[240px] truncate text-violet-400">{{ screenshot.name }}</span>
           <span v-else>Attach screenshot</span>
