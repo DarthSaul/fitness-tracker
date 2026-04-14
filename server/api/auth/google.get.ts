@@ -24,6 +24,11 @@ export default defineOAuthGoogleEventHandler({
    * Profile fields (name, avatar) are refreshed on every login from the Google ID token.
    */
   async onSuccess(event, { user }) {
+    if (!isEmailAllowed(user.email)) {
+      console.warn('Google OAuth blocked — email not on allow-list:', user.email)
+      return sendRedirect(event, '/login?error=not_invited')
+    }
+
     try {
       const dbUser = await prisma.user.upsert({
         where: {

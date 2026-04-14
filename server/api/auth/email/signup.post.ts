@@ -37,6 +37,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters.' })
   }
 
+  if (!isEmailAllowed(body.email)) {
+    throw createError({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email: body.email,
     password: body.password,
