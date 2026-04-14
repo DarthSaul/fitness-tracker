@@ -19,6 +19,7 @@ const errorMessages: Record<string, string> = {
   apple_failed: 'Apple sign-in failed. Please try again.',
   apple_no_email: 'Apple sign-in did not provide an email address.',
   upsert: 'Account setup failed. Please try again.',
+  not_invited: 'This app is invite-only. Your email address is not on the access list.',
   email_confirmed: '',
 }
 

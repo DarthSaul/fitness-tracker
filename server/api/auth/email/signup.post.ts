@@ -22,6 +22,7 @@ defineRouteMeta({
     responses: {
       200: { description: 'Account created and session established' },
       400: { description: 'Validation error or sign-up failed' },
+      403: { description: 'Forbidden — email not invited' },
     },
   },
 })
@@ -35,6 +36,10 @@ export default defineEventHandler(async (event) => {
 
   if (body.password.length < 8) {
     throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters.' })
+  }
+
+  if (!isEmailAllowed(body.email)) {
+    throw createError({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
   }
 
   const { data, error } = await supabase.auth.signUp({

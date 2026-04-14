@@ -64,6 +64,11 @@ vi.stubGlobal('supabase', {
   },
 })
 
+// ── Server utility auto-imports (server/utils/) ──────────────────────────────
+// Default: allow all emails so existing tests pass unmodified.
+// Override per-test with mockReturnValueOnce(false) to exercise blocking paths.
+vi.stubGlobal('isEmailAllowed', vi.fn(() => true))
+
 // ── H3 request helpers ───────────────────────────────────────────────────────
 vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/email/test')))
 
