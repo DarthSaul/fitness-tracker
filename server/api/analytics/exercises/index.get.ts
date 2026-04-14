@@ -40,6 +40,7 @@ export default defineEventHandler(async (event) => {
     >()
 
     for (const cs of completedSets) {
+      if (!cs.exerciseSet) continue
       const exercise = cs.exerciseSet.programExercise.exercise
       const sessionId = cs.workoutSession.id
       const completedAt = cs.workoutSession.completedAt

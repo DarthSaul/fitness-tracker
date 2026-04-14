@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { EditingContext } from '~/types/workout'
+import type { CompletedSetRecord, WorkoutExerciseSwap } from '~/types/workout'
+
 definePageMeta({ layout: 'app' })
 
 const route = useRoute()
@@ -34,6 +37,10 @@ const startingSession = ref(false)
 const editingSetId = ref<string | null>(null)
 const discardDialogOpen = ref(false)
 const saveDialogOpen = ref(false)
+
+// Empty stubs for the new ExerciseCard props not needed in retroactive mode
+const emptyExtraCompletedSets = new Map<string, CompletedSetRecord>()
+const emptyExerciseSwaps: WorkoutExerciseSwap[] = []
 
 function toLocalDateString(d: Date): string {
   const year = d.getFullYear()
@@ -256,9 +263,13 @@ async function confirmDiscard(): Promise<void> {
           :key="group.id"
           :group="group"
           :completed-sets="completedSets"
+          :extra-completed-sets="emptyExtraCompletedSets"
+          :exercise-swaps="emptyExerciseSwaps"
           :editable="true"
           :recording-set-id="recordingSetId"
-          @edit="handleEdit"
+          @edit="(ctx) => ctx.type === 'template' && handleEdit(ctx.exerciseSetId)"
+          @add-extra-set="() => {}"
+          @swap="() => {}"
         />
       </div>
 

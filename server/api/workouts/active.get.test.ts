@@ -26,6 +26,7 @@ const mockSession = {
     { id: 'cs001', workoutSessionId: 'ws001', exerciseSetId: 'es001', reps: 10, weight: 135, rpe: 7, notes: null, completedAt: new Date() },
   ],
   userProgram: { id: 'up001', programId: 'prog001' },
+  workoutExerciseSwaps: [],
 }
 
 const mockDay = {
@@ -80,7 +81,7 @@ describe('GET /api/workouts/active', () => {
     expect(result.day).toEqual(mockDay)
     expect(mockFindFirstSession).toHaveBeenCalledWith({
       where: { userId: 'user001', status: 'IN_PROGRESS' },
-      include: { completedSets: true, userProgram: true },
+      include: { completedSets: true, workoutExerciseSwaps: true, userProgram: true },
     })
     expect(mockFindFirstDay).toHaveBeenCalledWith({
       where: {

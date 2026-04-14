@@ -28,6 +28,7 @@ const mockSession = {
   dayNumber: 2,
   status: 'IN_PROGRESS',
   completedSets: [],
+  workoutExerciseSwaps: [],
   userProgram: mockUserProgram,
 }
 
@@ -70,6 +71,7 @@ describe('GET /api/workouts/:id', () => {
       where: { id: 'ws001' },
       include: {
         completedSets: true,
+        workoutExerciseSwaps: true,
         userProgram: true,
       },
     })

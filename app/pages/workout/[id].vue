@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { EditingContext } from '~/types/workout'
+
 definePageMeta({ layout: 'app' })
 
 const route = useRoute()
@@ -6,19 +8,12 @@ const router = useRouter()
 const sessionId = computed(() => route.params.id as string)
 
 const {
-  session,
-  day,
-  completedSets,
-  completing,
-  abandoning,
-  recordingSetId,
-  totalSets,
-  completedSetCount,
-  progressPercent,
-  loadActiveSession,
-  recordSet,
-  completeWorkout,
-  abandonWorkout,
+  session, day, completedSets, completing, abandoning, recordingSetId,
+  totalSets, completedSetCount, progressPercent,
+  loadActiveSession, recordSet, updateSet, deleteCompletedSet,
+  extraCompletedSets, exerciseSwaps, notesSaving,
+  addExtraSet, deleteExtraSet, updateExtraSet, saveWorkoutNotes,
+  swapExercise, completeWorkout, abandonWorkout,
 } = useWorkoutSession()
 
 const pageLoading = ref(true)
@@ -27,8 +22,12 @@ const programCompleted = ref(false)
 const endDialogOpen = ref(false)
 const completeDialogOpen = ref(false)
 
-// Inline edit state
-const editingSetId = ref<string | null>(null)
+// Set log drawer state
+const editingContext = ref<EditingContext | null>(null)
+
+// Exercise swap drawer state
+const swapDrawerOpen = ref(false)
+const swappingProgramExerciseId = ref<string | null>(null)
 
 onMounted(async () => {
   try {
@@ -44,29 +43,101 @@ onMounted(async () => {
   }
 })
 
-// Find the full set detail object for the currently-editing set
-const editingSet = computed(() => {
-  if (!editingSetId.value || !day.value) return null
-  for (const group of day.value.exerciseGroups) {
-    for (const ex of group.exercises) {
-      const found = ex.sets.find(s => s.id === editingSetId.value)
-      if (found) return found
-    }
-  }
-  return null
+// Computed helpers for drawer bindings to avoid TypeScript narrowing issues in templates
+const editingCompletedSet = computed(() => {
+  const ctx = editingContext.value
+  if (!ctx) return null
+  if (ctx.type === 'template') return completedSets.value.get(ctx.exerciseSetId) ?? null
+  return extraCompletedSets.value.get(ctx.completedSetId) ?? null
 })
 
-function handleEdit(exerciseSetId: string): void {
-  editingSetId.value = exerciseSetId
+const editingCanDelete = computed(() => {
+  const ctx = editingContext.value
+  if (!ctx) return false
+  if (ctx.type === 'template') return completedSets.value.has(ctx.exerciseSetId)
+  return true
+})
+
+// Find the full set detail object for the currently-editing set
+const editingSet = computed(() => {
+  if (!editingContext.value || !day.value) return null
+  const ctx = editingContext.value
+
+  if (ctx.type === 'template') {
+    for (const group of day.value.exerciseGroups) {
+      for (const ex of group.exercises) {
+        const found = ex.sets.find(s => s.id === ctx.exerciseSetId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  // Extra set — synthesize a minimal set object
+  const existing = extraCompletedSets.value.get(ctx.completedSetId)
+  return {
+    id: ctx.completedSetId,
+    setNumber: null as unknown as number,
+    reps: existing?.reps ?? null,
+    weight: existing?.weight ?? null,
+    rpe: existing?.rpe ?? null,
+    notes: existing?.notes ?? null,
+    effortTarget: null,
+  }
+})
+
+function handleEdit(context: EditingContext): void {
+  editingContext.value = context
 }
 
 function cancelEdit(): void {
-  editingSetId.value = null
+  editingContext.value = null
 }
 
-async function handleLog(exerciseSetId: string, reps: number | null, weight: number | null): Promise<void> {
-  editingSetId.value = null
-  await recordSet(exerciseSetId, { reps, weight })
+async function handleLog(reps: number | null, weight: number | null): Promise<void> {
+  const ctx = editingContext.value
+  if (!ctx) return
+  editingContext.value = null
+
+  if (ctx.type === 'template') {
+    const existing = completedSets.value.get(ctx.exerciseSetId)
+    if (existing) {
+      await updateSet(ctx.exerciseSetId, { reps, weight })
+    } else {
+      await recordSet(ctx.exerciseSetId, { reps, weight })
+    }
+  } else {
+    await updateExtraSet(ctx.completedSetId, { reps, weight })
+  }
+}
+
+async function handleDelete(): Promise<void> {
+  const ctx = editingContext.value
+  if (!ctx) return
+  editingContext.value = null
+
+  if (ctx.type === 'template') {
+    await deleteCompletedSet(ctx.exerciseSetId)
+  } else {
+    await deleteExtraSet(ctx.completedSetId)
+  }
+}
+
+async function handleAddExtraSet(programExerciseId: string): Promise<void> {
+  const newSet = await addExtraSet(programExerciseId, {})
+  editingContext.value = { type: 'extra', completedSetId: newSet.id, programExerciseId }
+}
+
+function handleSwap(programExerciseId: string): void {
+  swappingProgramExerciseId.value = programExerciseId
+  swapDrawerOpen.value = true
+}
+
+async function confirmSwap(replacementExerciseId: string): Promise<void> {
+  if (!swappingProgramExerciseId.value) return
+  await swapExercise(swappingProgramExerciseId.value, replacementExerciseId)
+  swapDrawerOpen.value = false
+  swappingProgramExerciseId.value = null
 }
 
 async function confirmComplete(): Promise<void> {
@@ -171,22 +242,34 @@ async function handleDiscard(): Promise<void> {
           :key="group.id"
           :group="group"
           :completed-sets="completedSets"
+          :extra-completed-sets="extraCompletedSets"
+          :exercise-swaps="exerciseSwaps"
           :editable="true"
           :recording-set-id="recordingSetId"
           @edit="handleEdit"
+          @add-extra-set="handleAddExtraSet"
+          @swap="handleSwap"
         />
       </div>
 
-      <!-- Set log drawer -->
-      <WorkoutSetLogDrawer
-        v-if="editingSet"
-        :open="editingSetId !== null"
-        :set="editingSet"
-        :completed-set="editingSetId ? (completedSets.get(editingSetId) ?? null) : null"
-        :loading="recordingSetId !== null"
-        @log="(reps, weight) => editingSetId && handleLog(editingSetId, reps, weight)"
-        @close="cancelEdit"
-      />
+      <!-- Workout Notes -->
+      <div class="rounded-lg bg-slate-800/50 p-3">
+        <label for="workout-notes" class="mb-1.5 block text-xs font-medium text-slate-400">
+          Workout Notes
+        </label>
+        <textarea
+          id="workout-notes"
+          :value="session.notes ?? ''"
+          rows="3"
+          placeholder="Add notes for this workout..."
+          class="w-full resize-none bg-transparent text-base text-white placeholder-slate-600 outline-none"
+          @input="saveWorkoutNotes(($event.target as HTMLTextAreaElement).value)"
+          @blur="saveWorkoutNotes(($event.target as HTMLTextAreaElement).value)"
+        />
+        <p class="mt-0.5 text-right text-xs text-slate-600">
+          <span v-if="notesSaving" class="text-slate-500">Saving...</span>
+        </p>
+      </div>
 
       <!-- Action buttons -->
       <div class="flex gap-3">
@@ -210,6 +293,32 @@ async function handleDiscard(): Promise<void> {
         </UButton>
       </div>
     </template>
+
+    <!-- Set log drawer -->
+    <WorkoutSetLogDrawer
+      v-if="editingSet"
+      :open="editingContext !== null"
+      :set="editingSet"
+      :completed-set="editingCompletedSet"
+      :loading="recordingSetId !== null"
+      :can-delete="editingCanDelete"
+      @log="(reps, weight) => handleLog(reps, weight)"
+      @close="cancelEdit"
+      @delete="handleDelete"
+    />
+
+    <!-- Exercise swap drawer -->
+    <WorkoutExerciseSwapDrawer
+      v-if="swapDrawerOpen && swappingProgramExerciseId && day"
+      :open="swapDrawerOpen"
+      :program-exercise-id="swappingProgramExerciseId"
+      :exercise-swaps="exerciseSwaps"
+      :day="day"
+      :completed-sets="completedSets"
+      :extra-completed-sets="extraCompletedSets"
+      @confirm="confirmSwap"
+      @close="swapDrawerOpen = false; swappingProgramExerciseId = null"
+    />
 
     <!-- End Workout Modal -->
     <UModal v-model:open="endDialogOpen" title="End Workout" description="What would you like to do with this session?">
