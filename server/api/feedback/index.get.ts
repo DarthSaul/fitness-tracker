@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
     return await prisma.feedback.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      include: { user: { select: { name: true } } },
     })
   } catch (error) {
     console.error('[GET /api/feedback] Failed to fetch feedback', error)
