@@ -57,7 +57,7 @@ describe('POST /api/auth/email/signin', () => {
       (isEmailAllowed as ReturnType<typeof vi.fn>).mockReturnValueOnce(false)
       mockReadBody.mockResolvedValueOnce({ email: 'blocked@example.com', password: 'testpass123' })
 
-      await handler(makeEvent()).catch(() => {})
+      await expect(handler(makeEvent())).rejects.toThrow('You are not invited to use this app.')
 
       expect(mockSupabaseSignIn).not.toHaveBeenCalled()
     })
