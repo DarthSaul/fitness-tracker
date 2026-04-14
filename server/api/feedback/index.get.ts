@@ -14,10 +14,18 @@ export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
   try {
-    return await prisma.feedback.findMany({
+    const items = await prisma.feedback.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      include: { user: { select: { name: true } } },
     })
+
+    return items.map((item) => ({
+      ...item,
+      screenshotUrl: item.screenshotPath
+        ? supabase.storage.from('feedback-screenshots').getPublicUrl(item.screenshotPath).data.publicUrl
+        : null,
+    }))
   } catch (error) {
     console.error('[GET /api/feedback] Failed to fetch feedback', error)
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch feedback' })
