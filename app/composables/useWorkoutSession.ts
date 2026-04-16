@@ -281,6 +281,8 @@ export function useWorkoutSession() {
       try {
         await $fetch<{ id: string; notes: string | null }>(`/api/workouts/${sessionId}`, { method: 'PATCH', body: { notes } })
         if (session.value) session.value = { ...session.value, notes }
+      } catch {
+        // autosave failure is silent; user's local draft is unaffected
       } finally {
         notesSaving.value = false
       }
