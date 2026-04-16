@@ -33,6 +33,7 @@ const stubs = {
   DialogDescription: { template: '<p><slot /></p>' },
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockExtraSet = {
   id: 'extra-s1',
   setNumber: null,
@@ -41,7 +42,7 @@ const mockExtraSet = {
   effortTarget: null,
   rpe: null,
   notes: null,
-}
+} as any
 
 describe('SetLogDrawer', () => {
   test('renders DialogTitle with the set number', () => {

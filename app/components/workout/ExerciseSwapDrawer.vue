@@ -24,6 +24,7 @@ const isOpen = computed({
 const search = ref('')
 const exercises = ref<ExerciseSummary[]>([])
 const exercisesLoading = ref(false)
+const exercisesError = ref(false)
 const pendingSelection = ref<ExerciseSummary | null>(null)
 const confirming = ref(false)
 
@@ -34,18 +35,32 @@ watch(() => props.open, async (opened) => {
     pendingSelection.value = null
     confirming.value = false
     exercisesLoading.value = true
+    exercisesError.value = false
     try {
       exercises.value = await $fetch<ExerciseSummary[]>('/api/exercises')
+    } catch {
+      exercises.value = []
+      exercisesError.value = true
     } finally {
       exercisesLoading.value = false
     }
   }
 })
 
+const currentExerciseId = computed(() => {
+  for (const group of props.day.exerciseGroups) {
+    for (const e of group.exercises) {
+      if (e.id === props.programExerciseId) return e.exercise.id
+    }
+  }
+  return null
+})
+
 const filteredExercises = computed(() => {
   const q = search.value.trim().toLowerCase()
-  if (!q) return exercises.value
-  return exercises.value.filter(e => e.name.toLowerCase().includes(q))
+  const list = exercises.value.filter(e => e.id !== currentExerciseId.value)
+  if (!q) return list
+  return list.filter(e => e.name.toLowerCase().includes(q))
 })
 
 const currentExerciseName = computed(() => {
@@ -73,6 +88,7 @@ const loggedSetCount = computed(() => {
 })
 
 function selectExercise(exercise: ExerciseSummary): void {
+  if (exercise.id === currentExerciseId.value) return
   if (loggedSetCount.value === 0) {
     // No logged sets — confirm immediately
     emit('confirm', exercise.id)
@@ -150,6 +166,9 @@ async function confirmSwap(): Promise<void> {
           <!-- Exercise list -->
           <div v-if="exercisesLoading" class="space-y-2">
             <div v-for="n in 5" :key="n" class="h-10 animate-pulse rounded-lg bg-slate-800" />
+          </div>
+          <div v-else-if="exercisesError" class="py-8 text-center text-sm text-red-400">
+            Failed to load exercises. Please close and try again.
           </div>
           <div v-else class="max-h-64 overflow-y-auto space-y-1">
             <button

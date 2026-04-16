@@ -81,6 +81,10 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, statusMessage: 'Replacement exercise not found' })
       }
 
+      if (replacementExerciseId === programExercise.exerciseId) {
+        throw createError({ statusCode: 400, statusMessage: 'Replacement exercise is the same as the current exercise' })
+      }
+
       const originalExerciseId = programExercise.exerciseId
 
       // Delete all template CompletedSets for this session + programExercise

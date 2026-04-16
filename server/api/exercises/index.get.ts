@@ -19,8 +19,9 @@ export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const search = query.search
 
-    const where = (typeof search === 'string' && search.trim())
-      ? { name: { contains: search as string, mode: 'insensitive' as const } }
+    const trimmed = typeof search === 'string' ? search.trim() : ''
+    const where = trimmed
+      ? { name: { contains: trimmed, mode: 'insensitive' as const } }
       : {}
 
     const exercises = await prisma.exercise.findMany({

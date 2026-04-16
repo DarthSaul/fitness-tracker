@@ -15,9 +15,9 @@ defineEmits<{
 
 <template>
   <div
-    class="grid cursor-pointer items-center gap-2 rounded-md px-2 py-2 transition-colors"
+    class="grid items-center gap-2 rounded-md px-2 py-2 transition-colors"
     :class="[
-      editable ? 'hover:bg-slate-700/40 active:bg-slate-700/60' : '',
+      editable ? 'cursor-pointer hover:bg-slate-700/40 active:bg-slate-700/60' : '',
       loading ? 'opacity-50' : '',
     ]"
     style="grid-template-columns: 0.5fr 1.5fr 1fr 1.5fr 0.75fr"

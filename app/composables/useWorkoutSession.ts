@@ -147,6 +147,10 @@ export function useWorkoutSession() {
   async function abandonWorkout(): Promise<void> {
     if (!session.value) throw new Error('No active session')
     abandoning.value = true
+    if (notesDebounceTimer) {
+      clearTimeout(notesDebounceTimer)
+      notesDebounceTimer = null
+    }
     try {
       await $fetch<{ deleted: boolean }>(`/api/workouts/${session.value.id}`, { method: 'DELETE' as const })
       session.value = null
@@ -271,10 +275,11 @@ export function useWorkoutSession() {
   async function saveWorkoutNotes(notes: string): Promise<void> {
     if (!session.value) return
     if (notesDebounceTimer) clearTimeout(notesDebounceTimer)
+    const sessionId = session.value!.id
     notesDebounceTimer = setTimeout(async () => {
       notesSaving.value = true
       try {
-        await $fetch<{ id: string; notes: string | null }>(`/api/workouts/${session.value!.id}`, { method: 'PATCH', body: { notes } })
+        await $fetch<{ id: string; notes: string | null }>(`/api/workouts/${sessionId}`, { method: 'PATCH', body: { notes } })
         if (session.value) session.value = { ...session.value, notes }
       } finally {
         notesSaving.value = false

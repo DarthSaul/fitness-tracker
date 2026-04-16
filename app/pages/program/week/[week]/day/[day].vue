@@ -267,6 +267,8 @@ async function confirmDiscard(): Promise<void> {
           :exercise-swaps="emptyExerciseSwaps"
           :editable="true"
           :recording-set-id="recordingSetId"
+          :disable-extra-sets="true"
+          :disable-exercise-swaps="true"
           @edit="(ctx) => ctx.type === 'template' && handleEdit(ctx.exerciseSetId)"
           @add-extra-set="() => {}"
           @swap="() => {}"

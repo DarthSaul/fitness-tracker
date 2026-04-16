@@ -13,6 +13,8 @@ const props = defineProps<{
   exerciseSwaps: WorkoutExerciseSwap[]
   editable: boolean
   recordingSetId: string | null
+  disableExtraSets?: boolean
+  disableExerciseSwaps?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -29,6 +31,7 @@ const userNotesOpen = ref<string | null>(null)  // ProgramExercise.id currently 
 const userNotesContent = ref<Record<string, string>>({})  // exerciseId → text
 const userNotesSaving = ref<Record<string, boolean>>({})
 const userNotesLoaded = ref(new Set<string>())  // exerciseIds fetched
+const userNotesLoading = ref(new Set<string>())
 
 function exerciseNotes(ex: ExerciseGroupDetail['exercises'][number]): string | null {
   const trimmed = ex.sets.map(s => s.notes?.trim()).filter((n): n is string => !!n)
@@ -83,30 +86,36 @@ async function toggleUserNotes(exerciseId: string, programExerciseId: string): P
     return
   }
   userNotesOpen.value = programExerciseId
+  expandedExercises.value.add(programExerciseId)
   if (!userNotesLoaded.value.has(exerciseId)) {
+    userNotesLoading.value.add(exerciseId)
     try {
       const data = await $fetch<{ notes: string | null }>(`/api/exercises/${exerciseId}/notes`)
       userNotesContent.value[exerciseId] = data.notes ?? ''
       userNotesLoaded.value.add(exerciseId)
     } catch {
       userNotesContent.value[exerciseId] = ''
+    } finally {
+      userNotesLoading.value.delete(exerciseId)
     }
   }
 }
 
-let notesDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const notesDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
   userNotesContent.value = { ...userNotesContent.value, [exerciseId]: notes }
-  if (notesDebounceTimer) clearTimeout(notesDebounceTimer)
-  notesDebounceTimer = setTimeout(async () => {
+  const prev = notesDebounceTimers.get(exerciseId)
+  if (prev) clearTimeout(prev)
+  notesDebounceTimers.set(exerciseId, setTimeout(async () => {
+    notesDebounceTimers.delete(exerciseId)
     userNotesSaving.value = { ...userNotesSaving.value, [exerciseId]: true }
     try {
       await $fetch(`/api/exercises/${exerciseId}/notes`, { method: 'PUT', body: { notes } })
     } finally {
       userNotesSaving.value = { ...userNotesSaving.value, [exerciseId]: false }
     }
-  }, 800)
+  }, 800))
 }
 </script>
 
@@ -154,7 +163,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               </button>
               <!-- Swap icon -->
               <button
-                v-if="editable"
+                v-if="editable && !disableExerciseSwaps"
                 type="button"
                 :aria-label="hasSwap(ex.id) ? 'Change swapped exercise' : 'Swap exercise'"
                 class="ml-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
@@ -194,17 +203,20 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
               <!-- Inline personal notes -->
               <div v-if="userNotesOpen === ex.id" class="mx-1 mb-2 mt-1">
-                <textarea
-                  :value="userNotesContent[ex.exercise.id] ?? ''"
-                  rows="3"
-                  placeholder="Your personal notes for this exercise..."
-                  class="w-full resize-none rounded-md bg-slate-700/50 px-3 py-2 text-base text-slate-200 placeholder-slate-600 outline-none focus:ring-1 focus:ring-slate-600"
-                  @input="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
-                  @blur="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
-                />
-                <p v-if="userNotesSaving[ex.exercise.id]" class="mt-0.5 text-right text-xs text-slate-600">
-                  Saving...
-                </p>
+                <div v-if="userNotesLoading.has(ex.exercise.id)" class="h-16 animate-pulse rounded-md bg-slate-700/50" />
+                <template v-else>
+                  <textarea
+                    :value="userNotesContent[ex.exercise.id] ?? ''"
+                    rows="3"
+                    placeholder="Your personal notes for this exercise..."
+                    class="w-full resize-none rounded-md bg-slate-700/50 px-3 py-2 text-base text-slate-200 placeholder-slate-600 outline-none focus:ring-1 focus:ring-slate-600"
+                    @input="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
+                    @blur="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
+                  />
+                  <p v-if="userNotesSaving[ex.exercise.id]" class="mt-0.5 text-right text-xs text-slate-600">
+                    Saving...
+                  </p>
+                </template>
               </div>
 
               <div class="set-grid pb-2 text-[10px] uppercase tracking-wider text-slate-500">
@@ -237,7 +249,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               </div>
               <!-- Add Set button -->
               <button
-                v-if="editable"
+                v-if="editable && !disableExtraSets"
                 type="button"
                 class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-xs text-slate-600 transition-colors hover:text-slate-400"
                 @click.stop="emit('add-extra-set', ex.id)"
@@ -289,7 +301,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             </button>
             <!-- Swap icon -->
             <button
-              v-if="editable"
+              v-if="editable && !disableExerciseSwaps"
               type="button"
               :aria-label="hasSwap(group.exercises[0].id) ? 'Change swapped exercise' : 'Swap exercise'"
               class="ml-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
@@ -329,17 +341,20 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
             <!-- Inline personal notes -->
             <div v-if="userNotesOpen === group.exercises[0].id" class="mx-1 mb-2 mt-1">
-              <textarea
-                :value="userNotesContent[group.exercises[0].exercise.id] ?? ''"
-                rows="3"
-                placeholder="Your personal notes for this exercise..."
-                class="w-full resize-none rounded-md bg-slate-700/50 px-3 py-2 text-base text-slate-200 placeholder-slate-600 outline-none focus:ring-1 focus:ring-slate-600"
-                @input="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
-                @blur="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
-              />
-              <p v-if="userNotesSaving[group.exercises[0].exercise.id]" class="mt-0.5 text-right text-xs text-slate-600">
-                Saving...
-              </p>
+              <div v-if="userNotesLoading.has(group.exercises[0].exercise.id)" class="h-16 animate-pulse rounded-md bg-slate-700/50" />
+              <template v-else>
+                <textarea
+                  :value="userNotesContent[group.exercises[0].exercise.id] ?? ''"
+                  rows="3"
+                  placeholder="Your personal notes for this exercise..."
+                  class="w-full resize-none rounded-md bg-slate-700/50 px-3 py-2 text-base text-slate-200 placeholder-slate-600 outline-none focus:ring-1 focus:ring-slate-600"
+                  @input="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
+                  @blur="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
+                />
+                <p v-if="userNotesSaving[group.exercises[0].exercise.id]" class="mt-0.5 text-right text-xs text-slate-600">
+                  Saving...
+                </p>
+              </template>
             </div>
 
             <div class="set-grid pb-2 text-[10px] uppercase tracking-wider text-slate-500">
@@ -372,7 +387,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             </div>
             <!-- Add Set button -->
             <button
-              v-if="editable"
+              v-if="editable && !disableExtraSets"
               type="button"
               class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-xs text-slate-600 transition-colors hover:text-slate-400"
               @click.stop="emit('add-extra-set', group.exercises[0].id)"

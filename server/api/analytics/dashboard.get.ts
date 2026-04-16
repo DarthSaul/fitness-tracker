@@ -86,6 +86,7 @@ export default defineEventHandler(async (event) => {
             exerciseSet: {
               include: { programExercise: { select: { exerciseId: true } } },
             },
+            programExercise: { select: { exerciseId: true } },
           },
         },
       },
@@ -104,6 +105,8 @@ export default defineEventHandler(async (event) => {
         }
         if (set.exerciseSet) {
           exerciseIdSet.add(set.exerciseSet.programExercise.exerciseId)
+        } else if (set.programExercise) {
+          exerciseIdSet.add(set.programExercise.exerciseId)
         }
       }
     }

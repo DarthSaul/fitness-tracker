@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
             exercises: {
               orderBy: { order: 'asc' },
               include: {
-                exercise: { select: { id: true, name: true } },
+                exercise: { select: { id: true, name: true, description: true } },
                 sets: { orderBy: { setNumber: 'asc' } },
               },
             },

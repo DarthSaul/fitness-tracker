@@ -137,9 +137,10 @@ model ProgramExercise {
   exerciseId      String
   order           Int
 
-  exercise      Exercise      @relation(fields: [exerciseId], references: [id])
-  exerciseGroup ExerciseGroup @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
+  exercise      Exercise       @relation(fields: [exerciseId], references: [id])
+  exerciseGroup ExerciseGroup  @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
   sets          ExerciseSet[]
+  completedSets CompletedSet[]
 
   @@unique([exerciseGroupId, order])
 }
@@ -211,10 +212,12 @@ model CompletedSet {
   notes             String?
   completedAt       DateTime @default(now())
 
-  workoutSession WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
-  exerciseSet    ExerciseSet?   @relation(fields: [exerciseSetId], references: [id], onDelete: Cascade)
+  workoutSession  WorkoutSession   @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exerciseSet     ExerciseSet?     @relation(fields: [exerciseSetId], references: [id], onDelete: Cascade)
+  programExercise ProgramExercise? @relation(fields: [programExerciseId], references: [id], onDelete: Cascade)
 
   @@unique([workoutSessionId, exerciseSetId])
+  @@unique([workoutSessionId, programExerciseId])
 }
 
 model WorkoutExerciseSwap {

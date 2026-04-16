@@ -75,9 +75,20 @@ const editingSet = computed(() => {
 
   // Extra set — synthesize a minimal set object
   const existing = extraCompletedSets.value.get(ctx.completedSetId)
+  const peId = ctx.programExerciseId
+  let templateSetCount = 0
+  if (day.value) {
+    for (const group of day.value.exerciseGroups) {
+      const ex = group.exercises.find(e => e.id === peId)
+      if (ex) { templateSetCount = ex.sets.length; break }
+    }
+  }
+  const priorExtra = Array.from(extraCompletedSets.value.values())
+    .filter(s => s.programExerciseId === peId && s.id !== ctx.completedSetId)
+    .length
   return {
     id: ctx.completedSetId,
-    setNumber: null as unknown as number,
+    setNumber: templateSetCount + priorExtra + 1,
     reps: existing?.reps ?? null,
     weight: existing?.weight ?? null,
     rpe: existing?.rpe ?? null,
