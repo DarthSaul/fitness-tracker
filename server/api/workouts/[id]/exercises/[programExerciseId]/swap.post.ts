@@ -81,7 +81,12 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, statusMessage: 'Replacement exercise not found' })
       }
 
-      if (replacementExerciseId === programExercise.exerciseId) {
+      const existingSwap = await tx.workoutExerciseSwap.findFirst({
+        where: { workoutSessionId: id, programExerciseId },
+      })
+      const effectiveCurrentExerciseId = existingSwap?.replacementExerciseId ?? programExercise.exerciseId
+
+      if (replacementExerciseId === effectiveCurrentExerciseId) {
         throw createError({ statusCode: 400, statusMessage: 'Replacement exercise is the same as the current exercise' })
       }
 

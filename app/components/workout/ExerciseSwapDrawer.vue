@@ -9,6 +9,7 @@ const props = defineProps<{
   day: ProgramDayDetail
   completedSets: Map<string, CompletedSetRecord>
   extraCompletedSets: Map<string, CompletedSetRecord>
+  confirmLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,14 +27,12 @@ const exercises = ref<ExerciseSummary[]>([])
 const exercisesLoading = ref(false)
 const exercisesError = ref(false)
 const pendingSelection = ref<ExerciseSummary | null>(null)
-const confirming = ref(false)
 
 // Fetch exercises when drawer opens
 watch(() => props.open, async (opened) => {
   if (opened) {
     search.value = ''
     pendingSelection.value = null
-    confirming.value = false
     exercisesLoading.value = true
     exercisesError.value = false
     try {
@@ -98,9 +97,8 @@ function selectExercise(exercise: ExerciseSummary): void {
   }
 }
 
-async function confirmSwap(): Promise<void> {
+function confirmSwap(): void {
   if (!pendingSelection.value) return
-  confirming.value = true
   emit('confirm', pendingSelection.value.id)
 }
 </script>
@@ -145,7 +143,7 @@ async function confirmSwap(): Promise<void> {
             <UButton
               color="warning"
               size="sm"
-              :loading="confirming"
+              :loading="confirmLoading"
               @click="confirmSwap"
             >
               Confirm Swap

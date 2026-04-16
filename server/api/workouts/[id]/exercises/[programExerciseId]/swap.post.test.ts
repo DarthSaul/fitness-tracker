@@ -12,6 +12,7 @@ const txMocks = {
   findUniqueSession: vi.fn(),
   findFirstProgramExercise: vi.fn(),
   findUniqueExercise: vi.fn(),
+  findFirstExistingSwap: vi.fn(),
   deleteManyTemplateSets: vi.fn(),
   deleteManyExtraSets: vi.fn(),
   upsertSwap: vi.fn(),
@@ -78,7 +79,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
               : txMocks.deleteManyExtraSets(...args)
           },
         },
-        workoutExerciseSwap: { upsert: txMocks.upsertSwap },
+        workoutExerciseSwap: { findFirst: txMocks.findFirstExistingSwap, upsert: txMocks.upsertSwap },
       }
       return fn(tx)
     })
@@ -88,6 +89,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
     txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
     txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
     txMocks.findUniqueExercise.mockResolvedValueOnce({ id: 'ex002' })
+    txMocks.findFirstExistingSwap.mockResolvedValueOnce(null)
     txMocks.deleteManyTemplateSets.mockResolvedValueOnce({ count: 2 })
     txMocks.deleteManyExtraSets.mockResolvedValueOnce({ count: 1 })
     txMocks.upsertSwap.mockResolvedValueOnce(mockSwap)
@@ -103,6 +105,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
     txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
     txMocks.findFirstProgramExercise.mockResolvedValueOnce({ ...mockProgramExercise, sets: [] })
     txMocks.findUniqueExercise.mockResolvedValueOnce({ id: 'ex002' })
+    txMocks.findFirstExistingSwap.mockResolvedValueOnce(null)
     txMocks.deleteManyTemplateSets.mockResolvedValueOnce({ count: 0 })
     txMocks.deleteManyExtraSets.mockResolvedValueOnce({ count: 0 })
     txMocks.upsertSwap.mockResolvedValueOnce(mockSwap)

@@ -28,6 +28,13 @@ const editingContext = ref<EditingContext | null>(null)
 // Exercise swap drawer state
 const swapDrawerOpen = ref(false)
 const swappingProgramExerciseId = ref<string | null>(null)
+const swapConfirming = ref(false)
+
+// Local draft for workout notes — prevents textarea revert on re-render
+const notesDraft = ref('')
+watch(() => session.value?.notes, (notes) => {
+  notesDraft.value = notes ?? ''
+}, { immediate: true })
 
 onMounted(async () => {
   try {
@@ -83,12 +90,12 @@ const editingSet = computed(() => {
       if (ex) { templateSetCount = ex.sets.length; break }
     }
   }
-  const priorExtra = Array.from(extraCompletedSets.value.values())
-    .filter(s => s.programExerciseId === peId && s.id !== ctx.completedSetId)
-    .length
+  const extrasForExercise = Array.from(extraCompletedSets.value.values())
+    .filter(s => s.programExerciseId === peId)
+  const extraIndex = extrasForExercise.findIndex(s => s.id === ctx.completedSetId)
   return {
     id: ctx.completedSetId,
-    setNumber: templateSetCount + priorExtra + 1,
+    setNumber: templateSetCount + (extraIndex >= 0 ? extraIndex + 1 : extrasForExercise.length + 1),
     reps: existing?.reps ?? null,
     weight: existing?.weight ?? null,
     rpe: existing?.rpe ?? null,
@@ -146,9 +153,14 @@ function handleSwap(programExerciseId: string): void {
 
 async function confirmSwap(replacementExerciseId: string): Promise<void> {
   if (!swappingProgramExerciseId.value) return
-  await swapExercise(swappingProgramExerciseId.value, replacementExerciseId)
-  swapDrawerOpen.value = false
-  swappingProgramExerciseId.value = null
+  swapConfirming.value = true
+  try {
+    await swapExercise(swappingProgramExerciseId.value, replacementExerciseId)
+    swapDrawerOpen.value = false
+    swappingProgramExerciseId.value = null
+  } finally {
+    swapConfirming.value = false
+  }
 }
 
 async function confirmComplete(): Promise<void> {
@@ -270,12 +282,12 @@ async function handleDiscard(): Promise<void> {
         </label>
         <textarea
           id="workout-notes"
-          :value="session.notes ?? ''"
+          :value="notesDraft"
           rows="3"
           placeholder="Add notes for this workout..."
           class="w-full resize-none bg-transparent text-base text-white placeholder-slate-600 outline-none"
-          @input="saveWorkoutNotes(($event.target as HTMLTextAreaElement).value)"
-          @blur="saveWorkoutNotes(($event.target as HTMLTextAreaElement).value)"
+          @input="notesDraft = ($event.target as HTMLTextAreaElement).value; saveWorkoutNotes(notesDraft)"
+          @blur="saveWorkoutNotes(notesDraft)"
         />
         <p class="mt-0.5 text-right text-xs text-slate-600">
           <span v-if="notesSaving" class="text-slate-500">Saving...</span>
@@ -327,6 +339,7 @@ async function handleDiscard(): Promise<void> {
       :day="day"
       :completed-sets="completedSets"
       :extra-completed-sets="extraCompletedSets"
+      :confirm-loading="swapConfirming"
       @confirm="confirmSwap"
       @close="swapDrawerOpen = false; swappingProgramExerciseId = null"
     />

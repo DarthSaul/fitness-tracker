@@ -217,7 +217,7 @@ model CompletedSet {
   programExercise ProgramExercise? @relation(fields: [programExerciseId], references: [id], onDelete: Cascade)
 
   @@unique([workoutSessionId, exerciseSetId])
-  @@unique([workoutSessionId, programExerciseId])
+  @@index([workoutSessionId, programExerciseId])
 }
 
 model WorkoutExerciseSwap {

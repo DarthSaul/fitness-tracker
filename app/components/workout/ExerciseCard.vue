@@ -86,7 +86,7 @@ async function toggleUserNotes(exerciseId: string, programExerciseId: string): P
     return
   }
   userNotesOpen.value = programExerciseId
-  expandedExercises.value.add(programExerciseId)
+  expandedExercises.value.add(props.group.type === 'SUPERSET' ? programExerciseId : props.group.id)
   if (!userNotesLoaded.value.has(exerciseId)) {
     userNotesLoading.value.add(exerciseId)
     try {
