@@ -94,7 +94,7 @@ async function toggleUserNotes(exerciseId: string, programExerciseId: string): P
       userNotesContent.value[exerciseId] = data.notes ?? ''
       userNotesLoaded.value.add(exerciseId)
     } catch {
-      userNotesContent.value[exerciseId] = ''
+      // leave userNotesContent unchanged; do not mark as loaded
     } finally {
       userNotesLoading.value.delete(exerciseId)
     }
@@ -104,6 +104,7 @@ async function toggleUserNotes(exerciseId: string, programExerciseId: string): P
 const notesDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
+  if (!userNotesLoaded.value.has(exerciseId)) return
   userNotesContent.value = { ...userNotesContent.value, [exerciseId]: notes }
   const prev = notesDebounceTimers.get(exerciseId)
   if (prev) clearTimeout(prev)
@@ -132,9 +133,13 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
         :key="ex.id"
         class="rounded-lg bg-slate-800/50"
       >
-        <button
+        <div
+          role="button"
+          tabindex="0"
           class="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left"
           @click="toggleExercise(ex.id)"
+          @keydown.enter="toggleExercise(ex.id)"
+          @keydown.space.prevent="toggleExercise(ex.id)"
         >
           <div class="min-w-0 flex-1">
             <p class="flex items-center gap-1.5 font-medium text-white">
@@ -188,7 +193,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             :name="expandedExercises.has(ex.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
             class="size-6 shrink-0 text-slate-400"
           />
-        </button>
+        </div>
 
         <!-- Program notes box -->
         <div v-if="notesVisibleFor === ex.id && exerciseNotes(ex)" class="mx-3 mb-2 rounded-md bg-slate-700/50 px-3 py-2 text-xs text-slate-300">
@@ -203,7 +208,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
               <!-- Inline personal notes -->
               <div v-if="userNotesOpen === ex.id" class="mx-1 mb-2 mt-1">
-                <div v-if="userNotesLoading.has(ex.exercise.id)" class="h-16 animate-pulse rounded-md bg-slate-700/50" />
+                <div v-if="userNotesLoading.has(ex.exercise.id)" class="h-16 animate-pulse rounded-lg bg-slate-800" />
                 <template v-else>
                   <textarea
                     :value="userNotesContent[ex.exercise.id] ?? ''"
@@ -270,9 +275,13 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
     class="rounded-lg bg-slate-800/50"
   >
     <template v-if="group.exercises[0]">
-      <button
+      <div
+        role="button"
+        tabindex="0"
         class="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left"
         @click="toggleExercise(group.id)"
+        @keydown.enter="toggleExercise(group.id)"
+        @keydown.space.prevent="toggleExercise(group.id)"
       >
         <div class="min-w-0 flex-1">
           <p class="flex items-center gap-1.5 font-medium text-white">
@@ -326,7 +335,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           :name="expandedExercises.has(group.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
           class="size-6 shrink-0 text-slate-400"
         />
-      </button>
+      </div>
 
       <!-- Program notes box -->
       <div v-if="notesVisibleFor === group.exercises[0].id && exerciseNotes(group.exercises[0])" class="mx-3 mb-2 rounded-md bg-slate-700/50 px-3 py-2 text-xs text-slate-300">
@@ -341,7 +350,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
             <!-- Inline personal notes -->
             <div v-if="userNotesOpen === group.exercises[0].id" class="mx-1 mb-2 mt-1">
-              <div v-if="userNotesLoading.has(group.exercises[0].exercise.id)" class="h-16 animate-pulse rounded-md bg-slate-700/50" />
+              <div v-if="userNotesLoading.has(group.exercises[0].exercise.id)" class="h-16 animate-pulse rounded-lg bg-slate-800" />
               <template v-else>
                 <textarea
                   :value="userNotesContent[group.exercises[0].exercise.id] ?? ''"
