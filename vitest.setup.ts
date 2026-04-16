@@ -14,6 +14,7 @@ vi.stubGlobal('defineRouteMeta', vi.fn())
 // ── H3 helpers (used in server routes and middleware) ─────────────────────────
 vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
 vi.stubGlobal('getRouterParam', vi.fn())
+vi.stubGlobal('getQuery', vi.fn(() => ({})))
 vi.stubGlobal('readBody', vi.fn())
 vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
   const err = new Error(opts.statusMessage) as Error & {
@@ -50,7 +51,9 @@ vi.stubGlobal('prisma', {
   workoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   exercise: { findUnique: vi.fn(), findMany: vi.fn() },
   exerciseSet: { findUnique: vi.fn() },
-  completedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  completedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
+  userExerciseNote: { findUnique: vi.fn(), upsert: vi.fn() },
+  workoutExerciseSwap: { upsert: vi.fn() },
 })
 
 // ── Supabase client global (used in Nitro server route handlers via auto-import) ─

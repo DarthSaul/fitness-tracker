@@ -4,6 +4,7 @@ import type {
   StartWorkoutResponse,
   ActiveWorkoutResponse,
   CompleteWorkoutResponse,
+  WorkoutExerciseSwap,
 } from '~/types/workout'
 import type { ProgramDayDetail } from '~/types/program'
 
@@ -12,11 +13,14 @@ export function useWorkoutSession() {
   const session = ref<WorkoutSession | null>(null)
   const day = ref<ProgramDayDetail | null>(null)
   const completedSets = ref(new Map<string, CompletedSetRecord>())
+  const extraCompletedSets = ref(new Map<string, CompletedSetRecord>())  // keyed by CompletedSet.id
+  const exerciseSwaps = ref<WorkoutExerciseSwap[]>([])
   const loading = ref(false)
   const completing = ref(false)
   const abandoning = ref(false)
   const recordingSetId = ref<string | null>(null)
   const error = ref<string | null>(null)
+  const notesSaving = ref(false)
 
   const totalSets = computed(() => {
     if (!day.value) return 0
@@ -29,11 +33,11 @@ export function useWorkoutSession() {
     return count
   })
 
-  const completedSetCount = computed(() => completedSets.value.size)
+  const completedSetCount = computed(() => completedSets.value.size + extraCompletedSets.value.size)
 
   const progressPercent = computed(() => {
     if (totalSets.value === 0) return 0
-    return Math.round((completedSetCount.value / totalSets.value) * 100)
+    return Math.min(100, Math.round((completedSetCount.value / totalSets.value) * 100))
   })
 
   function isSetCompleted(exerciseSetId: string): boolean {
@@ -49,9 +53,18 @@ export function useWorkoutSession() {
       const data = await $fetch<ActiveWorkoutResponse>('/api/workouts/active')
       session.value = data.session
       day.value = data.day
+      const allCompleted = data.session.completedSets
       completedSets.value = new Map(
-        data.session.completedSets.map((cs) => [cs.exerciseSetId, cs]),
+        allCompleted
+          .filter((cs: CompletedSetRecord) => cs.exerciseSetId !== null)
+          .map((cs: CompletedSetRecord) => [cs.exerciseSetId!, cs]),
       )
+      extraCompletedSets.value = new Map(
+        allCompleted
+          .filter((cs: CompletedSetRecord) => cs.exerciseSetId === null)
+          .map((cs: CompletedSetRecord) => [cs.id, cs]),
+      )
+      exerciseSwaps.value = data.session.workoutExerciseSwaps ?? []
       return true
     } catch (e) {
       if ((e as { statusCode?: number }).statusCode === 404) {
@@ -69,6 +82,8 @@ export function useWorkoutSession() {
       session.value = data.session
       day.value = data.day
       completedSets.value = new Map()
+      extraCompletedSets.value = new Map()
+      exerciseSwaps.value = []
       clearNuxtData(CACHE_KEYS.ACTIVE_WORKOUT)
       clearNuxtData(CACHE_KEYS.ACTIVE_PROGRAM)
       clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
@@ -132,11 +147,17 @@ export function useWorkoutSession() {
   async function abandonWorkout(): Promise<void> {
     if (!session.value) throw new Error('No active session')
     abandoning.value = true
+    if (notesDebounceTimer) {
+      clearTimeout(notesDebounceTimer)
+      notesDebounceTimer = null
+    }
     try {
       await $fetch<{ deleted: boolean }>(`/api/workouts/${session.value.id}`, { method: 'DELETE' as const })
       session.value = null
       day.value = null
       completedSets.value = new Map()
+      extraCompletedSets.value = new Map()
+      exerciseSwaps.value = []
       clearNuxtData(CACHE_KEYS.ACTIVE_WORKOUT)
       clearNuxtData(CACHE_KEYS.ACTIVE_PROGRAM)
       clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
@@ -150,15 +171,26 @@ export function useWorkoutSession() {
       const data = await $fetch<ActiveWorkoutResponse>(`/api/workouts/${sessionId}`)
       session.value = data.session
       day.value = data.day
+      const allCompleted = data.session.completedSets
       completedSets.value = new Map(
-        data.session.completedSets.map((cs) => [cs.exerciseSetId, cs]),
+        allCompleted
+          .filter((cs: CompletedSetRecord) => cs.exerciseSetId !== null)
+          .map((cs: CompletedSetRecord) => [cs.exerciseSetId!, cs]),
       )
+      extraCompletedSets.value = new Map(
+        allCompleted
+          .filter((cs: CompletedSetRecord) => cs.exerciseSetId === null)
+          .map((cs: CompletedSetRecord) => [cs.id, cs]),
+      )
+      exerciseSwaps.value = data.session.workoutExerciseSwaps ?? []
       return true
     } catch (e) {
       if ((e as { statusCode?: number }).statusCode === 404) {
         session.value = null
         day.value = null
         completedSets.value = new Map()
+        extraCompletedSets.value = new Map()
+        exerciseSwaps.value = []
         return false
       }
       throw e
@@ -197,15 +229,87 @@ export function useWorkoutSession() {
     }
   }
 
+  async function addExtraSet(
+    programExerciseId: string,
+    data: { reps?: number | null; weight?: number | null; rpe?: number | null; notes?: string | null } = {},
+  ): Promise<CompletedSetRecord> {
+    if (!session.value) throw new Error('No active session')
+    const result = await $fetch<CompletedSetRecord>(
+      `/api/workouts/${session.value.id}/exercises/${programExerciseId}/extra-sets`,
+      { method: 'POST', body: data },
+    )
+    extraCompletedSets.value.set(result.id, result)
+    return result
+  }
+
+  async function deleteExtraSet(completedSetId: string): Promise<void> {
+    if (!session.value) return
+    await $fetch(
+      `/api/workouts/${session.value.id}/extra-sets/${completedSetId}`,
+      { method: 'DELETE' },
+    )
+    extraCompletedSets.value.delete(completedSetId)
+  }
+
+  async function updateExtraSet(
+    completedSetId: string,
+    data: { reps?: number | null; weight?: number | null; rpe?: number | null; notes?: string | null },
+  ): Promise<void> {
+    if (!session.value) return
+    const existing = extraCompletedSets.value.get(completedSetId)
+    if (!existing) return
+    recordingSetId.value = completedSetId
+    try {
+      const result = await $fetch<CompletedSetRecord>(
+        `/api/workouts/${session.value.id}/sets/${completedSetId}`,
+        { method: 'PATCH', body: data },
+      )
+      extraCompletedSets.value.set(completedSetId, result)
+    } finally {
+      recordingSetId.value = null
+    }
+  }
+
+  let notesDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+  async function saveWorkoutNotes(notes: string): Promise<void> {
+    if (!session.value) return
+    if (notesDebounceTimer) clearTimeout(notesDebounceTimer)
+    const sessionId = session.value!.id
+    notesDebounceTimer = setTimeout(async () => {
+      notesSaving.value = true
+      try {
+        await $fetch<{ id: string; notes: string | null }>(`/api/workouts/${sessionId}`, { method: 'PATCH', body: { notes } })
+        if (session.value) session.value = { ...session.value, notes }
+      } catch {
+        // autosave failure is silent; user's local draft is unaffected
+      } finally {
+        notesSaving.value = false
+      }
+    }, 800)
+  }
+
+  async function swapExercise(programExerciseId: string, replacementExerciseId: string): Promise<void> {
+    if (!session.value) return
+    await $fetch(
+      `/api/workouts/${session.value.id}/exercises/${programExerciseId}/swap`,
+      { method: 'POST', body: { replacementExerciseId } },
+    )
+    await loadActiveSession()
+  }
+
   return {
     session,
     day,
     completedSets,
+    extraCompletedSets,
+    exerciseSwaps,
     loading,
     completing,
     abandoning,
     recordingSetId,
     error,
+    notesSaving,
     totalSets,
     completedSetCount,
     progressPercent,
@@ -217,6 +321,11 @@ export function useWorkoutSession() {
     recordSet,
     updateSet,
     deleteCompletedSet,
+    addExtraSet,
+    deleteExtraSet,
+    updateExtraSet,
+    saveWorkoutNotes,
+    swapExercise,
     completeWorkout,
     abandonWorkout,
   }

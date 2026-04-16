@@ -30,6 +30,11 @@ export default defineEventHandler(async (event) => {
             },
           },
         },
+        programExercise: {
+          include: {
+            exercise: { select: { id: true, name: true } },
+          },
+        },
       },
     })
 
@@ -40,7 +45,10 @@ export default defineEventHandler(async (event) => {
     >()
 
     for (const cs of completedSets) {
-      const exercise = cs.exerciseSet.programExercise.exercise
+      if (!cs.exerciseSet && !cs.programExercise) continue
+      const exercise = cs.exerciseSet
+        ? cs.exerciseSet.programExercise.exercise
+        : cs.programExercise!.exercise
       const sessionId = cs.workoutSession.id
       const completedAt = cs.workoutSession.completedAt
 

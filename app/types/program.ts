@@ -59,3 +59,10 @@ export interface ProgramDayDetail {
   warmUp: string | null
   exerciseGroups: ExerciseGroupDetail[]
 }
+
+/** Minimal exercise summary returned by GET /api/exercises. */
+export interface ExerciseSummary {
+  id: string
+  name: string
+  description: string | null
+}

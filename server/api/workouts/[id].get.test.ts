@@ -5,6 +5,7 @@ import handler from './[id].get'
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUniqueSession = (prisma as typeof prisma).workoutSession.findUnique as ReturnType<typeof vi.fn>
 const mockFindFirstDay = (prisma as typeof prisma).programDay.findFirst as ReturnType<typeof vi.fn>
+const mockFindManyExercise = (prisma as typeof prisma).exercise.findMany as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
 function makeEvent(id = 'ws001') {
@@ -28,6 +29,7 @@ const mockSession = {
   dayNumber: 2,
   status: 'IN_PROGRESS',
   completedSets: [],
+  workoutExerciseSwaps: [],
   userProgram: mockUserProgram,
 }
 
@@ -70,6 +72,7 @@ describe('GET /api/workouts/:id', () => {
       where: { id: 'ws001' },
       include: {
         completedSets: true,
+        workoutExerciseSwaps: true,
         userProgram: true,
       },
     })
@@ -183,5 +186,49 @@ describe('GET /api/workouts/:id', () => {
 
     expect(result.session).toEqual(completedSession)
     expect(result.day).toEqual(mockDay)
+  })
+
+  test('rewrites exercise data when a workout exercise swap exists for a program exercise', async () => {
+    const mockReplacementExercise = { id: 'ex-replacement', name: 'Incline Dumbbell Press', description: 'Targets upper chest' }
+
+    const sessionWithSwap = {
+      ...mockSession,
+      workoutExerciseSwaps: [
+        { id: 'wes001', workoutSessionId: 'ws001', programExerciseId: 'pe001', replacementExerciseId: 'ex-replacement' },
+      ],
+    }
+
+    const dayWithExercise = {
+      id: 'day001',
+      dayNumber: 2,
+      exerciseGroups: [
+        {
+          id: 'eg001',
+          programDayId: 'day001',
+          order: 1,
+          exercises: [
+            {
+              id: 'pe001',
+              exerciseGroupId: 'eg001',
+              order: 1,
+              exercise: { id: 'ex001', name: 'Bench Press', description: null },
+              sets: [],
+            },
+          ],
+        },
+      ],
+    }
+
+    mockFindUniqueSession.mockResolvedValueOnce(sessionWithSwap)
+    mockFindFirstDay.mockResolvedValueOnce(dayWithExercise)
+    mockFindManyExercise.mockResolvedValueOnce([mockReplacementExercise])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ session: unknown; day: typeof dayWithExercise }>)(event)
+
+    const returnedExercise = result.day.exerciseGroups[0]!.exercises[0]!.exercise
+    expect(returnedExercise).toEqual(mockReplacementExercise)
+    expect(returnedExercise.name).toBe('Incline Dumbbell Press')
+    expect(returnedExercise.id).toBe('ex-replacement')
   })
 })

@@ -47,9 +47,10 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  userPrograms    UserProgram[]
-  workoutSessions WorkoutSession[]
-  feedback        Feedback[]
+  userPrograms      UserProgram[]
+  workoutSessions   WorkoutSession[]
+  feedback          Feedback[]
+  userExerciseNotes UserExerciseNote[]
 
   @@unique([provider, providerId])
 }
@@ -110,7 +111,24 @@ model Exercise {
   name        String  @unique
   description String?
 
-  programExercises ProgramExercise[]
+  programExercises  ProgramExercise[]
+  userExerciseNotes UserExerciseNote[]
+  originalSwaps     WorkoutExerciseSwap[] @relation("OriginalSwaps")
+  replacementSwaps  WorkoutExerciseSwap[] @relation("ReplacementSwaps")
+}
+
+model UserExerciseNote {
+  id         String   @id @default(cuid())
+  userId     String
+  exerciseId String
+  notes      String
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exerciseId])
 }
 
 model ProgramExercise {
@@ -119,9 +137,10 @@ model ProgramExercise {
   exerciseId      String
   order           Int
 
-  exercise      Exercise      @relation(fields: [exerciseId], references: [id])
-  exerciseGroup ExerciseGroup @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
+  exercise      Exercise       @relation(fields: [exerciseId], references: [id])
+  exerciseGroup ExerciseGroup  @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
   sets          ExerciseSet[]
+  completedSets CompletedSet[]
 
   @@unique([exerciseGroupId, order])
 }
@@ -173,27 +192,47 @@ model WorkoutSession {
   status        SessionStatus @default(IN_PROGRESS)
   startedAt     DateTime      @default(now())
   completedAt   DateTime?
+  notes         String?
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userProgram UserProgram @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
 
-  completedSets CompletedSet[]
+  completedSets        CompletedSet[]
+  workoutExerciseSwaps WorkoutExerciseSwap[]
 }
 
 model CompletedSet {
-  id               String   @id @default(cuid())
-  workoutSessionId String
-  exerciseSetId    String
-  reps             Int?
-  weight           Float?
-  rpe              Float?
-  notes            String?
-  completedAt      DateTime @default(now())
+  id                String   @id @default(cuid())
+  workoutSessionId  String
+  exerciseSetId     String?
+  programExerciseId String?
+  reps              Int?
+  weight            Float?
+  rpe               Float?
+  notes             String?
+  completedAt       DateTime @default(now())
 
-  workoutSession WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
-  exerciseSet    ExerciseSet    @relation(fields: [exerciseSetId], references: [id], onDelete: Cascade)
+  workoutSession  WorkoutSession   @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exerciseSet     ExerciseSet?     @relation(fields: [exerciseSetId], references: [id], onDelete: Cascade)
+  programExercise ProgramExercise? @relation(fields: [programExerciseId], references: [id], onDelete: Cascade)
 
   @@unique([workoutSessionId, exerciseSetId])
+  @@index([workoutSessionId, programExerciseId])
+}
+
+model WorkoutExerciseSwap {
+  id                    String   @id @default(cuid())
+  workoutSessionId      String
+  programExerciseId     String
+  originalExerciseId    String
+  replacementExerciseId String
+  createdAt             DateTime @default(now())
+
+  workoutSession      WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  originalExercise    Exercise       @relation("OriginalSwaps", fields: [originalExerciseId], references: [id])
+  replacementExercise Exercise       @relation("ReplacementSwaps", fields: [replacementExerciseId], references: [id])
+
+  @@unique([workoutSessionId, programExerciseId])
 }
 
 model ScheduledWorkout {

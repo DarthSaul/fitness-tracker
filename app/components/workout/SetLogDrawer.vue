@@ -8,7 +8,7 @@ import type { ExerciseSetDetail } from '~/types/program'
 import type { CompletedSetRecord } from '~/types/workout'
 
 const props = defineProps<{
-  set: ExerciseSetDetail
+  set: ExerciseSetDetail & { setNumber: number | null }
   completedSet: CompletedSetRecord | null
   open: boolean
   loading: boolean
@@ -36,8 +36,15 @@ const isOpen = computed({
 // Reset form values when drawer opens (immediate: true handles the v-if mount-with-open=true case)
 watch(() => props.open, async (opened) => {
   if (opened) {
-    editWeight.value = props.completedSet?.weight ?? props.set.weight
-    editReps.value = props.completedSet?.reps ?? props.set.reps
+    if (props.set.setNumber != null) {
+      // Template set: use completed values or prescribed targets
+      editWeight.value = props.completedSet?.weight ?? props.set.weight
+      editReps.value = props.completedSet?.reps ?? props.set.reps
+    } else {
+      // Extra set: use completed values if editing, else start blank
+      editWeight.value = props.completedSet?.weight ?? null
+      editReps.value = props.completedSet?.reps ?? null
+    }
     await nextTick()
     weightInputRef.value?.focus()
   }
@@ -50,6 +57,7 @@ function handleLog(): void {
 }
 
 function formatTarget(): string {
+  if (props.set.setNumber == null) return ''
   const parts: string[] = []
   if (props.set.weight != null) parts.push(`${props.set.weight} lbs`)
   if (props.set.reps != null) parts.push(`${props.set.reps} reps`)
@@ -67,7 +75,7 @@ function formatTarget(): string {
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
           <DialogTitle as="h3" class="text-lg font-semibold text-white">
-            Set {{ set.setNumber }}
+            {{ set.setNumber != null ? `Set ${set.setNumber}` : 'Extra Set' }}
           </DialogTitle>
           <button
             class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
@@ -79,7 +87,9 @@ function formatTarget(): string {
         </div>
 
         <VisuallyHidden>
-          <DialogDescription>Enter weight and reps for set {{ set.setNumber }}</DialogDescription>
+          <DialogDescription>
+            {{ set.setNumber != null ? `Enter weight and reps for set ${set.setNumber}` : 'Enter weight and reps for extra set' }}
+          </DialogDescription>
         </VisuallyHidden>
 
         <!-- Target context -->

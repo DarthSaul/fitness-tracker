@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
       include: {
         completedSets: true,
         userProgram: true,
+        workoutExerciseSwaps: true,
       },
     })
 
@@ -54,6 +55,34 @@ export default defineEventHandler(async (event) => {
 
     if (!day) {
       throw createError({ statusCode: 500, statusMessage: 'Program day not found for session position' })
+    }
+
+    // Apply exercise swaps to the day structure
+    const swapMap = new Map(
+      session.workoutExerciseSwaps.map((s: { programExerciseId: string; replacementExerciseId: string }) =>
+        [s.programExerciseId, s.replacementExerciseId]
+      )
+    )
+
+    if (swapMap.size > 0) {
+      const replacementIds = [...swapMap.values()]
+      const replacements = await prisma.exercise.findMany({
+        where: { id: { in: replacementIds } },
+        select: { id: true, name: true, description: true },
+      })
+      const replacementMap = new Map(replacements.map((e: { id: string; name: string; description: string | null }) => [e.id, e]))
+
+      for (const group of day.exerciseGroups) {
+        for (const ex of group.exercises) {
+          const replacementId = swapMap.get(ex.id)
+          if (replacementId) {
+            const replacement = replacementMap.get(replacementId)
+            if (replacement) {
+              (ex as unknown as { exercise: typeof replacement }).exercise = replacement
+            }
+          }
+        }
+      }
     }
 
     return { session, day }

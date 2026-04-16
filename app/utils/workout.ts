@@ -7,7 +7,9 @@ import type { ActiveWorkoutResponse } from '~/types/workout'
 export function findNextActiveExercise(activeWorkout: ActiveWorkoutResponse | null): string | null {
   if (!activeWorkout?.day) return null
   const completedSetIds = new Set(
-    activeWorkout.session.completedSets.map((s) => s.exerciseSetId),
+    activeWorkout.session.completedSets
+      .map((s) => s.exerciseSetId)
+      .filter((id): id is string => id !== null),
   )
   for (const group of activeWorkout.day.exerciseGroups) {
     for (const ex of group.exercises) {

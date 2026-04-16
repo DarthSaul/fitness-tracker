@@ -86,6 +86,7 @@ export default defineEventHandler(async (event) => {
             exerciseSet: {
               include: { programExercise: { select: { exerciseId: true } } },
             },
+            programExercise: { select: { exerciseId: true } },
           },
         },
       },
@@ -102,7 +103,11 @@ export default defineEventHandler(async (event) => {
         if (set.reps != null && set.weight != null) {
           totalVolumeLbs += set.reps * set.weight
         }
-        exerciseIdSet.add(set.exerciseSet.programExercise.exerciseId)
+        if (set.exerciseSet) {
+          exerciseIdSet.add(set.exerciseSet.programExercise.exerciseId)
+        } else if (set.programExercise) {
+          exerciseIdSet.add(set.programExercise.exerciseId)
+        }
       }
     }
 

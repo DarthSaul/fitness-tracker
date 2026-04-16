@@ -4,6 +4,7 @@ import handler from './active.get'
 
 const mockFindFirstSession = (prisma as typeof prisma).workoutSession.findFirst as ReturnType<typeof vi.fn>
 const mockFindFirstDay = (prisma as typeof prisma).programDay.findFirst as ReturnType<typeof vi.fn>
+const mockFindManyExercise = (prisma as typeof prisma).exercise.findMany as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
 function makeEvent() {
@@ -26,6 +27,7 @@ const mockSession = {
     { id: 'cs001', workoutSessionId: 'ws001', exerciseSetId: 'es001', reps: 10, weight: 135, rpe: 7, notes: null, completedAt: new Date() },
   ],
   userProgram: { id: 'up001', programId: 'prog001' },
+  workoutExerciseSwaps: [],
 }
 
 const mockDay = {
@@ -80,7 +82,7 @@ describe('GET /api/workouts/active', () => {
     expect(result.day).toEqual(mockDay)
     expect(mockFindFirstSession).toHaveBeenCalledWith({
       where: { userId: 'user001', status: 'IN_PROGRESS' },
-      include: { completedSets: true, userProgram: true },
+      include: { completedSets: true, workoutExerciseSwaps: true, userProgram: true },
     })
     expect(mockFindFirstDay).toHaveBeenCalledWith({
       where: {
@@ -168,5 +170,43 @@ describe('GET /api/workouts/active', () => {
     expect(mockCreateError).not.toHaveBeenCalledWith(
       expect.objectContaining({ statusCode: 500 }),
     )
+  })
+
+  test('rewrites exercise data when a workout exercise swap exists for a program exercise', async () => {
+    const mockReplacementExercise = { id: 'ex-replacement', name: 'Incline Dumbbell Press', description: 'Targets upper chest' }
+
+    const sessionWithSwap = {
+      ...mockSession,
+      workoutExerciseSwaps: [
+        { id: 'wes001', workoutSessionId: 'ws001', programExerciseId: 'pe001', replacementExerciseId: 'ex-replacement' },
+      ],
+    }
+
+    // Deep-clone the day so mutations in the handler don't bleed between tests
+    const dayWithExercise = {
+      ...mockDay,
+      exerciseGroups: [
+        {
+          ...mockDay.exerciseGroups[0]!,
+          exercises: [
+            {
+              ...mockDay.exerciseGroups[0]!.exercises[0]!,
+              exercise: { id: 'ex001', name: 'Bench Press' },
+            },
+          ],
+        },
+      ],
+    }
+
+    mockFindFirstSession.mockResolvedValueOnce(sessionWithSwap)
+    mockFindFirstDay.mockResolvedValueOnce(dayWithExercise)
+    mockFindManyExercise.mockResolvedValueOnce([mockReplacementExercise])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ session: unknown; day: typeof dayWithExercise }>)(event)
+
+    const returnedExercise = result.day.exerciseGroups[0]!.exercises[0]!.exercise
+    expect(returnedExercise.id).toBe('ex-replacement')
+    expect(returnedExercise.name).toBe('Incline Dumbbell Press')
   })
 })
