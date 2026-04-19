@@ -65,6 +65,15 @@ vi.stubGlobal('supabase', {
     setSession: vi.fn(),
     updateUser: vi.fn(),
   },
+  storage: {
+    from: vi.fn(() => ({
+      upload: vi.fn().mockResolvedValue({ data: { path: 'test-user/screenshot.png' }, error: null }),
+      remove: vi.fn().mockResolvedValue({ data: null, error: null }),
+      getPublicUrl: vi.fn(() => ({
+        data: { publicUrl: 'https://test.supabase.co/storage/v1/object/public/feedback-screenshots/test-user/screenshot.png' },
+      })),
+    })),
+  },
 })
 
 // ── Server utility auto-imports (server/utils/) ──────────────────────────────
@@ -78,7 +87,7 @@ vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/au
 // ── Nuxt runtime config ─────────────────────────────────────────────────────
 vi.stubGlobal('useRuntimeConfig', vi.fn(() => ({
   supabaseUrl: 'https://test.supabase.co',
-  supabaseAnonKey: 'test-anon-key',
+  supabaseServiceRoleKey: 'test-service-role-key',
 })))
 
 // ── Nuxt composable / navigation globals (used in app/composables) ────────────
