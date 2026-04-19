@@ -482,7 +482,7 @@ async function handleUnschedule(): Promise<void> {
 						</li>
 						<li
 							v-if="nextWorkoutExercises.length > 3"
-							class="text-xs text-slate-500"
+							class="text-xs text-slate-500 mb-1"
 						>
 							+{{ nextWorkoutExercises.length - 3 }} more
 						</li>
