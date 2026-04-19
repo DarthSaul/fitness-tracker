@@ -192,6 +192,7 @@ Custom subagents are defined in `.claude/agents/`. Available agents:
 - **user-guide-writer** — User guide documentation updates for new features.
 - **vercel-deployment** — Vercel deployment debugging, configuration, and optimization.
 - **task-manager** — Save/restore context and maintain CLAUDE.md Roadmap.
+- **workout-parser** — Parse workout PDFs into seed.ts data, normalize exercise names, and resolve duplicates before upload.
 
 ### Third-party Agent Skills
 
