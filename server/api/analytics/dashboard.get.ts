@@ -126,7 +126,9 @@ export default defineEventHandler(async (event) => {
     // Start of the current ISO week in the user's local timezone.
     // tzOffset = minutes to add to UTC to get local time (e.g. UTC-5 → -300)
     const { tzOffset } = getQuery(event)
-    const tzOffsetMinutes = typeof tzOffset === 'string' ? parseInt(tzOffset, 10) : 0
+    const tzOffsetMinutes = typeof tzOffset === 'string' && Number.isFinite(Number(tzOffset))
+      ? parseInt(tzOffset, 10)
+      : 0
     const localNow = new Date(Date.now() + tzOffsetMinutes * 60_000)
     const dayOfWeek = localNow.getUTCDay()
     const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
