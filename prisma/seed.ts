@@ -123,7 +123,7 @@ const brickHouseWeeks: WeekInput[] = [
 						ex('Dips or Bench Dips', ...r(10, 5)),
 					]),
 					ss([
-						ex('2-Arm Chest Supported DB Rows', ...r(25, 3)),
+						ex('Chest Supported 2-Arm DB Rows', ...r(25, 3)),
 						ex('Barbell Shrugs', ...r(10, 3)),
 					]),
 				],
@@ -159,7 +159,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(5, '35% of Bench 1RM', 'Strict, slow, no legs'),
 							s(5),
 							s(5),
@@ -190,13 +190,13 @@ const brickHouseWeeks: WeekInput[] = [
 								s(5),
 								s(5),
 							),
-							ex('BB RDLs', ...r(10, 3)),
+							ex('Barbell RDLs', ...r(10, 3)),
 						],
 						120,
 					),
 					solo(
 						ex(
-							'BB Bent Over Rows',
+							'Barbell Bent Over Rows',
 							s(10),
 							s(5),
 							s(5),
@@ -247,7 +247,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					solo(
 						ex(
-							'2-Arm Chest Supported DB Rows',
+							'Chest Supported 2-Arm DB Rows',
 							s(10),
 							s(5),
 							s(5),
@@ -290,14 +290,14 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					ss(
 						[
-							ex('BB Bent Over Rows', ...r(10, 3)),
+							ex('Barbell Bent Over Rows', ...r(10, 3)),
 							ex('DB Pullover', ...r(10, 3)),
 						],
 						150,
 					),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(10, '30% of Bench 1RM'),
 							s(10),
 							s(10),
@@ -337,7 +337,7 @@ const brickHouseWeeks: WeekInput[] = [
 					]),
 					solo(
 						ex(
-							'2-Arm Chest Supported DB Rows',
+							'Chest Supported 2-Arm DB Rows',
 							s(10),
 							s(5),
 							s(5),
@@ -388,7 +388,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(10, '30% of Bench 1RM'),
 							s(10),
 							s(10),
@@ -430,7 +430,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					solo(
 						ex(
-							'BB Bent Over Rows',
+							'Barbell Bent Over Rows',
 							s(10),
 							s(5),
 							s(5),
@@ -452,7 +452,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					ss([
 						ex('DB Rear Laterals', ...r(20, 3)),
-						ex('BB Shrugs', ...r(10, 3)),
+						ex('Barbell Shrugs', ...r(10, 3)),
 					]),
 				],
 			},
@@ -508,7 +508,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					ss([
 						ex('DB Rear Laterals', ...r(10, 2)),
-						ex('BB Shrugs', ...r(25, 2)),
+						ex('Barbell Shrugs', ...r(25, 2)),
 					]),
 				],
 			},
@@ -539,7 +539,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(5, '37.5% of Bench 1RM'),
 							s(5),
 							s(5),
@@ -618,7 +618,7 @@ const brickHouseWeeks: WeekInput[] = [
 					ss(
 						[
 							ex(
-								'BB Rear Foot Elevated Split Squat',
+								'Barbell Rear Foot Elevated Split Squat',
 								...r(5, 3),
 							),
 							ex('DB RDLs', ...r(10, 3)),
@@ -628,7 +628,7 @@ const brickHouseWeeks: WeekInput[] = [
 					solo(ex('DB Pullover', ...r(10, 4))),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(
 								10,
 								'30% of Bench 1RM',
@@ -711,7 +711,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					solo(
 						ex(
-							'BB Bent Over Rows',
+							'Barbell Bent Over Rows',
 							s(10),
 							s(5),
 							s(5),
@@ -735,7 +735,7 @@ const brickHouseWeeks: WeekInput[] = [
 						90,
 					),
 					solo(
-						ex('Band or Cable Pushdowns', ...r(25, 3)),
+						ex('Cable or Band Pushdowns', ...r(25, 3)),
 					),
 				],
 			},
@@ -756,14 +756,14 @@ const brickHouseWeeks: WeekInput[] = [
 								s(5),
 								s(5),
 							),
-							ex('BB Goodmornings', ...r(10, 3)),
+							ex('Barbell Goodmornings', ...r(10, 3)),
 						],
 						150,
 					),
 					solo(ex('1-Arm DB Row', ...r(5, 4))),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(5, '37.5% of Bench 1RM'),
 							s(5),
 							s(5),
@@ -797,7 +797,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					ss([
 						ex('DB Pullover', ...r(5, 3)),
-						ex('Chin Up (Weighted)', ...r(3, 3)),
+						ex('Chin Up', ...r(3, 3)),
 					]),
 					solo(
 						ex(
@@ -849,7 +849,7 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(10, '30-32% of Bench 1RM'),
 							s(10),
 							s(10),
@@ -864,7 +864,7 @@ const brickHouseWeeks: WeekInput[] = [
 					]),
 					solo(
 						ex(
-							'BB Shrugs',
+							'Barbell Shrugs',
 							s(10),
 							s(10),
 							s(20),
@@ -889,7 +889,7 @@ const brickHouseWeeks: WeekInput[] = [
 								s(5),
 								s(5),
 							),
-							ex('BB Goodmornings', ...r(10, 3)),
+							ex('Barbell Goodmornings', ...r(10, 3)),
 						],
 						120,
 					),
@@ -976,7 +976,7 @@ const brickHouseWeeks: WeekInput[] = [
 					solo(ex('1-Arm DB Row', ...r(5, 4))),
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							s(5),
 							s(10),
 							s(15),
@@ -984,11 +984,11 @@ const brickHouseWeeks: WeekInput[] = [
 					),
 					ss([
 						ex('DB Rear Laterals', ...r(20, 3)),
-						ex('BB Upright Rows', ...r(10, 3)),
+						ex('Barbell Upright Rows', ...r(10, 3)),
 					]),
 					ss([
 						ex('Cable or Band Pushdowns', ...r(25, 2)),
-						ex('BB Curls', ...r(25, 2)),
+						ex('Barbell Curls', ...r(25, 2)),
 					]),
 				],
 			},
@@ -1044,7 +1044,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Standing Ovhd Press
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							...r(10, 5),
 						),
 						150,
@@ -1077,7 +1077,7 @@ const armFarmWeeks: WeekInput[] = [
 					),
 					// Cardio
 					ss([
-						ex('BB Reverse Curls', ...r(10, 4)),
+						ex('Barbell Reverse Curls', ...r(10, 4)),
 						ex('Cable or Band Pushdowns', ...r(25, 4)),
 					]),
 				],
@@ -1100,7 +1100,7 @@ const armFarmWeeks: WeekInput[] = [
 								s(3),
 								s(3),
 							),
-							ex('BB Goodmornings', ...r(8, 4)),
+							ex('Barbell Goodmornings', ...r(8, 4)),
 						],
 						150,
 					),
@@ -1118,9 +1118,9 @@ const armFarmWeeks: WeekInput[] = [
 					// 3. a. BB Bent Over Row + b. BB RDL (use same weight)
 					ss(
 						[
-							ex('BB Bent Over Rows', ...r(10, 3)),
+							ex('Barbell Bent Over Rows', ...r(10, 3)),
 							ex(
-								'BB RDLs',
+								'Barbell RDLs',
 								s(10, 'Use same weight as rows'),
 								s(10),
 								s(10),
@@ -1209,7 +1209,7 @@ const armFarmWeeks: WeekInput[] = [
 								s(15),
 							),
 							ex(
-								'BB Shrugs',
+								'Barbell Shrugs',
 								s(10),
 								s(12),
 								s(15),
@@ -1273,7 +1273,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 3. a. BB Shrugs + b. DB Rear Laterals
 					ss(
 						[
-							ex('BB Shrugs', ...r(10, 4)),
+							ex('Barbell Shrugs', ...r(10, 4)),
 							ex(
 								'DB Rear Laterals',
 								s(20),
@@ -1341,7 +1341,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Standing Ovhd Press
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(8, '32.5-35% of Bench 1RM'),
 							s(8),
 							s(8),
@@ -1407,7 +1407,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Bent Over Row
 					solo(
 						ex(
-							'BB Bent Over Rows',
+							'Barbell Bent Over Rows',
 							s(5),
 							s(5),
 							s(8),
@@ -1633,7 +1633,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Standing Ovhd Press
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(6, '37.5-40% of Bench 1RM'),
 							s(6),
 							s(6),
@@ -1668,7 +1668,7 @@ const armFarmWeeks: WeekInput[] = [
 					// Cardio superset
 					ss([
 						ex(
-							'BB Reverse Curls',
+							'Barbell Reverse Curls',
 							s(10, 'Straight bar'),
 							s(10),
 							s(10),
@@ -1702,7 +1702,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Bent Over Row
 					solo(
 						ex(
-							'BB Bent Over Rows',
+							'Barbell Bent Over Rows',
 							s(5),
 							s(5),
 							s(10),
@@ -1713,7 +1713,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 3. a. Band/or BB Goodmornings + b. Chest Supported 2-Arm DB Rows
 					ss(
 						[
-							ex('BB Goodmornings', ...r(10, 3)),
+							ex('Barbell Goodmornings', ...r(10, 3)),
 							ex(
 								'Chest Supported 2-Arm DB Rows',
 								...r(20, 3),
@@ -1772,7 +1772,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Incline Press
 					solo(
 						ex(
-							'BB Incline Press',
+							'Barbell Incline Press',
 							...pct(
 								5,
 								[55, 60, 60],
@@ -1854,7 +1854,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 4. a. BB Shrugs + b. DB Rear Laterals
 					ss(
 						[
-							ex('BB Shrugs', ...r(10, 3)),
+							ex('Barbell Shrugs', ...r(10, 3)),
 							ex('DB Rear Laterals', ...r(20, 3)),
 						],
 						150,
@@ -1912,7 +1912,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Standing Ovhd Press
 					solo(
 						ex(
-							'BB Standing Overhead Press',
+							'Barbell Standing Overhead Press',
 							se(5, '40-42.5% of Bench 1RM'),
 							s(5),
 							s(5),
@@ -1946,7 +1946,7 @@ const armFarmWeeks: WeekInput[] = [
 					// Cardio superset
 					ss([
 						ex(
-							'BB Reverse Curls',
+							'Barbell Reverse Curls',
 							s(20, 'Straight bar'),
 							s(20),
 							s(20),
@@ -1977,7 +1977,7 @@ const armFarmWeeks: WeekInput[] = [
 								s(3),
 								s(3),
 							),
-							ex('BB Goodmornings', ...r(10, 4)),
+							ex('Barbell Goodmornings', ...r(10, 4)),
 						],
 						150,
 					),
@@ -2049,7 +2049,7 @@ const armFarmWeeks: WeekInput[] = [
 					// 2. BB Incline Press
 					solo(
 						ex(
-							'BB Incline Press',
+							'Barbell Incline Press',
 							...pct(
 								10,
 								[40, 40, 40],
