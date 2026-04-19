@@ -1,8 +1,9 @@
 import { describe, test, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { resolve, dirname } from 'node:path'
 
-const seedSource = readFileSync(resolve(__dirname, 'seed.ts'), 'utf-8')
+const seedSource = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'seed.ts'), 'utf-8')
 
 const FORBIDDEN_PATTERNS: { label: string; pattern: RegExp }[] = [
   { label: 'BB prefix (use "Barbell" instead)', pattern: /'BB\s/g },
