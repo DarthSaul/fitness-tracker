@@ -49,13 +49,17 @@ const isOpen = computed({
 
 function describeSet(set: PreviewSet): string {
   const parts: string[] = []
+  if (set.reps !== null) {
+    parts.push(`${set.reps} reps`)
+  }
   if (set.effortTarget) {
     parts.push(set.effortTarget)
-  } else if (set.reps !== null) {
-    parts.push(`${set.reps} reps`)
   }
   if (set.weight !== null) {
     parts.push(`@ ${set.weight} lbs`)
+  }
+  if (set.rpe !== null) {
+    parts.push(`RPE ${set.rpe}`)
   }
   if (parts.length === 0) return '—'
   return parts.join(' ')
@@ -158,7 +162,7 @@ function formatRest(seconds: number): string {
 
               <!-- Rest -->
               <p
-                v-if="group.restSeconds"
+                v-if="group.restSeconds !== null"
                 class="mt-1.5 flex items-center gap-1 text-xs text-slate-500"
               >
                 <UIcon name="i-lucide-timer" class="size-3.5" />

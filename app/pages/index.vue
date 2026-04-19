@@ -511,6 +511,8 @@ async function handleUnschedule(): Promise<void> {
 						type="button"
 						aria-label="Preview next workout"
 						@click.stop="previewOpen = true"
+						@keydown.enter.stop.prevent="previewOpen = true"
+						@keydown.space.stop.prevent="previewOpen = true"
 					>
 						Preview
 						<UIcon
