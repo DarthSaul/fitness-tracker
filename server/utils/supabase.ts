@@ -2,7 +2,15 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabaseClientSingleton = () => {
   const config = useRuntimeConfig()
-  return createClient(config.supabaseUrl, config.supabaseAnonKey)
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+    throw new Error('Missing Supabase runtime config: supabaseUrl or supabaseServiceRoleKey')
+  }
+  return createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
 
 type SupabaseClientSingleton = ReturnType<typeof supabaseClientSingleton>

@@ -4,9 +4,14 @@ export default defineNuxtConfig({
   ssr: false,
   devtools: { enabled: true },
   modules: ['nuxt-auth-utils', '@nuxt/ui', '@vite-pwa/nuxt'],
+  auth: {
+    sessionCookie: {
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    },
+  },
   runtimeConfig: {
     supabaseUrl: '',
-    supabaseAnonKey: '',
+    supabaseServiceRoleKey: '',
   },
   css: ['~/assets/css/main.css'],
   colorMode: {
