@@ -80,6 +80,16 @@ const displayHistory = computed(() => {
   if (!exerciseHistory.value) return []
   return [...exerciseHistory.value.history].reverse()
 })
+
+// --- Exercise selector handlers ---
+
+function handleExerciseChange(id: string | null) {
+  if (id) selectExercise(id)
+}
+
+function handleExerciseClear() {
+  if (selectedExerciseId.value) selectExercise(selectedExerciseId.value)
+}
 </script>
 
 <template>
@@ -111,6 +121,17 @@ const displayHistory = computed(() => {
         </p>
       </div>
 
+      <!-- Sessions This Week -->
+      <div class="rounded-lg bg-slate-800/50 border border-slate-700/50 px-3 py-2.5">
+        <UIcon name="i-lucide-calendar-days" class="size-4 text-violet-400 mb-1" />
+        <p class="text-lg font-semibold text-white leading-none">
+          {{ dashboard.sessionsThisWeek }}
+        </p>
+        <p class="text-xs text-slate-400 mt-0.5">
+          this week
+        </p>
+      </div>
+
       <!-- Total Volume -->
       <div class="rounded-lg bg-slate-800/50 border border-slate-700/50 px-3 py-2.5">
         <UIcon name="i-lucide-weight" class="size-4 text-violet-400 mb-1" />
@@ -119,17 +140,6 @@ const displayHistory = computed(() => {
         </p>
         <p class="text-xs text-slate-400 mt-0.5">
           lbs total
-        </p>
-      </div>
-
-      <!-- Current Streak -->
-      <div class="rounded-lg bg-slate-800/50 border border-slate-700/50 px-3 py-2.5">
-        <UIcon name="i-lucide-flame" class="size-4 text-violet-400 mb-1" />
-        <p class="text-lg font-semibold text-white leading-none">
-          {{ dashboard.currentStreakDays }}
-        </p>
-        <p class="text-xs text-slate-400 mt-0.5">
-          day streak
         </p>
       </div>
     </div>
@@ -170,16 +180,14 @@ const displayHistory = computed(() => {
       </div>
     </div>
 
-    <!-- Section 3: Exercise list -->
+    <!-- Section 3: Exercise selector -->
     <div>
-      <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3">
-        Your Exercises
+      <h3 class="text-sm text-slate-500 mb-3">
+        Exercise
       </h3>
 
-      <!-- Loading -->
-      <div v-if="exercisesStatus === 'pending'" class="space-y-2">
-        <div v-for="i in 3" :key="i" class="h-12 animate-pulse rounded-lg bg-slate-800" />
-      </div>
+      <!-- Loading skeleton -->
+      <div v-if="exercisesStatus === 'pending'" class="h-10 animate-pulse rounded-lg bg-slate-800" />
 
       <!-- Error -->
       <UCard v-else-if="exercisesStatus === 'error'">
@@ -201,21 +209,25 @@ const displayHistory = computed(() => {
         </div>
       </UCard>
 
-      <!-- Exercise rows -->
-      <div v-else-if="exercises" class="space-y-2">
-        <button
-          v-for="exercise in exercises"
-          :key="exercise.id"
-          class="w-full flex items-center justify-between rounded-lg px-4 py-3 text-left transition-colors"
-          :class="selectedExerciseId === exercise.id
-            ? 'border border-violet-500/50 bg-violet-500/10'
-            : 'bg-slate-800/50 border border-slate-700/50'"
-          @click="selectExercise(exercise.id)"
-        >
-          <span class="text-sm font-medium text-white">{{ exercise.name }}</span>
-          <span class="text-xs text-slate-400">{{ exercise.sessionCount }} sessions</span>
-        </button>
-      </div>
+      <!-- Searchable dropdown -->
+      <USelectMenu
+        v-else-if="exercises"
+        :model-value="selectedExerciseId"
+        :items="exercises"
+        value-key="id"
+        label-key="name"
+        :search-input="{ placeholder: 'Search exercises…' }"
+        placeholder="Choose an exercise…"
+        :clear="true"
+        size="lg"
+        class="w-full"
+        @update:model-value="handleExerciseChange"
+        @clear="handleExerciseClear"
+      >
+        <template #item-trailing="{ item: exercise }">
+          <span class="text-xs text-slate-400">{{ (exercise as any).sessionCount }} sessions</span>
+        </template>
+      </USelectMenu>
     </div>
 
     <!-- Section 4: Exercise history detail -->
@@ -227,7 +239,21 @@ const displayHistory = computed(() => {
       leave-from-class="opacity-100 translate-y-0"
       leave-to-class="opacity-0 -translate-y-1"
     >
-      <div v-if="selectedExerciseId" class="space-y-3">
+      <!-- Ghost placeholder when no exercise is selected (only when exercises exist) -->
+      <div v-if="!selectedExerciseId && exercises && exercises.length > 0" class="space-y-3">
+        <div class="rounded-lg border border-slate-700/20 bg-slate-800/20 px-4 py-3">
+          <p class="mb-2 text-xs text-slate-400">
+            e1RM Trend
+          </p>
+          <div class="h-20 rounded bg-slate-700/20" />
+        </div>
+        <div v-for="i in 3" :key="i" class="rounded-lg border border-slate-700/20 bg-slate-800/20 px-4 py-3">
+          <div class="h-2.5 w-28 rounded-full bg-slate-700/30" />
+          <div class="mt-2.5 h-2.5 w-20 rounded-full bg-slate-700/20" />
+        </div>
+      </div>
+
+      <div v-else class="space-y-3">
         <!-- Loading -->
         <div v-if="historyStatus === 'pending'" class="space-y-2">
           <div v-for="i in 3" :key="i" class="h-12 animate-pulse rounded-lg bg-slate-800" />

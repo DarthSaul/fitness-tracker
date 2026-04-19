@@ -123,6 +123,21 @@ export default defineEventHandler(async (event) => {
 
     const { longestStreakDays, currentStreakDays } = computeStreaks(completedAtDates)
 
+    // Start of the current ISO week in the user's local timezone.
+    // tzOffset = minutes to add to UTC to get local time (e.g. UTC-5 → -300)
+    const { tzOffset } = getQuery(event)
+    const tzOffsetMinutes = typeof tzOffset === 'string' && Number.isFinite(Number(tzOffset))
+      ? parseInt(tzOffset, 10)
+      : 0
+    const localNow = new Date(Date.now() + tzOffsetMinutes * 60_000)
+    const dayOfWeek = localNow.getUTCDay()
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    const weekStart = new Date(
+      Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate() - daysFromMonday)
+      - tzOffsetMinutes * 60_000,
+    )
+    const sessionsThisWeek = completedAtDates.filter((d) => d >= weekStart).length
+
     return {
       totalSessions,
       totalVolumeLbs,
@@ -130,6 +145,7 @@ export default defineEventHandler(async (event) => {
       longestStreakDays,
       lastWorkoutAt,
       totalExercises,
+      sessionsThisWeek,
     }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
