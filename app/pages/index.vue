@@ -49,10 +49,24 @@ const {
 				id: string;
 				dayNumber: number;
 				name: string | null;
+				warmUp: string | null;
 				exerciseGroups: Array<{
+					id: string;
+					type: 'STANDARD' | 'SUPERSET';
+					restSeconds: number | null;
 					exercises: Array<{
+						id: string;
+						order: number;
 						exercise: { id: string; name: string };
-						sets: Array<{ id: string }>;
+						sets: Array<{
+							id: string;
+							setNumber: number;
+							reps: number | null;
+							weight: number | null;
+							rpe: number | null;
+							notes: string | null;
+							effortTarget: string | null;
+						}>;
 					}>;
 				}>;
 			}>;
@@ -149,6 +163,16 @@ async function handleStartWorkout(): Promise<void> {
 		// Error is set in composable
 	}
 }
+
+const previewOpen = ref(false);
+
+const nextWorkoutDay = computed(() => {
+	if (!activeProgram.value) return null;
+	const week = activeProgram.value.program.weeks.find(
+		(w) => w.weekNumber === activeProgram.value!.currentWeek,
+	);
+	return week?.days.find((d) => d.dayNumber === activeProgram.value!.currentDay) ?? null;
+});
 
 function resumeWorkout(): void {
 	if (activeWorkout.value?.session) {
@@ -458,7 +482,7 @@ async function handleUnschedule(): Promise<void> {
 						</li>
 						<li
 							v-if="nextWorkoutExercises.length > 3"
-							class="text-xs text-slate-500"
+							class="text-xs text-slate-500 mb-1"
 						>
 							+{{ nextWorkoutExercises.length - 3 }} more
 						</li>
@@ -482,6 +506,20 @@ async function handleUnschedule(): Promise<void> {
 							class="size-4.5"
 						/>
 					</span>
+					<button
+						class="mt-2 flex w-full items-center justify-between gap-1 rounded-md bg-slate-700/50 px-2.5 py-1 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/80"
+						type="button"
+						aria-label="Preview next workout"
+						@click.stop="previewOpen = true"
+						@keydown.enter.stop.prevent="previewOpen = true"
+						@keydown.space.stop.prevent="previewOpen = true"
+					>
+						Preview
+						<UIcon
+							name="i-lucide-eye"
+							class="size-4.5"
+						/>
+					</button>
 					<UAlert
 						v-if="workoutError"
 						color="error"
@@ -786,6 +824,14 @@ async function handleUnschedule(): Promise<void> {
 			:scheduled-workouts="scheduledWorkouts"
 			:completed-days="completedDaysList"
 			@schedule="handleSchedule"
+		/>
+
+		<WorkoutPreviewDrawer
+			:open="previewOpen"
+			:day="nextWorkoutDay"
+			:week-number="activeProgram?.currentWeek ?? 0"
+			:day-number="activeProgram?.currentDay ?? 0"
+			@close="previewOpen = false"
 		/>
 	</div>
 </template>
