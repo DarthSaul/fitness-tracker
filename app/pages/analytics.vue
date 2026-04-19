@@ -239,8 +239,8 @@ function handleExerciseClear() {
       leave-from-class="opacity-100 translate-y-0"
       leave-to-class="opacity-0 -translate-y-1"
     >
-      <!-- Ghost placeholder when no exercise is selected -->
-      <div v-if="!selectedExerciseId" class="space-y-3">
+      <!-- Ghost placeholder when no exercise is selected (only when exercises exist) -->
+      <div v-if="!selectedExerciseId && exercises && exercises.length > 0" class="space-y-3">
         <div class="rounded-lg border border-slate-700/20 bg-slate-800/20 px-4 py-3">
           <p class="mb-2 text-xs text-slate-400">
             e1RM Trend

@@ -39,7 +39,9 @@ export interface AnalyticsExerciseHistory {
 export function useAnalytics() {
   // Dashboard stats
   const { data: dashboard, status: dashboardStatus } =
-    useFetch<AnalyticsDashboard>('/api/analytics/dashboard')
+    useFetch<AnalyticsDashboard>('/api/analytics/dashboard', {
+      query: { tzOffset: -new Date().getTimezoneOffset() },
+    })
 
   // Exercise list
   const { data: exercises, status: exercisesStatus } =

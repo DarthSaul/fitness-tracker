@@ -123,11 +123,17 @@ export default defineEventHandler(async (event) => {
 
     const { longestStreakDays, currentStreakDays } = computeStreaks(completedAtDates)
 
-    // Start of the current ISO week (Monday 00:00:00 UTC)
-    const now = new Date()
-    const dayOfWeek = now.getUTCDay()
+    // Start of the current ISO week in the user's local timezone.
+    // tzOffset = minutes to add to UTC to get local time (e.g. UTC-5 → -300)
+    const { tzOffset } = getQuery(event)
+    const tzOffsetMinutes = typeof tzOffset === 'string' ? parseInt(tzOffset, 10) : 0
+    const localNow = new Date(Date.now() + tzOffsetMinutes * 60_000)
+    const dayOfWeek = localNow.getUTCDay()
     const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    const weekStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysFromMonday))
+    const weekStart = new Date(
+      Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate() - daysFromMonday)
+      - tzOffsetMinutes * 60_000,
+    )
     const sessionsThisWeek = completedAtDates.filter((d) => d >= weekStart).length
 
     return {
