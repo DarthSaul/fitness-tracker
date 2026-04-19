@@ -5,6 +5,7 @@ export interface AnalyticsDashboard {
   longestStreakDays: number
   lastWorkoutAt: string | null
   totalExercises: number
+  sessionsThisWeek: number
 }
 
 export interface AnalyticsExerciseListItem {

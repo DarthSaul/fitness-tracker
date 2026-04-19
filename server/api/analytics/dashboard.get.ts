@@ -123,6 +123,13 @@ export default defineEventHandler(async (event) => {
 
     const { longestStreakDays, currentStreakDays } = computeStreaks(completedAtDates)
 
+    // Start of the current ISO week (Monday 00:00:00 UTC)
+    const now = new Date()
+    const dayOfWeek = now.getUTCDay()
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    const weekStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysFromMonday))
+    const sessionsThisWeek = completedAtDates.filter((d) => d >= weekStart).length
+
     return {
       totalSessions,
       totalVolumeLbs,
@@ -130,6 +137,7 @@ export default defineEventHandler(async (event) => {
       longestStreakDays,
       lastWorkoutAt,
       totalExercises,
+      sessionsThisWeek,
     }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
