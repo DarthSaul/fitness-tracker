@@ -44,9 +44,10 @@ watch(() => props.open, async (opened) => {
       exercisesError.value = true
     } finally {
       exercisesLoading.value = false
-      if (!props.open) return
-      await nextTick()
-      searchInputRef.value?.focus()
+      if (props.open) {
+        await nextTick()
+        searchInputRef.value?.focus()
+      }
     }
   }
 })
