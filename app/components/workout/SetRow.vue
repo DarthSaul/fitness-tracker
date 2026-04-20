@@ -11,6 +11,7 @@ const props = defineProps<{
   completedSet: CompletedSetRecord | null
   loading: boolean
   editable: boolean
+  isSwapped?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -62,9 +63,9 @@ function formatEffort(effortTarget: string | null | undefined): string {
     @click="startEditing"
   >
     <span class="text-center text-xs font-medium text-slate-500">{{ set.setNumber }}</span>
-    <span class="text-center text-slate-300">{{ formatWeight(set.weight) }}</span>
-    <span class="text-center text-slate-300">{{ set.reps ?? '—' }}</span>
-    <span class="text-center text-xs text-slate-400">{{ formatEffort(set.effortTarget) }}</span>
+    <span class="text-center text-slate-300">{{ isSwapped ? '—' : formatWeight(set.weight) }}</span>
+    <span class="text-center text-slate-300">{{ isSwapped ? '—' : (set.reps ?? '—') }}</span>
+    <span class="text-center text-xs text-slate-400">{{ isSwapped ? '—' : formatEffort(set.effortTarget) }}</span>
     <span class="flex items-center justify-center">
       <span v-if="set.notes" class="text-xs text-slate-600" :title="set.notes">*</span>
     </span>

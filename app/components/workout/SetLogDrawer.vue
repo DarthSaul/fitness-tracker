@@ -3,7 +3,7 @@
  * Replaces the cramped inline editing form to prevent iOS auto-zoom and improve mobile UX.
  */
 <script setup lang="ts">
-import { VisuallyHidden, DialogTitle, DialogDescription } from 'reka-ui'
+
 import type { ExerciseSetDetail } from '~/types/program'
 import type { CompletedSetRecord } from '~/types/workout'
 
@@ -13,6 +13,7 @@ const props = defineProps<{
   open: boolean
   loading: boolean
   canDelete?: boolean
+  isSwapped?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -37,9 +38,9 @@ const isOpen = computed({
 watch(() => props.open, async (opened) => {
   if (opened) {
     if (props.set.setNumber != null) {
-      // Template set: use completed values or prescribed targets
-      editWeight.value = props.completedSet?.weight ?? props.set.weight
-      editReps.value = props.completedSet?.reps ?? props.set.reps
+      // Template set: use completed values; for swapped exercises skip the prescribed fallback
+      editWeight.value = props.completedSet?.weight ?? (props.isSwapped ? null : props.set.weight)
+      editReps.value = props.completedSet?.reps ?? (props.isSwapped ? null : props.set.reps)
     } else {
       // Extra set: use completed values if editing, else start blank
       editWeight.value = props.completedSet?.weight ?? null
@@ -57,7 +58,7 @@ function handleLog(): void {
 }
 
 function formatTarget(): string {
-  if (props.set.setNumber == null) return ''
+  if (props.set.setNumber == null || props.isSwapped) return ''
   const parts: string[] = []
   if (props.set.weight != null) parts.push(`${props.set.weight} lbs`)
   if (props.set.reps != null) parts.push(`${props.set.reps} reps`)
@@ -69,14 +70,12 @@ function formatTarget(): string {
 </script>
 
 <template>
-  <UDrawer v-model:open="isOpen" direction="bottom">
+  <UDrawer v-model:open="isOpen" direction="bottom" :title="set.setNumber != null ? `Set ${set.setNumber}` : 'Extra Set'" :description="set.setNumber != null ? `Enter weight and reps for set ${set.setNumber}` : 'Enter weight and reps for extra set'">
     <template #content>
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <DialogTitle as="h3" class="text-lg font-semibold text-white">
-            {{ set.setNumber != null ? `Set ${set.setNumber}` : 'Extra Set' }}
-          </DialogTitle>
+          <h3 class="text-lg font-semibold text-white">{{ set.setNumber != null ? `Set ${set.setNumber}` : 'Extra Set' }}</h3>
           <button
             class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
             aria-label="Close"
@@ -85,12 +84,6 @@ function formatTarget(): string {
             <UIcon name="i-lucide-x" class="size-5" />
           </button>
         </div>
-
-        <VisuallyHidden>
-          <DialogDescription>
-            {{ set.setNumber != null ? `Enter weight and reps for set ${set.setNumber}` : 'Enter weight and reps for extra set' }}
-          </DialogDescription>
-        </VisuallyHidden>
 
         <!-- Target context -->
         <p v-if="formatTarget()" class="mb-5 text-sm text-slate-400">

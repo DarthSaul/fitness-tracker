@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { VisuallyHidden, DialogTitle, DialogDescription } from 'reka-ui'
+
 import type { WorkoutExerciseSwap, CompletedSetRecord } from '~/types/workout'
 import type { ProgramDayDetail, ExerciseSummary } from '~/types/program'
 
@@ -30,7 +30,7 @@ const exercisesError = ref(false)
 const pendingSelection = ref<ExerciseSummary | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
-// Fetch exercises when drawer opens
+// Fetch exercises when drawer opens; immediate: true handles v-if mount-with-open=true
 watch(() => props.open, async (opened) => {
   if (opened) {
     search.value = ''
@@ -50,7 +50,7 @@ watch(() => props.open, async (opened) => {
       }
     }
   }
-})
+}, { immediate: true })
 
 const currentExerciseId = computed(() => {
   for (const group of props.day.exerciseGroups) {
@@ -110,14 +110,12 @@ function confirmSwap(): void {
 </script>
 
 <template>
-  <UDrawer v-model:open="isOpen" direction="bottom">
+  <UDrawer v-model:open="isOpen" direction="bottom" title="Swap Exercise" :description="`Search for an exercise to replace ${currentExerciseName}`">
     <template #content>
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <DialogTitle as="h3" class="text-lg font-semibold text-white">
-            Swap Exercise
-          </DialogTitle>
+          <h3 class="text-lg font-semibold text-white">Swap Exercise</h3>
           <button
             class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
             aria-label="Close"
@@ -126,10 +124,6 @@ function confirmSwap(): void {
             <UIcon name="i-lucide-x" class="size-5" />
           </button>
         </div>
-
-        <VisuallyHidden>
-          <DialogDescription>Search for an exercise to replace {{ currentExerciseName }}</DialogDescription>
-        </VisuallyHidden>
 
         <!-- Current exercise -->
         <p class="mb-4 text-sm text-slate-400">
@@ -161,6 +155,12 @@ function confirmSwap(): void {
               Confirm Swap
             </UButton>
           </div>
+        </div>
+
+        <!-- Swap in progress -->
+        <div v-else-if="confirmLoading" class="flex items-center justify-center gap-3 py-10">
+          <div class="size-5 animate-spin rounded-full border-2 border-slate-600 border-t-violet-400" />
+          <p class="text-sm text-slate-400">Swapping exercise...</p>
         </div>
 
         <!-- Search + exercise list -->

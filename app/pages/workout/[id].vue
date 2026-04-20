@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import type { EditingContext, AdHocExerciseGroup } from '~/types/workout'
 
-interface ExerciseCardHandle {
-  expandAll: () => void
-  collapseAll: () => void
-  scrollIntoView: () => void
-}
-
 definePageMeta({ layout: 'app' })
 
 const route = useRoute()
@@ -30,9 +24,6 @@ const completeDialogOpen = ref(false)
 
 // Set log drawer state
 const editingContext = ref<EditingContext | null>(null)
-
-// Exercise card refs for auto-advance
-const exerciseCardRefs = ref<(ExerciseCardHandle | null)[]>([])
 
 // Exercise swap drawer state
 const swapDrawerOpen = ref(false)
@@ -73,6 +64,19 @@ const editingCompletedSet = computed(() => {
   if (ctx.type === 'extra') return extraCompletedSets.value.get(ctx.completedSetId) ?? null
   if (ctx.type === 'adhoc') return extraCompletedSets.value.get(ctx.completedSetId) ?? null
   return null
+})
+
+const editingIsSwapped = computed(() => {
+  const ctx = editingContext.value
+  if (!ctx || ctx.type !== 'template' || !day.value) return false
+  for (const group of day.value.exerciseGroups) {
+    for (const ex of group.exercises) {
+      if (ex.sets.some(s => s.id === ctx.exerciseSetId)) {
+        return exerciseSwaps.value.some(swap => swap.programExerciseId === ex.id)
+      }
+    }
+  }
+  return false
 })
 
 const editingCanDelete = computed(() => {
@@ -209,13 +213,21 @@ async function handleAdHocAddSet(exerciseName: string): Promise<void> {
 async function handleGroupComplete(completedGroupIdx: number): Promise<void> {
   const groups = day.value?.exerciseGroups
   if (!groups) return
-  const nextIdx = completedGroupIdx + 1
-  if (nextIdx >= groups.length) return
-  const nextCard = exerciseCardRefs.value[nextIdx]
-  if (!nextCard) return
-  nextCard.expandAll()
-  await nextTick()
-  nextCard.scrollIntoView()
+
+  // Log all unlogged template sets so the checkmark and progress bar update.
+  // All ex.sets (not just visible ones) are logged so totalSets and completedSetCount stay in sync.
+  const group = groups[completedGroupIdx]
+  if (group) {
+    const promises: Promise<void>[] = []
+    for (const ex of group.exercises) {
+      for (const set of ex.sets) {
+        if (!completedSets.value.has(set.id)) {
+          promises.push(recordSet(set.id, { reps: null, weight: null }))
+        }
+      }
+    }
+    await Promise.allSettled(promises)
+  }
 }
 
 function handleSwap(programExerciseId: string): void {
@@ -335,7 +347,6 @@ async function handleDiscard(): Promise<void> {
         <WorkoutExerciseCard
           v-for="(group, groupIdx) in day.exerciseGroups"
           :key="group.id"
-          :ref="(el) => { if (el) (exerciseCardRefs as (ExerciseCardHandle | null)[])[groupIdx] = el as unknown as ExerciseCardHandle }"
           :group="group"
           :completed-sets="completedSets"
           :extra-completed-sets="extraCompletedSets"
@@ -439,6 +450,7 @@ async function handleDiscard(): Promise<void> {
       :completed-set="editingCompletedSet"
       :loading="recordingSetId !== null"
       :can-delete="editingCanDelete"
+      :is-swapped="editingIsSwapped"
       @log="(reps, weight) => handleLog(reps, weight)"
       @close="cancelEdit"
       @delete="handleDelete"

@@ -161,10 +161,11 @@ describe('describeSet', () => {
 // formatRest — rendered via rest label
 // ---------------------------------------------------------------------------
 describe('formatRest', () => {
-  function mountWithRest(restSeconds: number) {
+  function mountWithRest(restSeconds: number | null) {
+    const base = makeStandardDay()
     const day = {
-      ...makeStandardDay(),
-      exerciseGroups: [{ ...makeStandardDay().exerciseGroups[0], restSeconds }],
+      ...base,
+      exerciseGroups: [{ id: 'g1', type: 'STANDARD' as const, exercises: base.exerciseGroups[0]!.exercises, restSeconds }],
     }
     return mount(WorkoutPreviewDrawer, {
       props: { ...baseProps, day },
@@ -189,15 +190,7 @@ describe('formatRest', () => {
   })
 
   test('hides rest section when restSeconds is null', () => {
-    const day = {
-      ...makeStandardDay(),
-      exerciseGroups: [{ ...makeStandardDay().exerciseGroups[0], restSeconds: null }],
-    }
-    const wrapper = mount(WorkoutPreviewDrawer, {
-      props: { ...baseProps, day },
-      global: { stubs },
-    })
-    expect(wrapper.text()).not.toContain('rest')
+    expect(mountWithRest(null).text()).not.toContain('rest')
   })
 })
 
