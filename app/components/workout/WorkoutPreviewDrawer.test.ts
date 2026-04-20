@@ -164,7 +164,7 @@ describe('formatRest', () => {
   function mountWithRest(restSeconds: number) {
     const day = {
       ...makeStandardDay(),
-      exerciseGroups: [{ ...makeStandardDay().exerciseGroups[0], restSeconds }],
+      exerciseGroups: [{ ...makeStandardDay().exerciseGroups[0]!, type: 'STANDARD' as const, restSeconds }],
     }
     return mount(WorkoutPreviewDrawer, {
       props: { ...baseProps, day },
@@ -191,7 +191,7 @@ describe('formatRest', () => {
   test('hides rest section when restSeconds is null', () => {
     const day = {
       ...makeStandardDay(),
-      exerciseGroups: [{ ...makeStandardDay().exerciseGroups[0], restSeconds: null }],
+      exerciseGroups: [{ ...makeStandardDay().exerciseGroups[0]!, type: 'STANDARD' as const, restSeconds: null }],
     }
     const wrapper = mount(WorkoutPreviewDrawer, {
       props: { ...baseProps, day },
