@@ -19,11 +19,18 @@ export interface CompletedSetRecord {
   workoutSessionId: string
   exerciseSetId: string | null
   programExerciseId: string | null
+  adhocExerciseName: string | null
   reps: number | null
   weight: number | null
   rpe: number | null
   notes: string | null
   completedAt: string
+}
+
+/** A grouping of ad-hoc sets by exercise name, derived from CompletedSetRecords. */
+export interface AdHocExerciseGroup {
+  exerciseName: string
+  sets: CompletedSetRecord[]
 }
 
 /** A mid-workout exercise swap recorded for a session. */
@@ -44,6 +51,7 @@ export interface WorkoutExerciseSwap {
 export type EditingContext =
   | { type: 'template'; exerciseSetId: string }
   | { type: 'extra'; completedSetId: string; programExerciseId: string }
+  | { type: 'adhoc'; completedSetId: string }
 
 /** Response from POST /api/workouts (start a workout). */
 export interface StartWorkoutResponse {

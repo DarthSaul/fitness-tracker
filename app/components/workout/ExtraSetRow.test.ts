@@ -15,6 +15,7 @@ const makeCompletedSet = (overrides: Partial<{
   workoutSessionId: string
   exerciseSetId: string | null
   programExerciseId: string | null
+  adhocExerciseName: string | null
   reps: number | null
   weight: number | null
   rpe: number | null
@@ -25,6 +26,7 @@ const makeCompletedSet = (overrides: Partial<{
   workoutSessionId: 'ws001',
   exerciseSetId: null,
   programExerciseId: 'pe001',
+  adhocExerciseName: null,
   reps: 10,
   weight: 135,
   rpe: null,
