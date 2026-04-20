@@ -337,7 +337,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                 size="sm"
                 block
                 class="mt-2"
-                @click.stop="collapseAll(); emit('group-complete')"
+                @click.stop="emit('group-complete')"
               >
                 Complete Set
               </UButton>
@@ -495,7 +495,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               size="sm"
               block
               class="mt-2"
-              @click.stop="collapseAll(); emit('group-complete')"
+              @click.stop="emit('group-complete')"
             >
               Complete Set
             </UButton>

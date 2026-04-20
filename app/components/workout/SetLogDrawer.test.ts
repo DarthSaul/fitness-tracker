@@ -124,4 +124,23 @@ describe('SetLogDrawer', () => {
     await deleteBtn!.trigger('click')
     expect(wrapper.emitted('delete')).toBeTruthy()
   })
+
+  test('inputs are blank when isSwapped is true and completedSet is null', async () => {
+    const wrapper = mount(SetLogDrawer, {
+      props: { set: mockSet, completedSet: null, open: true, loading: false, isSwapped: true },
+      global: { stubs },
+    })
+    const weightInput = wrapper.find<HTMLInputElement>('#drawer-weight')
+    const repsInput = wrapper.find<HTMLInputElement>('#drawer-reps')
+    expect(weightInput.element.value).toBe('')
+    expect(repsInput.element.value).toBe('')
+  })
+
+  test('does not render Target text when isSwapped is true', () => {
+    const wrapper = mount(SetLogDrawer, {
+      props: { set: mockSet, completedSet: null, open: true, loading: false, isSwapped: true },
+      global: { stubs },
+    })
+    expect(wrapper.text()).not.toContain('Target:')
+  })
 })

@@ -158,9 +158,8 @@ function confirmSwap(): void {
         </div>
 
         <!-- Swap in progress -->
-        <div v-else-if="confirmLoading" class="flex items-center justify-center gap-3 py-10">
-          <div class="size-5 animate-spin rounded-full border-2 border-slate-600 border-t-violet-400" />
-          <p class="text-sm text-slate-400">Swapping exercise...</p>
+        <div v-else-if="confirmLoading" class="space-y-2">
+          <div v-for="n in 3" :key="n" class="h-10 animate-pulse rounded-lg bg-slate-800" />
         </div>
 
         <!-- Search + exercise list -->

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { EditingContext, AdHocExerciseGroup } from '~/types/workout'
 
+interface ExerciseCardHandle { collapseAll: () => void }
+
 definePageMeta({ layout: 'app' })
 
 const route = useRoute()
@@ -15,6 +17,9 @@ const {
   addExtraSet, deleteExtraSet, updateExtraSet, addAdHocSet, saveWorkoutNotes,
   swapExercise, completeWorkout, abandonWorkout,
 } = useWorkoutSession()
+
+const toast = useToast()
+const exerciseCardRefs = ref<(ExerciseCardHandle | null)[]>([])
 
 const pageLoading = ref(true)
 const pageError = ref<string | null>(null)
@@ -226,8 +231,15 @@ async function handleGroupComplete(completedGroupIdx: number): Promise<void> {
         }
       }
     }
-    await Promise.allSettled(promises)
+    const results = await Promise.allSettled(promises)
+    if (results.some(r => r.status === 'rejected')) {
+      console.error('[handleGroupComplete] Some sets failed to log')
+      toast.add({ title: 'Some sets could not be saved. Please try again.', color: 'error', icon: 'i-lucide-circle-alert' })
+      return
+    }
   }
+
+  exerciseCardRefs.value[completedGroupIdx]?.collapseAll()
 }
 
 function handleSwap(programExerciseId: string): void {
@@ -347,6 +359,7 @@ async function handleDiscard(): Promise<void> {
         <WorkoutExerciseCard
           v-for="(group, groupIdx) in day.exerciseGroups"
           :key="group.id"
+          :ref="(el) => { if (el) exerciseCardRefs.value[groupIdx] = el as unknown as ExerciseCardHandle }"
           :group="group"
           :completed-sets="completedSets"
           :extra-completed-sets="extraCompletedSets"

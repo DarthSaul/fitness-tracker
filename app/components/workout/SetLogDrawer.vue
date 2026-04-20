@@ -116,7 +116,7 @@ function formatTarget(): string {
               v-model.number="editReps"
               type="number"
               inputmode="numeric"
-              :placeholder="set.reps != null ? String(set.reps) : '0'"
+              :placeholder="!isSwapped && set.reps != null ? String(set.reps) : '0'"
               class="w-full rounded-lg bg-slate-800 px-4 py-3 text-lg text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
             >
           </div>
