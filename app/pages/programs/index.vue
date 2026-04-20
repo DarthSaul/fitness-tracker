@@ -17,6 +17,11 @@ const filteredPrograms = computed(() => {
   if (filter.value === 'saved') return programs.value.filter(p => isSaved(p.id))
   return programs.value
 })
+
+const emptyMessage = computed(() => {
+  if (filter.value === 'active') return 'No active programs.'
+  return 'No programs saved yet.'
+})
 </script>
 
 <template>
@@ -137,7 +142,7 @@ const filteredPrograms = computed(() => {
         </UCard>
       </template>
       <p v-else class="text-center text-sm text-slate-500">
-        No programs saved yet.
+        {{ emptyMessage }}
       </p>
     </div>
   </div>
