@@ -41,6 +41,8 @@ function isActive(to: string): boolean {
   return route.path === to || route.path.startsWith(to + '/')
 }
 
+useViewportFix()
+
 const mainEl = ref<HTMLElement | null>(null)
 const scrolled = ref(false)
 
@@ -103,8 +105,8 @@ onUnmounted(() => {
 
     <!-- Bottom nav -->
     <nav
-      class="fixed bottom-0 left-0 right-0 z-10 bg-slate-900/95 backdrop-blur-md"
-      style="padding-bottom: env(safe-area-inset-bottom)"
+      class="fixed left-0 right-0 z-10 bg-slate-900/95 backdrop-blur-md"
+      style="bottom: var(--viewport-bottom-offset, 0px); padding-bottom: env(safe-area-inset-bottom)"
     >
       <div class="mx-auto flex max-w-lg items-center justify-around px-4 py-2">
         <template v-for="item in navItems" :key="item.label">

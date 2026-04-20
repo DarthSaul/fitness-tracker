@@ -25,18 +25,20 @@ async function handleSignOut(): Promise<void> {
     @update:open="emit('update:open', $event)"
   >
     <template #header>
-      <VisuallyHidden>
-        <DialogTitle>Settings</DialogTitle>
-        <DialogDescription>Manage your account settings and preferences</DialogDescription>
-      </VisuallyHidden>
-      <button
-        type="button"
-        class="flex items-center gap-1.5 text-sm text-slate-400 transition-colors hover:text-white"
-        @click="emit('update:open', false)"
-      >
-        <UIcon name="i-lucide-arrow-left" class="size-4" />
-        Back
-      </button>
+      <div style="padding-top: env(safe-area-inset-top)">
+        <VisuallyHidden>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>Manage your account settings and preferences</DialogDescription>
+        </VisuallyHidden>
+        <button
+          type="button"
+          class="flex items-center gap-1.5 text-sm text-slate-400 transition-colors hover:text-white"
+          @click="emit('update:open', false)"
+        >
+          <UIcon name="i-lucide-arrow-left" class="size-4" />
+          Back
+        </button>
+      </div>
     </template>
 
     <template #body>
