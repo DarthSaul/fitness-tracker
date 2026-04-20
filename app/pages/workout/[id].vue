@@ -187,14 +187,14 @@ async function handleAddExtraSet(programExerciseId: string): Promise<void> {
 
 async function handleExerciseSelected(exerciseName: string): Promise<void> {
   addExerciseDrawerOpen.value = false
-  try {
-    await Promise.all([
-      addAdHocSet(exerciseName),
-      addAdHocSet(exerciseName),
-      addAdHocSet(exerciseName),
-    ])
-  } catch {
-    // silently ignore — session may have ended or become unavailable
+  const results = await Promise.allSettled([
+    addAdHocSet(exerciseName),
+    addAdHocSet(exerciseName),
+    addAdHocSet(exerciseName),
+  ])
+  const failed = results.filter(r => r.status === 'rejected').length
+  if (failed > 0) {
+    console.warn(`[workout] Created ${3 - failed}/3 ad-hoc sets for "${exerciseName}"`)
   }
 }
 
