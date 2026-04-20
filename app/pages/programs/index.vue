@@ -9,10 +9,11 @@ const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs', {
 })
 const { isSaved, isSaving, toggleSave, isActive, isActivating, toggleActive } = useUserPrograms()
 
-const filter = ref<'all' | 'saved'>('all')
+const filter = ref<'all' | 'active' | 'saved'>('all')
 
 const filteredPrograms = computed(() => {
   if (!programs.value) return []
+  if (filter.value === 'active') return programs.value.filter(p => isActive(p.id))
   if (filter.value === 'saved') return programs.value.filter(p => isSaved(p.id))
   return programs.value
 })
@@ -67,6 +68,14 @@ const filteredPrograms = computed(() => {
         @click="filter = 'all'"
       >
         All
+      </UButton>
+      <UButton
+        size="xs"
+        :color="filter === 'active' ? 'primary' : 'neutral'"
+        :variant="filter === 'active' ? 'solid' : 'ghost'"
+        @click="filter = 'active'"
+      >
+        Active
       </UButton>
       <UButton
         size="xs"

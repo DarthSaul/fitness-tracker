@@ -188,12 +188,12 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
     >
       <template #body>
         <!-- Loading days -->
-        <div v-if="loadingDays" class="space-y-4 p-4">
+        <div v-if="loadingDays" class="space-y-4">
           <div v-for="n in (selectedWeek?.days.length ?? 2)" :key="n" class="h-24 animate-pulse rounded-lg bg-slate-800" />
         </div>
 
         <!-- Day details -->
-        <div v-else class="space-y-2 p-4">
+        <div v-else class="space-y-2">
           <div
             v-for="day in weekDays"
             :key="day.id"
@@ -220,7 +220,7 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
               :class="expandedDays.has(day.id) ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
             >
               <div class="min-h-0">
-                <div class="space-y-4 px-3 pb-3 pt-1">
+                <div class="space-y-4 px-3 pb-3 pt-3">
                   <!-- Superset group -->
                   <div
                     v-for="group in day.exerciseGroups"

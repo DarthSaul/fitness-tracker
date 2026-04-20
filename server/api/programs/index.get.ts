@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Programs'],
     summary: 'List all programs',
-    description: 'Returns a summary list of all programs in the library, ordered newest first.',
+    description: 'Returns a summary list of all programs in the library, ordered alphabetically.',
     responses: {
       200: {
         description: 'Array of program summaries (id, name, description, createdAt, week count)',
@@ -22,7 +22,7 @@ defineRouteMeta({
   },
 })
 
-/** Returns a summary list of all programs in the library, ordered newest first. */
+/** Returns a summary list of all programs in the library, ordered alphabetically. */
 export default defineEventHandler(async () => {
   try {
     const programs = await prisma.program.findMany({
@@ -33,7 +33,7 @@ export default defineEventHandler(async () => {
         createdAt: true,
         _count: { select: { weeks: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { name: 'asc' },
     })
     return programs
   } catch (error) {
