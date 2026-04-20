@@ -1,6 +1,7 @@
 import type {
   WorkoutSession,
   CompletedSetRecord,
+  AdHocExerciseGroup,
   StartWorkoutResponse,
   ActiveWorkoutResponse,
   CompleteWorkoutResponse,
@@ -34,6 +35,16 @@ export function useWorkoutSession() {
   })
 
   const completedSetCount = computed(() => completedSets.value.size + extraCompletedSets.value.size)
+
+  const adHocGroups = computed<AdHocExerciseGroup[]>(() => {
+    const grouped = new Map<string, CompletedSetRecord[]>()
+    for (const cs of extraCompletedSets.value.values()) {
+      if (!cs.adhocExerciseName) continue
+      const existing = grouped.get(cs.adhocExerciseName) ?? []
+      grouped.set(cs.adhocExerciseName, [...existing, cs])
+    }
+    return [...grouped.entries()].map(([exerciseName, sets]) => ({ exerciseName, sets }))
+  })
 
   const progressPercent = computed(() => {
     if (totalSets.value === 0) return 0
@@ -289,6 +300,16 @@ export function useWorkoutSession() {
     }, 800)
   }
 
+  async function addAdHocSet(exerciseName: string): Promise<CompletedSetRecord> {
+    if (!session.value) throw new Error('No active session')
+    const result = await $fetch<CompletedSetRecord>(
+      `/api/workouts/${session.value.id}/ad-hoc-sets`,
+      { method: 'POST', body: { exerciseName } },
+    )
+    extraCompletedSets.value.set(result.id, result)
+    return result
+  }
+
   async function swapExercise(programExerciseId: string, replacementExerciseId: string): Promise<void> {
     if (!session.value) return
     await $fetch(
@@ -304,6 +325,7 @@ export function useWorkoutSession() {
     completedSets,
     extraCompletedSets,
     exerciseSwaps,
+    adHocGroups,
     loading,
     completing,
     abandoning,
@@ -324,6 +346,7 @@ export function useWorkoutSession() {
     addExtraSet,
     deleteExtraSet,
     updateExtraSet,
+    addAdHocSet,
     saveWorkoutNotes,
     swapExercise,
     completeWorkout,

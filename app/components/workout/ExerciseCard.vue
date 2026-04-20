@@ -21,12 +21,29 @@ const emit = defineEmits<{
   edit: [context: EditingContext]
   'add-extra-set': [programExerciseId: string]
   swap: [programExerciseId: string]
+  'group-complete': []
 }>()
 
 const expandedExercises = ref(new Set<string>())
 const notesVisibleFor = ref<string | null>(null)
 
+const prevGroupComplete = ref(false)
+const prevExerciseComplete = ref<Record<string, boolean>>({})
+
+const supersetRootEl = ref<HTMLElement | null>(null)
+const standardRootEl = ref<HTMLElement | null>(null)
+
 // Per-user exercise notes state
+const trendDrawerOpen = ref(false)
+const trendExerciseId = ref<string | null>(null)
+const trendExerciseName = ref<string | null>(null)
+
+function openTrend(exerciseId: string, exerciseName: string): void {
+  trendExerciseId.value = exerciseId
+  trendExerciseName.value = exerciseName
+  trendDrawerOpen.value = true
+}
+
 const userNotesOpen = ref<string | null>(null)  // ProgramExercise.id currently open
 const userNotesContent = ref<Record<string, string>>({})  // exerciseId → text
 const userNotesSaving = ref<Record<string, boolean>>({})
@@ -80,6 +97,82 @@ function hasSwap(programExerciseId: string): boolean {
   return props.exerciseSwaps.some(s => s.programExerciseId === programExerciseId)
 }
 
+const isGroupComplete = computed(() =>
+  props.group.exercises.length > 0 && props.group.exercises.every(ex => isExerciseComplete(ex))
+)
+
+function expandAll(): void {
+  if (props.group.type === 'SUPERSET') {
+    props.group.exercises.forEach(ex => expandedExercises.value.add(ex.id))
+  } else {
+    expandedExercises.value.add(props.group.id)
+  }
+}
+
+function collapseAll(): void {
+  if (props.group.type === 'SUPERSET') {
+    props.group.exercises.forEach(ex => expandedExercises.value.delete(ex.id))
+  } else {
+    expandedExercises.value.delete(props.group.id)
+  }
+}
+
+function scrollIntoView(): void {
+  const el = supersetRootEl.value ?? standardRootEl.value
+  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+defineExpose({ expandAll, collapseAll, scrollIntoView })
+
+onMounted(async () => {
+  prevGroupComplete.value = isGroupComplete.value
+  if (props.group.type === 'SUPERSET') {
+    props.group.exercises.forEach(ex => {
+      prevExerciseComplete.value[ex.id] = isExerciseComplete(ex)
+    })
+  }
+  await Promise.allSettled(
+    props.group.exercises.map(async (ex) => {
+      if (userNotesLoaded.value.has(ex.exercise.id)) return
+      try {
+        const data = await $fetch<{ notes: string | null }>(`/api/exercises/${ex.exercise.id}/notes`)
+        userNotesContent.value[ex.exercise.id] = data.notes ?? ''
+        userNotesLoaded.value.add(ex.exercise.id)
+      } catch {
+        // silent — icon stays unhighlighted; will retry when user opens notes
+      }
+    })
+  )
+})
+
+watch(isGroupComplete, (nowComplete) => {
+  if (nowComplete && !prevGroupComplete.value) {
+    collapseAll()
+    emit('group-complete')
+  }
+  prevGroupComplete.value = nowComplete
+})
+
+watch(
+  () => props.group.type === 'SUPERSET'
+    ? props.group.exercises.map(ex => ({ id: ex.id, done: isExerciseComplete(ex) }))
+    : [],
+  (states) => {
+    if (props.group.type !== 'SUPERSET') return
+    states.forEach(({ id, done }, idx) => {
+      const wasDone = prevExerciseComplete.value[id] ?? false
+      if (done && !wasDone) {
+        const isLast = idx === props.group.exercises.length - 1
+        if (!isLast) {
+          expandedExercises.value.delete(id)
+        }
+      }
+      prevExerciseComplete.value[id] = done
+    })
+  },
+  { deep: true }
+)
+
 async function toggleUserNotes(exerciseId: string, programExerciseId: string): Promise<void> {
   if (userNotesOpen.value === programExerciseId) {
     userNotesOpen.value = null
@@ -124,6 +217,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
   <!-- Superset wrapper -->
   <div
     v-if="group.type === 'SUPERSET'"
+    ref="supersetRootEl"
     class="relative rounded-xl border border-indigo-500/25 p-1.5 pt-2"
   >
     <span class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-indigo-500/40 bg-slate-950 text-[8px] font-semibold text-indigo-300">SS</span>
@@ -142,8 +236,9 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           @keydown.space.prevent="toggleExercise(ex.id)"
         >
           <div class="min-w-0 flex-1">
-            <p class="flex items-center gap-1.5 font-medium text-white">
-              {{ ex.exercise.name }}
+            <!-- Row 1: Name + action icons -->
+            <div class="flex items-center gap-1.5">
+              <p class="min-w-0 truncate font-medium text-white">{{ ex.exercise.name }}</p>
               <!-- Program set notes icon -->
               <span
                 v-if="exerciseNotes(ex)"
@@ -154,35 +249,40 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                 @click="toggleNotes(ex.id, $event)"
                 @keydown.enter="toggleNotes(ex.id, $event)"
               >i</span>
-              <!-- Personal notes icon -->
+              <!-- Personal notes emoji -->
               <button
                 type="button"
                 :aria-label="userNotesOpen === ex.id ? 'Close personal notes' : 'Open personal notes'"
-                class="ml-1.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
-                :class="userNotesContent[ex.exercise.id]
-                  ? 'border-violet-500/60 text-violet-400'
-                  : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'"
+                class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+                :class="userNotesContent[ex.exercise.id] ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
                 @click.stop="toggleUserNotes(ex.exercise.id, ex.id)"
-              >
-                <UIcon name="i-lucide-notebook-pen" class="size-2.5" />
-              </button>
-              <!-- Swap icon -->
+              >📝</button>
+              <!-- Swap emoji -->
               <button
                 v-if="editable && !disableExerciseSwaps"
                 type="button"
                 :aria-label="hasSwap(ex.id) ? 'Change swapped exercise' : 'Swap exercise'"
-                class="ml-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
-                :class="hasSwap(ex.id)
-                  ? 'border-amber-500/60 text-amber-400'
-                  : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'"
+                class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+                :class="hasSwap(ex.id) ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
                 @click.stop="emit('swap', ex.id)"
+              >🔁</button>
+            </div>
+            <!-- Row 2: chips -->
+            <div class="mt-1.5 flex items-center gap-1.5">
+              <span
+                v-if="exIdx === group.exercises.length - 1"
+                class="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400"
               >
-                <UIcon name="i-lucide-arrow-left-right" class="size-2.5" />
-              </button>
-            </p>
-            <span v-if="exIdx === group.exercises.length - 1" class="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-slate-700/50 px-1.5 py-0.5 text-[10px] text-slate-400">
-              <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
-            </span>
+                <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
+              </span>
+              <span
+                role="button"
+                class="inline-flex cursor-pointer items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-white"
+                @click.stop="openTrend(ex.exercise.id, ex.exercise.name)"
+              >
+                <span>📈</span><span>Trend</span>
+              </span>
+            </div>
           </div>
           <UIcon
             v-if="isExerciseComplete(ex)"
@@ -218,7 +318,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                     @input="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
                     @blur="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
                   />
-                  <p v-if="userNotesSaving[ex.exercise.id]" class="mt-0.5 text-right text-xs text-slate-600">
+                  <p class="mt-0.5 text-right text-xs text-slate-600" :class="{ invisible: !userNotesSaving[ex.exercise.id] }">
                     Saving...
                   </p>
                 </template>
@@ -272,6 +372,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
   <!-- Standard (single exercise) card -->
   <div
     v-else
+    ref="standardRootEl"
     class="rounded-lg bg-slate-800/50"
   >
     <template v-if="group.exercises[0]">
@@ -284,8 +385,9 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
         @keydown.space.prevent="toggleExercise(group.id)"
       >
         <div class="min-w-0 flex-1">
-          <p class="flex items-center gap-1.5 font-medium text-white">
-            {{ group.exercises[0].exercise.name }}
+          <!-- Row 1: Name + action icons -->
+          <div class="flex items-center gap-1.5">
+            <p class="min-w-0 truncate font-medium text-white">{{ group.exercises[0].exercise.name }}</p>
             <!-- Program set notes icon -->
             <span
               v-if="exerciseNotes(group.exercises[0])"
@@ -296,35 +398,37 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               @click="toggleNotes(group.exercises[0].id, $event)"
               @keydown.enter="toggleNotes(group.exercises[0].id, $event)"
             >i</span>
-            <!-- Personal notes icon -->
+            <!-- Personal notes emoji -->
             <button
               type="button"
               :aria-label="userNotesOpen === group.exercises[0].id ? 'Close personal notes' : 'Open personal notes'"
-              class="ml-1.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
-              :class="userNotesContent[group.exercises[0].exercise.id]
-                ? 'border-violet-500/60 text-violet-400'
-                : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'"
+              class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+              :class="userNotesContent[group.exercises[0].exercise.id] ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
               @click.stop="toggleUserNotes(group.exercises[0].exercise.id, group.exercises[0].id)"
-            >
-              <UIcon name="i-lucide-notebook-pen" class="size-2.5" />
-            </button>
-            <!-- Swap icon -->
+            >📝</button>
+            <!-- Swap emoji -->
             <button
               v-if="editable && !disableExerciseSwaps"
               type="button"
               :aria-label="hasSwap(group.exercises[0].id) ? 'Change swapped exercise' : 'Swap exercise'"
-              class="ml-1 inline-flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
-              :class="hasSwap(group.exercises[0].id)
-                ? 'border-amber-500/60 text-amber-400'
-                : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'"
+              class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+              :class="hasSwap(group.exercises[0].id) ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
               @click.stop="emit('swap', group.exercises[0].id)"
+            >🔁</button>
+          </div>
+          <!-- Row 2: chips -->
+          <div class="mt-1.5 flex items-center gap-1.5">
+            <span class="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400">
+              <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
+            </span>
+            <span
+              role="button"
+              class="inline-flex cursor-pointer items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-white"
+              @click.stop="openTrend(group.exercises[0].exercise.id, group.exercises[0].exercise.name)"
             >
-              <UIcon name="i-lucide-arrow-left-right" class="size-2.5" />
-            </button>
-          </p>
-          <span class="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-slate-700/50 px-1.5 py-0.5 text-[10px] text-slate-400">
-            <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
-          </span>
+              <span>📈</span><span>Trend</span>
+            </span>
+          </div>
         </div>
         <UIcon
           v-if="isExerciseComplete(group.exercises[0])"
@@ -360,7 +464,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                   @input="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
                   @blur="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
                 />
-                <p v-if="userNotesSaving[group.exercises[0].exercise.id]" class="mt-0.5 text-right text-xs text-slate-600">
+                <p class="mt-0.5 text-right text-xs text-slate-600" :class="{ invisible: !userNotesSaving[group.exercises[0].exercise.id] }">
                   Saving...
                 </p>
               </template>
@@ -409,6 +513,15 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
       </div>
     </template>
   </div>
+
+  <Teleport to="body">
+    <WorkoutExerciseTrendDrawer
+      :open="trendDrawerOpen"
+      :exercise-id="trendExerciseId"
+      :exercise-name="trendExerciseName"
+      @close="trendDrawerOpen = false"
+    />
+  </Teleport>
 </template>
 
 <style scoped>

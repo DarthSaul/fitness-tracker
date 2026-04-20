@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { EditingContext } from '~/types/workout'
+import type { EditingContext, AdHocExerciseGroup } from '~/types/workout'
+
+interface ExerciseCardHandle {
+  expandAll: () => void
+  collapseAll: () => void
+  scrollIntoView: () => void
+}
 
 definePageMeta({ layout: 'app' })
 
@@ -11,8 +17,8 @@ const {
   session, day, completedSets, completing, abandoning, recordingSetId,
   totalSets, completedSetCount, progressPercent,
   loadActiveSession, recordSet, updateSet, deleteCompletedSet,
-  extraCompletedSets, exerciseSwaps, notesSaving,
-  addExtraSet, deleteExtraSet, updateExtraSet, saveWorkoutNotes,
+  extraCompletedSets, exerciseSwaps, adHocGroups, notesSaving,
+  addExtraSet, deleteExtraSet, updateExtraSet, addAdHocSet, saveWorkoutNotes,
   swapExercise, completeWorkout, abandonWorkout,
 } = useWorkoutSession()
 
@@ -25,10 +31,19 @@ const completeDialogOpen = ref(false)
 // Set log drawer state
 const editingContext = ref<EditingContext | null>(null)
 
+// Exercise card refs for auto-advance
+const exerciseCardRefs = ref<(ExerciseCardHandle | null)[]>([])
+
 // Exercise swap drawer state
 const swapDrawerOpen = ref(false)
 const swappingProgramExerciseId = ref<string | null>(null)
 const swapConfirming = ref(false)
+
+// Add exercise group drawer state
+const addExerciseDrawerOpen = ref(false)
+
+// Workout notes panel state
+const workoutNotesOpen = ref(false)
 
 // Local draft for workout notes — prevents textarea revert on re-render
 const notesDraft = ref('')
@@ -55,7 +70,9 @@ const editingCompletedSet = computed(() => {
   const ctx = editingContext.value
   if (!ctx) return null
   if (ctx.type === 'template') return completedSets.value.get(ctx.exerciseSetId) ?? null
-  return extraCompletedSets.value.get(ctx.completedSetId) ?? null
+  if (ctx.type === 'extra') return extraCompletedSets.value.get(ctx.completedSetId) ?? null
+  if (ctx.type === 'adhoc') return extraCompletedSets.value.get(ctx.completedSetId) ?? null
+  return null
 })
 
 const editingCanDelete = computed(() => {
@@ -67,10 +84,10 @@ const editingCanDelete = computed(() => {
 
 // Find the full set detail object for the currently-editing set
 const editingSet = computed(() => {
-  if (!editingContext.value || !day.value) return null
+  if (!editingContext.value) return null
   const ctx = editingContext.value
-
   if (ctx.type === 'template') {
+    if (!day.value) return null
     for (const group of day.value.exerciseGroups) {
       for (const ex of group.exercises) {
         const found = ex.sets.find(s => s.id === ctx.exerciseSetId)
@@ -80,28 +97,46 @@ const editingSet = computed(() => {
     return null
   }
 
-  // Extra set — synthesize a minimal set object
-  const existing = extraCompletedSets.value.get(ctx.completedSetId)
-  const peId = ctx.programExerciseId
-  let templateSetCount = 0
-  if (day.value) {
+  if (ctx.type === 'extra') {
+    if (!day.value) return null
+    const existing = extraCompletedSets.value.get(ctx.completedSetId)
+    const peId = ctx.programExerciseId
+    let templateSetCount = 0
     for (const group of day.value.exerciseGroups) {
       const ex = group.exercises.find(e => e.id === peId)
       if (ex) { templateSetCount = ex.sets.length; break }
     }
+    const extrasForExercise = Array.from(extraCompletedSets.value.values())
+      .filter(s => s.programExerciseId === peId)
+    const extraIndex = extrasForExercise.findIndex(s => s.id === ctx.completedSetId)
+    return {
+      id: ctx.completedSetId,
+      setNumber: templateSetCount + (extraIndex >= 0 ? extraIndex + 1 : extrasForExercise.length + 1),
+      reps: existing?.reps ?? null,
+      weight: existing?.weight ?? null,
+      rpe: existing?.rpe ?? null,
+      notes: existing?.notes ?? null,
+      effortTarget: null,
+    }
   }
-  const extrasForExercise = Array.from(extraCompletedSets.value.values())
-    .filter(s => s.programExerciseId === peId)
-  const extraIndex = extrasForExercise.findIndex(s => s.id === ctx.completedSetId)
-  return {
-    id: ctx.completedSetId,
-    setNumber: templateSetCount + (extraIndex >= 0 ? extraIndex + 1 : extrasForExercise.length + 1),
-    reps: existing?.reps ?? null,
-    weight: existing?.weight ?? null,
-    rpe: existing?.rpe ?? null,
-    notes: existing?.notes ?? null,
-    effortTarget: null,
+
+  if (ctx.type === 'adhoc') {
+    const cs = extraCompletedSets.value.get(ctx.completedSetId)
+    if (!cs) return null
+    const group = adHocGroups.value.find((g: AdHocExerciseGroup) => g.sets.some(s => s.id === ctx.completedSetId))
+    const setNumber = group ? group.sets.findIndex(s => s.id === ctx.completedSetId) + 1 : 1
+    return {
+      id: ctx.completedSetId,
+      setNumber,
+      reps: cs.reps,
+      weight: cs.weight,
+      rpe: cs.rpe,
+      notes: cs.notes,
+      effortTarget: null,
+    }
   }
+
+  return null
 })
 
 function handleEdit(context: EditingContext): void {
@@ -124,7 +159,9 @@ async function handleLog(reps: number | null, weight: number | null): Promise<vo
     } else {
       await recordSet(ctx.exerciseSetId, { reps, weight })
     }
-  } else {
+  } else if (ctx.type === 'extra') {
+    await updateExtraSet(ctx.completedSetId, { reps, weight })
+  } else if (ctx.type === 'adhoc') {
     await updateExtraSet(ctx.completedSetId, { reps, weight })
   }
 }
@@ -136,7 +173,9 @@ async function handleDelete(): Promise<void> {
 
   if (ctx.type === 'template') {
     await deleteCompletedSet(ctx.exerciseSetId)
-  } else {
+  } else if (ctx.type === 'extra') {
+    await deleteExtraSet(ctx.completedSetId)
+  } else if (ctx.type === 'adhoc') {
     await deleteExtraSet(ctx.completedSetId)
   }
 }
@@ -144,6 +183,39 @@ async function handleDelete(): Promise<void> {
 async function handleAddExtraSet(programExerciseId: string): Promise<void> {
   const newSet = await addExtraSet(programExerciseId, {})
   editingContext.value = { type: 'extra', completedSetId: newSet.id, programExerciseId }
+}
+
+async function handleExerciseSelected(exerciseName: string): Promise<void> {
+  addExerciseDrawerOpen.value = false
+  const results = await Promise.allSettled([
+    addAdHocSet(exerciseName),
+    addAdHocSet(exerciseName),
+    addAdHocSet(exerciseName),
+  ])
+  const failed = results.filter(r => r.status === 'rejected').length
+  if (failed > 0) {
+    console.warn(`[workout] Created ${3 - failed}/3 ad-hoc sets for "${exerciseName}"`)
+  }
+}
+
+function handleAdHocLogSet(completedSetId: string): void {
+  editingContext.value = { type: 'adhoc', completedSetId }
+}
+
+async function handleAdHocAddSet(exerciseName: string): Promise<void> {
+  await addAdHocSet(exerciseName)
+}
+
+async function handleGroupComplete(completedGroupIdx: number): Promise<void> {
+  const groups = day.value?.exerciseGroups
+  if (!groups) return
+  const nextIdx = completedGroupIdx + 1
+  if (nextIdx >= groups.length) return
+  const nextCard = exerciseCardRefs.value[nextIdx]
+  if (!nextCard) return
+  nextCard.expandAll()
+  await nextTick()
+  nextCard.scrollIntoView()
 }
 
 function handleSwap(programExerciseId: string): void {
@@ -261,8 +333,9 @@ async function handleDiscard(): Promise<void> {
       <!-- Exercise groups -->
       <div class="space-y-3">
         <WorkoutExerciseCard
-          v-for="group in day.exerciseGroups"
+          v-for="(group, groupIdx) in day.exerciseGroups"
           :key="group.id"
+          :ref="(el) => { if (el) (exerciseCardRefs as (ExerciseCardHandle | null)[])[groupIdx] = el as unknown as ExerciseCardHandle }"
           :group="group"
           :completed-sets="completedSets"
           :extra-completed-sets="extraCompletedSets"
@@ -272,26 +345,67 @@ async function handleDiscard(): Promise<void> {
           @edit="handleEdit"
           @add-extra-set="handleAddExtraSet"
           @swap="handleSwap"
+          @group-complete="handleGroupComplete(groupIdx)"
+        />
+        <WorkoutAdHocExerciseCard
+          v-for="group in adHocGroups"
+          :key="group.exerciseName"
+          :group="group"
+          :editable="true"
+          @log-set="handleAdHocLogSet"
+          @add-set="handleAdHocAddSet"
         />
       </div>
 
+      <!-- Add Exercise Group -->
+      <UButton
+        color="neutral"
+        variant="outline"
+        size="sm"
+        icon="i-lucide-plus"
+        class="w-full justify-center py-3"
+        @click="addExerciseDrawerOpen = true"
+      >
+        Add Exercise Group
+      </UButton>
+
       <!-- Workout Notes -->
-      <div class="rounded-lg bg-slate-800/50 p-3">
-        <label for="workout-notes" class="mb-1.5 block text-xs font-medium text-slate-400">
-          Workout Notes
-        </label>
-        <textarea
-          id="workout-notes"
-          :value="notesDraft"
-          rows="3"
-          placeholder="Add notes for this workout..."
-          class="w-full resize-none bg-transparent text-base text-white placeholder-slate-600 outline-none"
-          @input="notesDraft = ($event.target as HTMLTextAreaElement).value; saveWorkoutNotes(notesDraft)"
-          @blur="saveWorkoutNotes(notesDraft)"
-        />
-        <p class="mt-0.5 text-right text-xs text-slate-600">
-          <span v-if="notesSaving" class="text-slate-500">Saving...</span>
-        </p>
+      <div class="rounded-lg bg-slate-800/50">
+        <div
+          role="button"
+          tabindex="0"
+          class="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left"
+          @click="workoutNotesOpen = !workoutNotesOpen"
+          @keydown.enter="workoutNotesOpen = !workoutNotesOpen"
+          @keydown.space.prevent="workoutNotesOpen = !workoutNotesOpen"
+        >
+          <span class="flex-1 text-sm font-medium text-slate-300">Workout Notes</span>
+          <UIcon
+            :name="workoutNotesOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            class="size-6 shrink-0 text-slate-400"
+          />
+        </div>
+        <div
+          class="grid overflow-hidden transition-all duration-200 ease-in-out"
+          :class="workoutNotesOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+        >
+          <div class="min-h-0">
+            <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
+              <textarea
+                id="workout-notes"
+                :value="notesDraft"
+                rows="3"
+                placeholder="Add notes for this workout..."
+                class="w-full resize-none bg-transparent text-base text-white placeholder-slate-600 outline-none"
+                @input="notesDraft = ($event.target as HTMLTextAreaElement).value; saveWorkoutNotes(notesDraft)"
+                @blur="saveWorkoutNotes(notesDraft)"
+              />
+              <p class="mt-0.5 text-right text-xs text-slate-600" :class="{ invisible: !notesSaving }">
+                Saving...
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Action buttons -->
@@ -328,6 +442,13 @@ async function handleDiscard(): Promise<void> {
       @log="(reps, weight) => handleLog(reps, weight)"
       @close="cancelEdit"
       @delete="handleDelete"
+    />
+
+    <!-- Add exercise group drawer -->
+    <WorkoutExerciseSearchDrawer
+      :open="addExerciseDrawerOpen"
+      @select="handleExerciseSelected"
+      @close="addExerciseDrawerOpen = false"
     />
 
     <!-- Exercise swap drawer -->

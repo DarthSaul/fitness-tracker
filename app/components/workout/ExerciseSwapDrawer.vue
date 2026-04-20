@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { VisuallyHidden, DialogTitle, DialogDescription } from 'reka-ui'
 import type { WorkoutExerciseSwap, CompletedSetRecord } from '~/types/workout'
 import type { ProgramDayDetail, ExerciseSummary } from '~/types/program'
 
@@ -27,6 +28,7 @@ const exercises = ref<ExerciseSummary[]>([])
 const exercisesLoading = ref(false)
 const exercisesError = ref(false)
 const pendingSelection = ref<ExerciseSummary | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 // Fetch exercises when drawer opens
 watch(() => props.open, async (opened) => {
@@ -42,6 +44,10 @@ watch(() => props.open, async (opened) => {
       exercisesError.value = true
     } finally {
       exercisesLoading.value = false
+      if (props.open) {
+        await nextTick()
+        searchInputRef.value?.focus()
+      }
     }
   }
 })
@@ -109,7 +115,9 @@ function confirmSwap(): void {
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">Swap Exercise</h3>
+          <DialogTitle as="h3" class="text-lg font-semibold text-white">
+            Swap Exercise
+          </DialogTitle>
           <button
             class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
             aria-label="Close"
@@ -118,6 +126,10 @@ function confirmSwap(): void {
             <UIcon name="i-lucide-x" class="size-5" />
           </button>
         </div>
+
+        <VisuallyHidden>
+          <DialogDescription>Search for an exercise to replace {{ currentExerciseName }}</DialogDescription>
+        </VisuallyHidden>
 
         <!-- Current exercise -->
         <p class="mb-4 text-sm text-slate-400">
@@ -154,6 +166,7 @@ function confirmSwap(): void {
         <!-- Search + exercise list -->
         <div v-else>
           <input
+            ref="searchInputRef"
             v-model="search"
             type="text"
             inputmode="search"
