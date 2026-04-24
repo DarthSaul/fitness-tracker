@@ -11,6 +11,7 @@
  *      the local draft until the server round-trip completes
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
+import { ref, computed } from 'vue'
 import { useWorkoutSession } from './useWorkoutSession'
 
 const mockFetch = $fetch as unknown as ReturnType<typeof vi.fn>
@@ -138,5 +139,73 @@ describe('useWorkoutSession — saveWorkoutNotes', () => {
     await Promise.resolve()
 
     expect(notesSaving.value).toBe(false)
+  })
+})
+
+describe('useWorkoutSession — totalSets', () => {
+  // Restore real Vue reactivity for computed (vitest.setup.ts stubs evaluate once and cache)
+  beforeEach(() => {
+    vi.stubGlobal('ref', ref)
+    vi.stubGlobal('computed', computed)
+  })
+
+  afterEach(() => {
+    vi.stubGlobal('ref', (val: unknown) => ({ value: val }))
+    vi.stubGlobal('computed', (fn: () => unknown) => ({ value: fn() }))
+  })
+
+  function makeDay(exerciseId: string, setCount: number) {
+    return {
+      id: 'd1',
+      dayNumber: 1,
+      name: null,
+      warmUp: null,
+      exerciseGroups: [{
+        id: 'g1',
+        type: 'STANDARD' as const,
+        restSeconds: 60,
+        exercises: [{
+          id: exerciseId,
+          order: 1,
+          exercise: { id: 'e1', name: 'Bench Press' },
+          sets: Array.from({ length: setCount }, (_, i) => ({
+            id: `s${i + 1}`, setNumber: i + 1, reps: null, weight: null, rpe: null, notes: null, effortTarget: null,
+          })),
+        }],
+      }],
+    }
+  }
+
+  test('counts all template sets for non-swapped exercises', () => {
+    const { day, totalSets } = useWorkoutSession()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    day.value = makeDay('pe1', 5) as any
+    expect(totalSets.value).toBe(5)
+  })
+
+  test('caps swapped exercises at the 3 visible sets so progress matches logged sets', () => {
+    const { day, exerciseSwaps, totalSets } = useWorkoutSession()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    day.value = makeDay('pe1', 5) as any
+    exerciseSwaps.value = [{
+      id: 'sw1',
+      programExerciseId: 'pe1',
+      replacementExerciseId: 'e2',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any]
+    expect(totalSets.value).toBe(3)
+  })
+
+  test('uses actual set count when swapped exercise has fewer than 3 sets', () => {
+    const { day, exerciseSwaps, totalSets } = useWorkoutSession()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    day.value = makeDay('pe1', 2) as any
+    exerciseSwaps.value = [{
+      id: 'sw1',
+      programExerciseId: 'pe1',
+      replacementExerciseId: 'e2',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any]
+    expect(totalSets.value).toBe(2)
   })
 })

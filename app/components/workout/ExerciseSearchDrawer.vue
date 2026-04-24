@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { VisuallyHidden, DialogTitle, DialogDescription } from 'reka-ui'
+
 import type { ExerciseSummary } from '~/types/program'
 
 const props = defineProps<{
@@ -48,14 +48,12 @@ const filteredExercises = computed(() => {
 </script>
 
 <template>
-  <UDrawer v-model:open="isOpen" direction="bottom">
+  <UDrawer v-model:open="isOpen" direction="bottom" title="Add Exercise Group" description="Search and select an exercise to add as a new group">
     <template #content>
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <DialogTitle as="h3" class="text-lg font-semibold text-white">
-            Add Exercise Group
-          </DialogTitle>
+          <h3 class="text-lg font-semibold text-white">Add Exercise Group</h3>
           <button
             class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
             aria-label="Close"
@@ -64,10 +62,6 @@ const filteredExercises = computed(() => {
             <UIcon name="i-lucide-x" class="size-5" />
           </button>
         </div>
-
-        <VisuallyHidden>
-          <DialogDescription>Search and select an exercise to add as a new group</DialogDescription>
-        </VisuallyHidden>
 
         <!-- Search + list -->
         <input

@@ -13,6 +13,7 @@ const props = defineProps<{
   exerciseSwaps: WorkoutExerciseSwap[]
   editable: boolean
   recordingSetId: string | null
+  completingGroup?: boolean
   disableExtraSets?: boolean
   disableExerciseSwaps?: boolean
 }>()
@@ -26,9 +27,6 @@ const emit = defineEmits<{
 
 const expandedExercises = ref(new Set<string>())
 const notesVisibleFor = ref<string | null>(null)
-
-const prevGroupComplete = ref(false)
-const prevExerciseComplete = ref<Record<string, boolean>>({})
 
 const supersetRootEl = ref<HTMLElement | null>(null)
 const standardRootEl = ref<HTMLElement | null>(null)
@@ -78,7 +76,10 @@ function getCompletedSet(exerciseSetId: string): CompletedSetRecord | null {
 }
 
 function isExerciseComplete(ex: ExerciseGroupDetail['exercises'][number]): boolean {
-  return ex.sets.length > 0 && ex.sets.every(set => props.completedSets.has(set.id))
+  if (ex.sets.length === 0) return false
+  // For swapped exercises only the first 3 sets are shown/logged; check only those
+  const setsToCheck = hasSwap(ex.id) ? ex.sets.slice(0, 3) : ex.sets
+  return setsToCheck.every(set => props.completedSets.has(set.id))
 }
 
 function formatRest(seconds: number | null): string {
@@ -125,12 +126,6 @@ function scrollIntoView(): void {
 defineExpose({ expandAll, collapseAll, scrollIntoView })
 
 onMounted(async () => {
-  prevGroupComplete.value = isGroupComplete.value
-  if (props.group.type === 'SUPERSET') {
-    props.group.exercises.forEach(ex => {
-      prevExerciseComplete.value[ex.id] = isExerciseComplete(ex)
-    })
-  }
   await Promise.allSettled(
     props.group.exercises.map(async (ex) => {
       if (userNotesLoaded.value.has(ex.exercise.id)) return
@@ -145,33 +140,6 @@ onMounted(async () => {
   )
 })
 
-watch(isGroupComplete, (nowComplete) => {
-  if (nowComplete && !prevGroupComplete.value) {
-    collapseAll()
-    emit('group-complete')
-  }
-  prevGroupComplete.value = nowComplete
-})
-
-watch(
-  () => props.group.type === 'SUPERSET'
-    ? props.group.exercises.map(ex => ({ id: ex.id, done: isExerciseComplete(ex) }))
-    : [],
-  (states) => {
-    if (props.group.type !== 'SUPERSET') return
-    states.forEach(({ id, done }, idx) => {
-      const wasDone = prevExerciseComplete.value[id] ?? false
-      if (done && !wasDone) {
-        const isLast = idx === props.group.exercises.length - 1
-        if (!isLast) {
-          expandedExercises.value.delete(id)
-        }
-      }
-      prevExerciseComplete.value[id] = done
-    })
-  },
-  { deep: true }
-)
 
 async function toggleUserNotes(exerciseId: string, programExerciseId: string): Promise<void> {
   if (userNotesOpen.value === programExerciseId) {
@@ -333,19 +301,20 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               </div>
               <div>
                 <WorkoutSetRow
-                  v-for="set in ex.sets"
+                  v-for="set in (hasSwap(ex.id) ? ex.sets.slice(0, 3) : ex.sets)"
                   :key="set.id"
                   :set="set"
                   :completed-set="getCompletedSet(set.id)"
                   :loading="recordingSetId === set.id"
                   :editable="editable"
+                  :is-swapped="hasSwap(ex.id)"
                   @edit="emit('edit', { type: 'template', exerciseSetId: set.id })"
                 />
                 <!-- Extra sets -->
                 <WorkoutExtraSetRow
                   v-for="(extraSet, idx) in getExtraCompletedSets(ex.id)"
                   :key="extraSet.id"
-                  :set-number="ex.sets.length + idx + 1"
+                  :set-number="(hasSwap(ex.id) ? 3 : ex.sets.length) + idx + 1"
                   :completed-set="extraSet"
                   :loading="recordingSetId === extraSet.id"
                   :editable="editable"
@@ -362,6 +331,19 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                 <UIcon name="i-lucide-plus" class="size-3" />
                 Add Set
               </button>
+              <!-- Complete Set button -->
+              <UButton
+                v-if="editable"
+                color="primary"
+                size="sm"
+                block
+                class="mt-2"
+                :loading="completingGroup"
+                :disabled="completingGroup"
+                @click.stop="emit('group-complete')"
+              >
+                Complete Set
+              </UButton>
             </div>
           </div>
         </div>
@@ -479,19 +461,20 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             </div>
             <div>
               <WorkoutSetRow
-                v-for="set in group.exercises[0].sets"
+                v-for="set in (hasSwap(group.exercises[0].id) ? group.exercises[0].sets.slice(0, 3) : group.exercises[0].sets)"
                 :key="set.id"
                 :set="set"
                 :completed-set="getCompletedSet(set.id)"
                 :loading="recordingSetId === set.id"
                 :editable="editable"
+                :is-swapped="hasSwap(group.exercises[0].id)"
                 @edit="emit('edit', { type: 'template', exerciseSetId: set.id })"
               />
               <!-- Extra sets -->
               <WorkoutExtraSetRow
                 v-for="(extraSet, idx) in getExtraCompletedSets(group.exercises[0].id)"
                 :key="extraSet.id"
-                :set-number="group.exercises[0].sets.length + idx + 1"
+                :set-number="(hasSwap(group.exercises[0].id) ? 3 : group.exercises[0].sets.length) + idx + 1"
                 :completed-set="extraSet"
                 :loading="recordingSetId === extraSet.id"
                 :editable="editable"
@@ -508,6 +491,19 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               <UIcon name="i-lucide-plus" class="size-3" />
               Add Set
             </button>
+            <!-- Complete Set button -->
+            <UButton
+              v-if="editable"
+              color="primary"
+              size="sm"
+              block
+              class="mt-2"
+              :loading="completingGroup"
+              :disabled="completingGroup"
+              @click.stop="emit('group-complete')"
+            >
+              Complete Set
+            </UButton>
           </div>
         </div>
       </div>

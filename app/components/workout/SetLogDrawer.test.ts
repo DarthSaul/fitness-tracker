@@ -20,17 +20,12 @@ const mockSet = {
   notes: null,
 }
 
-// Stub UDrawer to render its #content slot so we can assert on the dialog internals.
-// DialogTitle/DialogDescription require a DialogRoot context (provided by UDrawer at
-// runtime) which is absent here — stub them as simple pass-through elements so the
-// test can assert on the text content that is wired to each slot.
-// UButton renders its default slot so button text content is visible in wrapper.text().
+// Stub UDrawer: render #content slot and expose title/description as data attributes
+// so tests can assert on the accessibility labels passed to the drawer.
 const stubs = {
-  UDrawer: { template: '<div><slot name="content" /></div>' },
+  UDrawer: { template: '<div :data-title="$attrs.title" :data-description="$attrs.description"><slot name="content" /></div>', inheritAttrs: false },
   UButton: { template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>', inheritAttrs: false },
   UIcon: true,
-  DialogTitle: { template: '<h3><slot /></h3>' },
-  DialogDescription: { template: '<p><slot /></p>' },
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,7 +40,7 @@ const mockExtraSet = {
 } as any
 
 describe('SetLogDrawer', () => {
-  test('renders DialogTitle with the set number', () => {
+  test('renders set number in visible heading', () => {
     const wrapper = mount(SetLogDrawer, {
       props: { set: mockSet, completedSet: null, open: true, loading: false },
       global: { stubs },
@@ -53,12 +48,14 @@ describe('SetLogDrawer', () => {
     expect(wrapper.find('h3').text()).toContain('Set 3')
   })
 
-  test('renders DialogDescription text with the set number', () => {
+  test('passes set number as accessible drawer title and description', () => {
     const wrapper = mount(SetLogDrawer, {
       props: { set: mockSet, completedSet: null, open: true, loading: false },
       global: { stubs },
     })
-    expect(wrapper.text()).toContain('Enter weight and reps for set 3')
+    const drawer = wrapper.find('[data-title]')
+    expect(drawer.attributes('data-title')).toBe('Set 3')
+    expect(drawer.attributes('data-description')).toContain('set 3')
   })
 
   test('renders "Extra Set" as title when set.setNumber is null', () => {
@@ -69,12 +66,14 @@ describe('SetLogDrawer', () => {
     expect(wrapper.find('h3').text()).toBe('Extra Set')
   })
 
-  test('renders extra set description when set.setNumber is null', () => {
+  test('passes "extra set" as accessible drawer title and description when setNumber is null', () => {
     const wrapper = mount(SetLogDrawer, {
       props: { set: mockExtraSet, completedSet: null, open: true, loading: false },
       global: { stubs },
     })
-    expect(wrapper.text()).toContain('Enter weight and reps for extra set')
+    const drawer = wrapper.find('[data-title]')
+    expect(drawer.attributes('data-title')).toBe('Extra Set')
+    expect(drawer.attributes('data-description')).toContain('extra set')
   })
 
   test('pre-fills weight and reps as blank for extra sets with no completedSet', () => {
@@ -124,5 +123,24 @@ describe('SetLogDrawer', () => {
     expect(deleteBtn).toBeDefined()
     await deleteBtn!.trigger('click')
     expect(wrapper.emitted('delete')).toBeTruthy()
+  })
+
+  test('inputs are blank when isSwapped is true and completedSet is null', async () => {
+    const wrapper = mount(SetLogDrawer, {
+      props: { set: mockSet, completedSet: null, open: true, loading: false, isSwapped: true },
+      global: { stubs },
+    })
+    const weightInput = wrapper.find<HTMLInputElement>('#drawer-weight')
+    const repsInput = wrapper.find<HTMLInputElement>('#drawer-reps')
+    expect(weightInput.element.value).toBe('')
+    expect(repsInput.element.value).toBe('')
+  })
+
+  test('does not render Target text when isSwapped is true', () => {
+    const wrapper = mount(SetLogDrawer, {
+      props: { set: mockSet, completedSet: null, open: true, loading: false, isSwapped: true },
+      global: { stubs },
+    })
+    expect(wrapper.text()).not.toContain('Target:')
   })
 })

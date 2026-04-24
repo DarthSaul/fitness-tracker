@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { VisuallyHidden, DialogTitle, DialogDescription } from 'reka-ui'
+
 import type { AnalyticsExerciseHistory } from '~/composables/useAnalytics'
 
 const props = defineProps<{
@@ -97,14 +97,12 @@ function formatSessionDate(iso: string): string {
 </script>
 
 <template>
-  <UDrawer v-model:open="isOpen" direction="bottom">
+  <UDrawer v-model:open="isOpen" direction="bottom" title="Trend" :description="`Strength trend history for ${exerciseName ?? ''}`">
     <template #content>
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4" @click="e1rmInfoOpen = false">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <DialogTitle as="h3" class="text-lg font-semibold text-white">
-            Trend
-          </DialogTitle>
+          <h3 class="text-lg font-semibold text-white">Trend</h3>
           <button
             class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
             aria-label="Close"
@@ -113,10 +111,6 @@ function formatSessionDate(iso: string): string {
             <UIcon name="i-lucide-x" class="size-5" />
           </button>
         </div>
-
-        <VisuallyHidden>
-          <DialogDescription>Strength trend history for {{ exerciseName }}</DialogDescription>
-        </VisuallyHidden>
 
         <!-- Loading -->
         <div v-if="status === 'pending'" class="flex flex-col items-center gap-3 py-10">
