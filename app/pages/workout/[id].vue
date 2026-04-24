@@ -224,12 +224,16 @@ async function handleGroupComplete(completedGroupIdx: number): Promise<void> {
 
   completingGroupIdx.value = completedGroupIdx
   try {
-    // Log all unlogged template sets so the checkmark and progress bar update.
+    // Log unlogged visible sets so the checkmark and progress bar update.
+    // Hidden sets on swapped exercises are excluded from totalSets, so also
+    // skip them here to keep completedSetCount in sync with totalSets.
     const group = groups[completedGroupIdx]
     if (group) {
+      const swappedIds = new Set(exerciseSwaps.value.map(s => s.programExerciseId))
       const promises: Promise<void>[] = []
       for (const ex of group.exercises) {
-        for (const set of ex.sets) {
+        const visibleSets = swappedIds.has(ex.id) ? ex.sets.slice(0, 3) : ex.sets
+        for (const set of visibleSets) {
           if (!completedSets.value.has(set.id)) {
             promises.push(recordSet(set.id, { reps: null, weight: null }))
           }
