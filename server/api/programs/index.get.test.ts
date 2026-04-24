@@ -54,7 +54,7 @@ describe('GET /api/programs', () => {
         createdAt: true,
         _count: { select: { weeks: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { name: 'asc' },
     })
   })
 

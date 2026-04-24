@@ -58,7 +58,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="fixed inset-0 flex flex-col overflow-hidden" style="background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%)">
+  <div class="fixed top-0 left-0 flex w-full flex-col overflow-hidden" style="height: 100dvh; background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%)">
     <!-- Header -->
     <header
       class="fixed top-0 right-0 left-0 z-10 px-4 pb-3 transition-colors duration-300"
@@ -95,7 +95,7 @@ onUnmounted(() => {
       class="mx-auto w-full max-w-lg flex-1 overflow-y-auto px-4"
       :style="{
         paddingTop: `calc(env(safe-area-inset-top) + ${showResumeChip ? '6.5' : '5'}rem)`,
-        paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)',
+        paddingBottom: '1rem',
       }"
     >
       <slot />
@@ -103,7 +103,7 @@ onUnmounted(() => {
 
     <!-- Bottom nav -->
     <nav
-      class="fixed bottom-0 left-0 right-0 z-10 bg-slate-900/95 backdrop-blur-md"
+      class="flex-shrink-0 bg-slate-900/95 backdrop-blur-md"
       style="padding-bottom: env(safe-area-inset-bottom)"
     >
       <div class="mx-auto flex max-w-lg items-center justify-around px-4 py-2">
