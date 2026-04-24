@@ -20,6 +20,7 @@ const {
 
 const toast = useToast()
 const exerciseCardRefs = ref<(ExerciseCardHandle | null)[]>([])
+const completingGroupIdx = ref<number | null>(null)
 
 const pageLoading = ref(true)
 const pageError = ref<string | null>(null)
@@ -216,30 +217,36 @@ async function handleAdHocAddSet(exerciseName: string): Promise<void> {
 }
 
 async function handleGroupComplete(completedGroupIdx: number): Promise<void> {
+  // Guard against double-taps that would queue duplicate recordSet() writes
+  if (completingGroupIdx.value !== null) return
   const groups = day.value?.exerciseGroups
   if (!groups) return
 
-  // Log all unlogged template sets so the checkmark and progress bar update.
-  // All ex.sets (not just visible ones) are logged so totalSets and completedSetCount stay in sync.
-  const group = groups[completedGroupIdx]
-  if (group) {
-    const promises: Promise<void>[] = []
-    for (const ex of group.exercises) {
-      for (const set of ex.sets) {
-        if (!completedSets.value.has(set.id)) {
-          promises.push(recordSet(set.id, { reps: null, weight: null }))
+  completingGroupIdx.value = completedGroupIdx
+  try {
+    // Log all unlogged template sets so the checkmark and progress bar update.
+    const group = groups[completedGroupIdx]
+    if (group) {
+      const promises: Promise<void>[] = []
+      for (const ex of group.exercises) {
+        for (const set of ex.sets) {
+          if (!completedSets.value.has(set.id)) {
+            promises.push(recordSet(set.id, { reps: null, weight: null }))
+          }
         }
       }
+      const results = await Promise.allSettled(promises)
+      if (results.some(r => r.status === 'rejected')) {
+        console.error('[handleGroupComplete] Some sets failed to log')
+        toast.add({ title: 'Some sets could not be saved. Please try again.', color: 'error', icon: 'i-lucide-circle-alert' })
+        return
+      }
     }
-    const results = await Promise.allSettled(promises)
-    if (results.some(r => r.status === 'rejected')) {
-      console.error('[handleGroupComplete] Some sets failed to log')
-      toast.add({ title: 'Some sets could not be saved. Please try again.', color: 'error', icon: 'i-lucide-circle-alert' })
-      return
-    }
-  }
 
-  exerciseCardRefs.value[completedGroupIdx]?.collapseAll()
+    exerciseCardRefs.value[completedGroupIdx]?.collapseAll()
+  } finally {
+    completingGroupIdx.value = null
+  }
 }
 
 function handleSwap(programExerciseId: string): void {
@@ -359,13 +366,14 @@ async function handleDiscard(): Promise<void> {
         <WorkoutExerciseCard
           v-for="(group, groupIdx) in day.exerciseGroups"
           :key="group.id"
-          :ref="(el) => { if (el) exerciseCardRefs.value[groupIdx] = el as unknown as ExerciseCardHandle }"
+          :ref="(el) => { if (el) (exerciseCardRefs as unknown as (ExerciseCardHandle | null)[])[groupIdx] = el as unknown as ExerciseCardHandle }"
           :group="group"
           :completed-sets="completedSets"
           :extra-completed-sets="extraCompletedSets"
           :exercise-swaps="exerciseSwaps"
           :editable="true"
           :recording-set-id="recordingSetId"
+          :completing-group="completingGroupIdx === groupIdx"
           @edit="handleEdit"
           @add-extra-set="handleAddExtraSet"
           @swap="handleSwap"

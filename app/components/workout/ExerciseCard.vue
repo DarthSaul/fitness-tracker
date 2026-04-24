@@ -13,6 +13,7 @@ const props = defineProps<{
   exerciseSwaps: WorkoutExerciseSwap[]
   editable: boolean
   recordingSetId: string | null
+  completingGroup?: boolean
   disableExtraSets?: boolean
   disableExerciseSwaps?: boolean
 }>()
@@ -337,6 +338,8 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                 size="sm"
                 block
                 class="mt-2"
+                :loading="completingGroup"
+                :disabled="completingGroup"
                 @click.stop="emit('group-complete')"
               >
                 Complete Set
@@ -495,6 +498,8 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               size="sm"
               block
               class="mt-2"
+              :loading="completingGroup"
+              :disabled="completingGroup"
               @click.stop="emit('group-complete')"
             >
               Complete Set

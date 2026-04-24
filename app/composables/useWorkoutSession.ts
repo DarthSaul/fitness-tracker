@@ -26,9 +26,14 @@ export function useWorkoutSession() {
   const totalSets = computed(() => {
     if (!day.value) return 0
     let count = 0
+    const swappedIds = new Set(exerciseSwaps.value.map(s => s.programExerciseId))
     for (const group of day.value.exerciseGroups) {
       for (const exercise of group.exercises) {
-        count += exercise.sets.length
+        // Swapped exercises only surface the first 3 sets; hidden template sets
+        // are never logged, so exclude them from the progress denominator.
+        count += swappedIds.has(exercise.id)
+          ? Math.min(3, exercise.sets.length)
+          : exercise.sets.length
       }
     }
     return count
