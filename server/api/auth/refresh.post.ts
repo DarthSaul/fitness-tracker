@@ -40,6 +40,7 @@ export default defineEventHandler(async (event) => {
   const tokenHash = Buffer.from(hashBuffer).toString('hex')
 
   try {
+    await rateLimitByIp(event)
     const storedToken = await prisma.refreshToken.findUnique({ where: { tokenHash } })
 
     if (!storedToken) {
