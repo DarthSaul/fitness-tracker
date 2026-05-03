@@ -19,7 +19,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'Session established' },
+      200: { description: 'Session established', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       401: { description: 'Invalid credentials' },
     },
   },

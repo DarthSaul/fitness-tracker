@@ -297,6 +297,63 @@ defineRouteMeta({
 							},
 						},
 					},
+					TokenResponse: {
+						type: 'object',
+						required: ['accessToken'],
+						properties: {
+							accessToken: {
+								type: 'string',
+								description: 'Short-lived HS256 access token (15 min)',
+								example: 'eyJhbGciOiJIUzI1NiJ9...',
+							},
+							refreshToken: {
+								type: 'string',
+								description: 'Long-lived refresh token (30 days). Present on sign-in; present on refresh only when rotation is enabled.',
+								example: 'a1b2c3d4e5f6...',
+							},
+						},
+					},
+					SuccessResponse: {
+						type: 'object',
+						required: ['success'],
+						properties: {
+							success: {
+								type: 'boolean',
+								example: true,
+							},
+						},
+					},
+					UserExerciseNote: {
+						type: 'object',
+						properties: {
+							id: {
+								type: 'string',
+								example: 'cm5abc123note01',
+							},
+							userId: {
+								type: 'string',
+								example: 'cm5abc123user01',
+							},
+							exerciseId: {
+								type: 'string',
+								example: 'cm5abc123exr01',
+							},
+							notes: {
+								type: 'string',
+								example: 'Keep elbows tucked; pause at chest',
+							},
+							createdAt: {
+								type: 'string',
+								format: 'date-time',
+								example: '2026-01-15T12:00:00.000Z',
+							},
+							updatedAt: {
+								type: 'string',
+								format: 'date-time',
+								example: '2026-03-01T08:30:00.000Z',
+							},
+						},
+					},
 				},
 			},
 		},

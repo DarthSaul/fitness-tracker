@@ -20,7 +20,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'Account created and session established' },
+      200: { description: 'Account created. confirmationRequired is true when email confirmation is needed before session is active.', content: { 'application/json': { schema: { type: 'object', required: ['confirmationRequired'], properties: { confirmationRequired: { type: 'boolean', example: false } } } } } },
       400: { description: 'Validation error or sign-up failed' },
       403: { description: 'Forbidden — email not invited' },
     },

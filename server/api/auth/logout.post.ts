@@ -19,7 +19,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'Native client logout successful (via X-Client-Type header or refreshToken in request body)' },
+      200: { description: 'Native client logout successful (via X-Client-Type header or refreshToken in request body)', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       302: { description: 'Web client redirect to /login' },
     },
   },

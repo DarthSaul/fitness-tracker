@@ -18,7 +18,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'New access token issued' },
+      200: { description: 'New access token issued. refreshToken is only present when server-side rotation is enabled.', content: { 'application/json': { schema: { $ref: '#/components/schemas/TokenResponse' } } } },
       400: { description: 'Missing refreshToken' },
       401: { description: 'Invalid, expired, or revoked refresh token' },
     },

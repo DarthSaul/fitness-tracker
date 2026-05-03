@@ -7,7 +7,7 @@ defineRouteMeta({
       { name: 'exerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'Exercise CUID' },
     ],
     responses: {
-      200: { description: 'Upserted exercise note record' },
+      200: { description: 'Upserted exercise note record', content: { 'application/json': { schema: { $ref: '#/components/schemas/UserExerciseNote' } } } },
       400: { description: 'Missing or invalid fields' },
       401: { description: 'Unauthorized' },
       404: { description: 'Exercise not found' },

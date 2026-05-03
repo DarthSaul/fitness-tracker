@@ -18,7 +18,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'JWT access and refresh tokens' },
+      200: { description: 'JWT access and refresh tokens', content: { 'application/json': { schema: { $ref: '#/components/schemas/TokenResponse' } } } },
       400: { description: 'Missing idToken' },
       401: { description: 'Invalid Google ID token' },
       403: { description: 'Email not on allow-list' },

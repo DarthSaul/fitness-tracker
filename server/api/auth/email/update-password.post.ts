@@ -20,7 +20,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'Password updated successfully' },
+      200: { description: 'Password updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       400: { description: 'Validation error or update failed' },
     },
   },
