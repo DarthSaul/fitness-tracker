@@ -188,24 +188,27 @@ describe('server/utils/apns', () => {
   })
 
   describe('APNs response handling', () => {
-    test('200 response: success — no DB update', async () => {
+    test('200 response: success — no DB update and body drained', async () => {
+      const bodyText = vi.fn().mockResolvedValue('')
       mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord()])
       mockRequest.mockResolvedValueOnce({
         statusCode: 200,
-        body: { text: vi.fn().mockResolvedValue('') },
+        body: { text: bodyText },
       })
 
       await sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } })
 
       expect(mockDeviceTokenUpdate).not.toHaveBeenCalled()
+      expect(bodyText).toHaveBeenCalled()
     })
 
-    test('410 response: soft-revokes the device token', async () => {
+    test('410 response: soft-revokes the device token and drains body', async () => {
+      const bodyText = vi.fn().mockResolvedValue('Unregistered')
       const token = makeTokenRecord({ token: 'stale-tok', userId: 'user001' })
       mockDeviceTokenFindMany.mockResolvedValueOnce([token])
       mockRequest.mockResolvedValueOnce({
         statusCode: 410,
-        body: { text: vi.fn().mockResolvedValue('Unregistered') },
+        body: { text: bodyText },
       })
       mockDeviceTokenUpdate.mockResolvedValueOnce({})
 
@@ -215,6 +218,7 @@ describe('server/utils/apns', () => {
         where: { token_environment: { token: 'stale-tok', environment: 'SANDBOX' } },
         data: { revokedAt: expect.any(Date) },
       })
+      expect(bodyText).toHaveBeenCalled()
     })
 
     test('410 response: does not throw even if DB update fails', async () => {
@@ -329,6 +333,39 @@ describe('server/utils/apns', () => {
 
       // importPKCS8 should be called twice — cache expired between calls
       expect(mockImportPKCS8).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('APNs preflight failures', () => {
+    test('missing bundleId: returns early without querying tokens or dispatching', async () => {
+      mockUseRuntimeConfig.mockReturnValueOnce({
+        apnsTeamId: 'TEAM123456',
+        apnsKeyId: 'KEY1234567',
+        apnsPrivateKey: FAKE_PRIVATE_KEY_B64,
+        appleBundleId: '',
+      })
+
+      await expect(
+        sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
+      ).resolves.toBeUndefined()
+
+      expect(mockDeviceTokenFindMany).not.toHaveBeenCalled()
+      expect(mockRequest).not.toHaveBeenCalled()
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[APNs] Missing appleBundleId; skipping push dispatch',
+      )
+    })
+
+    test('findMany rejection: logged and contained — no dispatch, no throw', async () => {
+      const dbError = new Error('DB unreachable')
+      mockDeviceTokenFindMany.mockRejectedValueOnce(dbError)
+
+      await expect(
+        sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
+      ).resolves.toBeUndefined()
+
+      expect(mockRequest).not.toHaveBeenCalled()
+      expect(consoleSpy).toHaveBeenCalledWith('[APNs] Failed to load device tokens', dbError)
     })
   })
 

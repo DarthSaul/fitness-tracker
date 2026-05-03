@@ -100,11 +100,19 @@ export async function sendPush(userId: string, payload: ApnsPayload): Promise<vo
   const config = useRuntimeConfig()
   const bundleId = config.appleBundleId as string
 
-  const tokens = await prisma.deviceToken.findMany({
-    where: { userId, revokedAt: null },
-  })
+  if (!bundleId) {
+    console.error('[APNs] Missing appleBundleId; skipping push dispatch')
+    return
+  }
 
-  if (tokens.length === 0) return
+  const tokens = await prisma.deviceToken
+    .findMany({ where: { userId, revokedAt: null } })
+    .catch((err: unknown) => {
+      console.error('[APNs] Failed to load device tokens', err)
+      return null
+    })
+
+  if (!tokens || tokens.length === 0) return
 
   const results = await Promise.allSettled(
     tokens.map((t) => sendPushToDevice(t.token, bundleId, t.environment, payload, userId)),
