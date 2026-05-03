@@ -29,15 +29,26 @@ defineRouteMeta({
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ idToken?: string }>(event)
 
-  if (!body?.idToken) {
+  if (!body?.idToken || body.idToken.trim().length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'idToken is required' })
   }
 
   let googlePayload: { sub: string; email: string; name?: string; picture?: string }
   try {
     googlePayload = await verifyGoogleIdToken(body.idToken)
-  } catch {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid Google ID token' })
+  } catch (error) {
+    const code = (error as { code?: string }).code ?? ''
+    // Map known Jose token/credential errors to 401
+    if (
+      code.startsWith('ERR_JWT') ||
+      code.startsWith('ERR_JWS') ||
+      (error instanceof Error && error.message === 'Google ID token missing email claim')
+    ) {
+      throw createError({ statusCode: 401, statusMessage: 'Invalid Google ID token' })
+    }
+    // Infrastructure errors (JWKS fetch failure, config, etc.) → 5xx
+    console.error('[POST /api/auth/native/google] JWKS or infrastructure error', error)
+    throw createError({ statusCode: 500, statusMessage: 'Sign-in failed. Please try again.' })
   }
 
   const { sub, email, name: googleName, picture } = googlePayload

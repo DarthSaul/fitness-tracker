@@ -59,9 +59,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
   }
 
-  // Build display name — Apple only provides it on first sign-in
-  const firstName = body.fullName?.givenName?.trim() ?? null
-  const lastName = body.fullName?.familyName?.trim() ?? null
+  // Build display name — Apple only provides it on first sign-in.
+  // Guard with typeof: readBody is untyped at runtime and non-string values must not reach .trim()
+  const firstName = typeof body.fullName?.givenName === 'string' ? body.fullName.givenName.trim() : null
+  const lastName = typeof body.fullName?.familyName === 'string' ? body.fullName.familyName.trim() : null
   const name = [firstName, lastName].filter(Boolean).join(' ') || null
 
   try {

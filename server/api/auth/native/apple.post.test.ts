@@ -192,6 +192,48 @@ describe('POST /api/auth/native/apple', () => {
         }),
       )
     })
+
+    test('treats non-string givenName as null without throwing', async () => {
+      mockReadBody.mockResolvedValueOnce({
+        identityToken: 'valid-identity-token',
+        fullName: { givenName: 123, familyName: 'Appleseed' },
+      })
+      mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
+      await handler(makeEvent())
+      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ name: 'Appleseed' }),
+        }),
+      )
+    })
+
+    test('treats non-string familyName as null without throwing', async () => {
+      mockReadBody.mockResolvedValueOnce({
+        identityToken: 'valid-identity-token',
+        fullName: { givenName: 'Jane', familyName: 456 },
+      })
+      mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
+      await handler(makeEvent())
+      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ name: 'Jane' }),
+        }),
+      )
+    })
+
+    test('stores null name when both fullName fields are non-string', async () => {
+      mockReadBody.mockResolvedValueOnce({
+        identityToken: 'valid-identity-token',
+        fullName: { givenName: true, familyName: [] },
+      })
+      mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
+      await handler(makeEvent())
+      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ name: null }),
+        }),
+      )
+    })
   })
 
   describe('error handling', () => {

@@ -64,13 +64,39 @@ describe('POST /api/auth/native/google', () => {
       mockReadBody.mockResolvedValueOnce({ idToken: '' })
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'idToken is required' })
     })
+
+    test('throws 400 when idToken is whitespace only', async () => {
+      mockReadBody.mockResolvedValueOnce({ idToken: '   ' })
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'idToken is required' })
+    })
   })
 
   describe('identity token verification', () => {
-    test('throws 401 when verifyGoogleIdToken rejects', async () => {
+    test('throws 401 when verifyGoogleIdToken rejects with a JWT credential error', async () => {
       mockReadBody.mockResolvedValueOnce({ idToken: 'bad-token' })
-      mockVerifyGoogleIdToken.mockRejectedValueOnce(new Error('JWT verification failed'))
+      const jwtError = Object.assign(new Error('JWT expired'), { code: 'ERR_JWT_EXPIRED' })
+      mockVerifyGoogleIdToken.mockRejectedValueOnce(jwtError)
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Invalid Google ID token' })
+    })
+
+    test('throws 401 when verifyGoogleIdToken rejects with a JWS signature error', async () => {
+      mockReadBody.mockResolvedValueOnce({ idToken: 'tampered-token' })
+      const jwsError = Object.assign(new Error('signature verification failed'), { code: 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' })
+      mockVerifyGoogleIdToken.mockRejectedValueOnce(jwsError)
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Invalid Google ID token' })
+    })
+
+    test('throws 401 when verifyGoogleIdToken rejects with missing email claim error', async () => {
+      mockReadBody.mockResolvedValueOnce({ idToken: 'valid-token' })
+      mockVerifyGoogleIdToken.mockRejectedValueOnce(new Error('Google ID token missing email claim'))
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Invalid Google ID token' })
+    })
+
+    test('propagates as 500 when verifyGoogleIdToken rejects with an infrastructure error', async () => {
+      mockReadBody.mockResolvedValueOnce({ idToken: 'valid-token' })
+      const infraError = Object.assign(new Error('JWKS fetch timed out'), { code: 'ERR_JWKS_TIMEOUT' })
+      mockVerifyGoogleIdToken.mockRejectedValueOnce(infraError)
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 500 })
     })
   })
 
