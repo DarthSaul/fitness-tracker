@@ -110,7 +110,7 @@ export default defineNuxtConfig({
       meta: {
         title: 'Workout Tracker API',
         description: 'REST API for tracking structured workout programs',
-        version: '0.1.0',
+        version: '0.2.0',
       },
       ui: {
         scalar: {
