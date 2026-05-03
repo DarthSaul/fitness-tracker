@@ -34,8 +34,8 @@ export default defineOAuthGoogleEventHandler({
         provider: 'google',
         providerId: user.sub,
         email: user.email,
-        name: user.name ?? null,
-        avatarUrl: user.picture ?? null,
+        name: user.name ?? undefined,
+        avatarUrl: user.picture ?? undefined,
       })
 
       await setUserSession(event, {

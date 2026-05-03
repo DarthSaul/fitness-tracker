@@ -166,4 +166,99 @@ describe('findOrLinkUser', () => {
     const updateArg = mockUserUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> }
     expect(updateArg.data).toEqual({ email: 'alice@example.com' })
   })
+
+  describe('P2002 unique-constraint handling', () => {
+    function p2002(target: string | string[]) {
+      return Object.assign(new Error('Unique constraint failed'), {
+        code: 'P2002',
+        meta: { target },
+      })
+    }
+
+    test('existing-Identity refresh: P2002 on email → retry update without email', async () => {
+      mockIdentityFindUnique.mockResolvedValueOnce({
+        id: 'clid010',
+        userId: 'cluser001',
+        provider: 'google',
+        providerId: 'google-sub-010',
+        createdAt: new Date(),
+      })
+      mockUserUpdate
+        .mockRejectedValueOnce(p2002(['email']))
+        .mockResolvedValueOnce(baseUser)
+
+      const result = await findOrLinkUser({
+        provider: 'google',
+        providerId: 'google-sub-010',
+        email: 'collides@example.com',
+        name: 'Refreshed',
+      })
+
+      expect(mockUserUpdate).toHaveBeenCalledTimes(2)
+      const retryArg = mockUserUpdate.mock.calls[1]?.[0] as { data: Record<string, unknown> }
+      expect(retryArg.data).not.toHaveProperty('email')
+      expect(retryArg.data).toHaveProperty('name', 'Refreshed')
+      expect(result).toEqual(baseUser)
+    })
+
+    test('existing-Identity refresh: non-P2002 errors propagate', async () => {
+      mockIdentityFindUnique.mockResolvedValueOnce({
+        id: 'clid011',
+        userId: 'cluser001',
+        provider: 'google',
+        providerId: 'google-sub-011',
+        createdAt: new Date(),
+      })
+      mockUserUpdate.mockRejectedValueOnce(new Error('connection lost'))
+
+      await expect(findOrLinkUser({
+        provider: 'google',
+        providerId: 'google-sub-011',
+        email: 'alice@example.com',
+      })).rejects.toThrow('connection lost')
+    })
+
+    test('link/create transaction: P2002 then race-resolved Identity → returns its User', async () => {
+      // First call: helper checks for an existing Identity → none.
+      mockIdentityFindUnique.mockResolvedValueOnce(null)
+      // Transaction races with another request and throws P2002.
+      mockTransaction.mockRejectedValueOnce(p2002(['provider', 'providerId']))
+      // Re-resolve: the racing request just created the Identity.
+      mockIdentityFindUnique.mockResolvedValueOnce({
+        id: 'clid020',
+        userId: 'cluser-raced',
+        provider: 'google',
+        providerId: 'google-sub-020',
+        createdAt: new Date(),
+      })
+      mockUserUpdate.mockResolvedValueOnce({ ...baseUser, id: 'cluser-raced' })
+
+      const result = await findOrLinkUser({
+        provider: 'google',
+        providerId: 'google-sub-020',
+        email: 'alice@example.com',
+        name: 'Alice',
+      })
+
+      // No second transaction — the re-resolve goes through refreshUser directly.
+      expect(mockTransaction).toHaveBeenCalledTimes(1)
+      expect(mockUserUpdate).toHaveBeenCalledTimes(1)
+      expect(result.id).toBe('cluser-raced')
+    })
+
+    test('link/create transaction: P2002 but Identity still missing → original error propagates', async () => {
+      mockIdentityFindUnique.mockResolvedValueOnce(null)
+      mockTransaction.mockRejectedValueOnce(p2002(['email']))
+      // Re-resolve still finds nothing — something else is wrong, surface it.
+      mockIdentityFindUnique.mockResolvedValueOnce(null)
+
+      await expect(findOrLinkUser({
+        provider: 'google',
+        providerId: 'google-sub-021',
+        email: 'alice@example.com',
+      })).rejects.toMatchObject({ code: 'P2002' })
+
+      expect(mockUserUpdate).not.toHaveBeenCalled()
+    })
+  })
 })

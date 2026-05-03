@@ -137,6 +137,29 @@ describe('POST /api/auth/email/signup', () => {
     })
   })
 
+  // Regression: previously the route passed `name: body.name ?? null`, which
+  // overwrote an existing User.name with null whenever signup omitted the field.
+  // Now passes `?? undefined` so the helper's existing-identity refresh skips
+  // the field entirely when no name is supplied.
+  describe('signup without name preserves existing name', () => {
+    test('passes name=undefined to findOrLinkUser when name is omitted', async () => {
+      mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
+      mockSupabaseSignUp.mockResolvedValueOnce({
+        data: {
+          user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+          session: { access_token: 'token' },
+        },
+        error: null,
+      })
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
+
+      await handler(makeEvent())
+
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { name?: string | null }
+      expect(arg.name).toBeUndefined()
+    })
+  })
+
   describe('upsert failure', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>
 

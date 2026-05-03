@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
       provider: 'email',
       providerId: data.user.id,
       email: body.email,
-      name: body.name ?? null,
+      name: body.name ?? undefined,
     })
 
     await setUserSession(event, {

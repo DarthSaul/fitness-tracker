@@ -161,8 +161,10 @@ describe('POST /api/auth/native/google', () => {
     })
   })
 
-  describe('null profile fields', () => {
-    test('passes null name through to findOrLinkUser when Google provides none', async () => {
+  describe('omitted profile fields', () => {
+    // We pass `?? undefined` so the helper preserves whatever's already on
+    // the User row (existing identity refresh path) instead of clearing it.
+    test('passes name=undefined to findOrLinkUser when Google provides none', async () => {
       mockReadBody.mockResolvedValueOnce({ idToken: 'valid-id-token' })
       mockVerifyGoogleIdToken.mockResolvedValueOnce({
         sub: 'google-sub-002',
@@ -170,11 +172,12 @@ describe('POST /api/auth/native/google', () => {
       })
       mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, name: null })
       const result = await handler(makeEvent())
-      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ name: null }))
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { name?: string | null }
+      expect(arg.name).toBeUndefined()
       expect(result).toHaveProperty('accessToken')
     })
 
-    test('passes null avatarUrl through to findOrLinkUser when Google provides no picture', async () => {
+    test('passes avatarUrl=undefined to findOrLinkUser when Google provides no picture', async () => {
       mockReadBody.mockResolvedValueOnce({ idToken: 'valid-id-token' })
       mockVerifyGoogleIdToken.mockResolvedValueOnce({
         sub: 'google-sub-003',
@@ -183,7 +186,8 @@ describe('POST /api/auth/native/google', () => {
       })
       mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, avatarUrl: null })
       await handler(makeEvent())
-      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: null }))
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { avatarUrl?: string | null }
+      expect(arg.avatarUrl).toBeUndefined()
     })
   })
 

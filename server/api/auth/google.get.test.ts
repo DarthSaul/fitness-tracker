@@ -116,23 +116,27 @@ describe('GET /api/auth/google', () => {
     })
   })
 
-  describe('onSuccess — null/undefined profile fields', () => {
-    test('passes null name to findOrLinkUser when Google user has no name', async () => {
+  describe('onSuccess — omitted profile fields', () => {
+    // We pass `?? undefined` so the helper preserves whatever's already on
+    // the User row (existing identity refresh path) instead of clearing it.
+    test('passes name=undefined to findOrLinkUser when Google user has no name', async () => {
       const userWithoutName: GoogleUser = { ...mockGoogleUser, name: undefined }
       mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, name: null })
 
       await config.onSuccess(makeEvent(), { user: userWithoutName })
 
-      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ name: null }))
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { name?: string | null }
+      expect(arg.name).toBeUndefined()
     })
 
-    test('passes null avatarUrl to findOrLinkUser when Google user has no picture', async () => {
+    test('passes avatarUrl=undefined to findOrLinkUser when Google user has no picture', async () => {
       const userWithoutPicture: GoogleUser = { ...mockGoogleUser, picture: undefined }
       mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, avatarUrl: null })
 
       await config.onSuccess(makeEvent(), { user: userWithoutPicture })
 
-      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: null }))
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { avatarUrl?: string | null }
+      expect(arg.avatarUrl).toBeUndefined()
     })
   })
 

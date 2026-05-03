@@ -9,6 +9,15 @@ export interface ProviderProfile {
   avatarUrl?: string | null
 }
 
+/** True for Prisma's unique-constraint violation (P2002), optionally narrowed to a specific column. */
+function isP2002(error: unknown, target?: string): boolean {
+  const e = error as { code?: string; meta?: { target?: string[] | string } } | null
+  if (!e || e.code !== 'P2002') return false
+  if (!target) return true
+  const t = e.meta?.target
+  return Array.isArray(t) ? t.includes(target) : t === target
+}
+
 /**
  * Finds an existing User by Identity, or by verified email (account linking),
  * or creates a new User. Profile fields are refreshed on every call.
@@ -30,47 +39,91 @@ export async function findOrLinkUser(profile: ProviderProfile): Promise<User> {
   })
 
   if (existing) {
-    return prisma.user.update({
-      where: { id: existing.userId },
+    return refreshUser(existing.userId, profile)
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const userByEmail = await tx.user.findUnique({ where: { email: profile.email } })
+      if (userByEmail) {
+        await tx.identity.create({
+          data: {
+            userId: userByEmail.id,
+            provider: profile.provider,
+            providerId: profile.providerId,
+          },
+        })
+        return tx.user.update({
+          where: { id: userByEmail.id },
+          data: {
+            ...(profile.name !== undefined && profile.name !== null && { name: profile.name }),
+            ...(profile.avatarUrl !== undefined && profile.avatarUrl !== null && { avatarUrl: profile.avatarUrl }),
+          },
+        })
+      }
+
+      return tx.user.create({
+        data: {
+          email: profile.email,
+          name: profile.name ?? null,
+          avatarUrl: profile.avatarUrl ?? null,
+          identities: {
+            create: {
+              provider: profile.provider,
+              providerId: profile.providerId,
+            },
+          },
+        },
+      })
+    })
+  } catch (error) {
+    // Concurrent first-login: another request already created the Identity (or
+    // the User by email). One re-resolve via the identity index covers both.
+    if (isP2002(error)) {
+      const racedIdentity = await prisma.identity.findUnique({
+        where: {
+          provider_providerId: {
+            provider: profile.provider,
+            providerId: profile.providerId,
+          },
+        },
+      })
+      if (racedIdentity) {
+        return refreshUser(racedIdentity.userId, profile)
+      }
+    }
+    throw error
+  }
+}
+
+/**
+ * Refresh fields on the User row that owns an existing Identity.
+ *
+ * Wrapped in a try/catch because `email: profile.email` can violate
+ * `User.email @unique` if the provider's email later collides with another
+ * User's email (rare: provider account email-change). On that conflict, retry
+ * the update without the email field so name/avatar still get refreshed.
+ */
+async function refreshUser(userId: string, profile: ProviderProfile): Promise<User> {
+  try {
+    return await prisma.user.update({
+      where: { id: userId },
       data: {
         email: profile.email,
         ...(profile.name !== undefined && { name: profile.name }),
         ...(profile.avatarUrl !== undefined && { avatarUrl: profile.avatarUrl }),
       },
     })
-  }
-
-  return prisma.$transaction(async (tx) => {
-    const userByEmail = await tx.user.findUnique({ where: { email: profile.email } })
-    if (userByEmail) {
-      await tx.identity.create({
+  } catch (error) {
+    if (isP2002(error, 'email')) {
+      return prisma.user.update({
+        where: { id: userId },
         data: {
-          userId: userByEmail.id,
-          provider: profile.provider,
-          providerId: profile.providerId,
-        },
-      })
-      return tx.user.update({
-        where: { id: userByEmail.id },
-        data: {
-          ...(profile.name !== undefined && profile.name !== null && { name: profile.name }),
-          ...(profile.avatarUrl !== undefined && profile.avatarUrl !== null && { avatarUrl: profile.avatarUrl }),
+          ...(profile.name !== undefined && { name: profile.name }),
+          ...(profile.avatarUrl !== undefined && { avatarUrl: profile.avatarUrl }),
         },
       })
     }
-
-    return tx.user.create({
-      data: {
-        email: profile.email,
-        name: profile.name ?? null,
-        avatarUrl: profile.avatarUrl ?? null,
-        identities: {
-          create: {
-            provider: profile.provider,
-            providerId: profile.providerId,
-          },
-        },
-      },
-    })
-  })
+    throw error
+  }
 }

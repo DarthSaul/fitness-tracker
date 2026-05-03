@@ -65,8 +65,8 @@ export default defineEventHandler(async (event) => {
       provider: 'google',
       providerId: sub,
       email,
-      name: googleName ?? null,
-      avatarUrl: picture ?? null,
+      name: googleName ?? undefined,
+      avatarUrl: picture ?? undefined,
     })
 
     const accessToken = await signAccessToken(user.id)
