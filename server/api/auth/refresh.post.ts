@@ -26,8 +26,6 @@ defineRouteMeta({
 })
 
 export default defineEventHandler(async (event) => {
-  await rateLimitByIp(event)
-
   const body = await readBody<{ refreshToken?: string }>(event)
 
   if (!body?.refreshToken) {
@@ -42,6 +40,7 @@ export default defineEventHandler(async (event) => {
   const tokenHash = Buffer.from(hashBuffer).toString('hex')
 
   try {
+    await rateLimitByIp(event)
     const storedToken = await prisma.refreshToken.findUnique({ where: { tokenHash } })
 
     if (!storedToken) {
