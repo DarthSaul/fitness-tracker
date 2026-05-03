@@ -16,6 +16,9 @@ export default defineNuxtConfig({
     jwtRefreshSecret: '',
     appleBundleId: '',
     oauthGoogleClientId: '',
+    apnsTeamId: '',
+    apnsKeyId: '',
+    apnsPrivateKey: '',
   },
   css: ['~/assets/css/main.css'],
   colorMode: {
