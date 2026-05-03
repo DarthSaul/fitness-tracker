@@ -54,10 +54,11 @@ workout-tracker/
 
 ## Database Schema
 
-11 models organized around immutable program definitions, mutable user progress, and auth/push infrastructure:
+Domain organized around immutable program definitions, mutable user progress, and auth/push infrastructure:
 
 - **Program library (immutable):** `Program → ProgramWeek → ProgramDay → ProgramExercise → ExerciseSet`
 - **User progress (mutable):** `User`, `UserProgram` (saved/active + current position), `WorkoutSession`, `CompletedSet`
+- **Auth identities:** `Identity` (one User can have many — Google, Apple, email — keyed on `(provider, providerId)`)
 - **Auth tokens:** `RefreshToken` (hashed, 30-day, revocable)
 - **Push:** `DeviceToken` (APNs token per user device, soft-deletable)
 
@@ -247,7 +248,7 @@ UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
 - [ ] RPE tracking (optional, user-enabled in settings)
 - [ ] Fix iPadOS desktop UA detection in `PwaInstallBanner.vue` — iPads in Safari desktop-class mode (iPadOS 13+) report `Macintosh` UA; extend `isIOS` computed to also check `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1`
 - [ ] Push notification triggers (workout reminders, etc.)
-- [ ] Account linking — currently a user who signs in with both Apple and Google gets two separate User records (blocked by `email @unique`); needs a merge flow
+- [ ] Manual unlink flow — UI to disconnect a specific provider Identity from a User (covers the "I changed my Apple email" case). Account linking on sign-in is implemented; this is the inverse operation.
 
 ## Subagents
 

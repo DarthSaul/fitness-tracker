@@ -61,20 +61,12 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const user = await prisma.user.upsert({
-      where: { provider_providerId: { provider: 'google', providerId: sub } },
-      update: {
-        email,
-        name: googleName ?? null,
-        avatarUrl: picture ?? null,
-      },
-      create: {
-        email,
-        name: googleName ?? null,
-        avatarUrl: picture ?? null,
-        provider: 'google',
-        providerId: sub,
-      },
+    const user = await findOrLinkUser({
+      provider: 'google',
+      providerId: sub,
+      email,
+      name: googleName ?? undefined,
+      avatarUrl: picture ?? undefined,
     })
 
     const accessToken = await signAccessToken(user.id)

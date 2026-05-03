@@ -4,7 +4,7 @@ import type { User } from '@prisma/client'
 import handler from './signup.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
-const mockPrismaUserUpsert = (prisma as typeof prisma).user.upsert as ReturnType<typeof vi.fn>
+const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockSetUserSession = setUserSession as ReturnType<typeof vi.fn>
 const mockSupabaseSignUp = (supabase as typeof supabase).auth.signUp as ReturnType<typeof vi.fn>
 
@@ -13,8 +13,6 @@ const mockDbUser = {
   email: 'test@example.com',
   name: 'Test User',
   avatarUrl: null,
-  provider: 'email',
-  providerId: 'supabase-uid-001',
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User
@@ -79,7 +77,7 @@ describe('POST /api/auth/email/signup', () => {
 
     const result = await handler(makeEvent())
     expect(result).toEqual({ confirmationRequired: true })
-    expect(mockPrismaUserUpsert).not.toHaveBeenCalled()
+    expect(mockFindOrLinkUser).not.toHaveBeenCalled()
   })
 
   test('throws 400 when email already exists (empty identities)', async () => {
@@ -105,30 +103,17 @@ describe('POST /api/auth/email/signup', () => {
         },
         error: null,
       })
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
     })
 
-    test('upserts user with email provider', async () => {
+    test('calls findOrLinkUser with the email provider profile', async () => {
       await handler(makeEvent())
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith({
-        where: {
-          provider_providerId: {
-            provider: 'email',
-            providerId: 'supabase-uid-001',
-          },
-        },
-        update: {
-          name: 'Test User',
-          email: 'test@example.com',
-        },
-        create: {
-          email: 'test@example.com',
-          name: 'Test User',
-          avatarUrl: null,
-          provider: 'email',
-          providerId: 'supabase-uid-001',
-        },
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith({
+        provider: 'email',
+        providerId: 'supabase-uid-001',
+        email: 'test@example.com',
+        name: 'Test User',
       })
     })
 
@@ -152,6 +137,29 @@ describe('POST /api/auth/email/signup', () => {
     })
   })
 
+  // Regression: previously the route passed `name: body.name ?? null`, which
+  // overwrote an existing User.name with null whenever signup omitted the field.
+  // Now passes `?? undefined` so the helper's existing-identity refresh skips
+  // the field entirely when no name is supplied.
+  describe('signup without name preserves existing name', () => {
+    test('passes name=undefined to findOrLinkUser when name is omitted', async () => {
+      mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
+      mockSupabaseSignUp.mockResolvedValueOnce({
+        data: {
+          user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+          session: { access_token: 'token' },
+        },
+        error: null,
+      })
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
+
+      await handler(makeEvent())
+
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { name?: string | null }
+      expect(arg.name).toBeUndefined()
+    })
+  })
+
   describe('upsert failure', () => {
     let consoleSpy: ReturnType<typeof vi.spyOn>
 
@@ -163,7 +171,7 @@ describe('POST /api/auth/email/signup', () => {
       consoleSpy.mockRestore()
     })
 
-    test('throws 500 when prisma upsert fails', async () => {
+    test('throws 500 when findOrLinkUser fails', async () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: {
@@ -172,7 +180,7 @@ describe('POST /api/auth/email/signup', () => {
         },
         error: null,
       })
-      mockPrismaUserUpsert.mockRejectedValueOnce(new Error('DB error'))
+      mockFindOrLinkUser.mockRejectedValueOnce(new Error('DB error'))
 
       await expect(handler(makeEvent())).rejects.toThrow('Account setup failed. Please try again.')
     })

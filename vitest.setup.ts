@@ -46,6 +46,7 @@ vi.stubGlobal('prisma', {
   $queryRaw: vi.fn(),
   $transaction: vi.fn(),
   user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  identity: { findUnique: vi.fn(), create: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
   programDay: { findUnique: vi.fn(), findFirst: vi.fn() },
   userProgram: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
@@ -85,6 +86,9 @@ vi.stubGlobal('supabase', {
 // Default: allow all emails so existing tests pass unmodified.
 // Override per-test with mockReturnValueOnce(false) to exercise blocking paths.
 vi.stubGlobal('isEmailAllowed', vi.fn(() => true))
+// Account-linking helper — default to a no-op vi.fn(); each route test overrides
+// with a resolved User. Real logic is exercised by server/utils/auth.test.ts.
+vi.stubGlobal('findOrLinkUser', vi.fn())
 // JWT utilities — default to no-op; override per-test as needed
 vi.stubGlobal('signAccessToken', vi.fn())
 vi.stubGlobal('signRefreshToken', vi.fn())
