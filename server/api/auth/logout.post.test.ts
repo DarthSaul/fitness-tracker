@@ -25,6 +25,8 @@ describe('POST /api/auth/logout', () => {
     vi.clearAllMocks()
     mockClearUserSession.mockResolvedValue(undefined)
     mockSendRedirect.mockResolvedValue(undefined)
+    mockReadBody.mockResolvedValue(null)
+    mockRefreshTokenUpdateMany.mockResolvedValue({ count: 0 })
   })
 
   test('clears the user session', async () => {
@@ -65,6 +67,21 @@ describe('POST /api/auth/logout', () => {
       (handler as (e: typeof event) => Promise<void>)(event),
     ).rejects.toThrow('session store failure')
     expect(mockSendRedirect).not.toHaveBeenCalled()
+  })
+
+  test('revokes refresh token and still redirects when refreshToken present without native header', async () => {
+    mockReadBody.mockResolvedValueOnce({ refreshToken: 'raw-refresh-token' })
+    mockRefreshTokenUpdateMany.mockResolvedValueOnce({ count: 1 })
+    const event = makeEvent()
+    await (handler as (e: typeof event) => Promise<void>)(event)
+    expect(mockRefreshTokenUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ revokedAt: null }),
+        data: { revokedAt: expect.any(Date) },
+      }),
+    )
+    expect(mockClearUserSession).toHaveBeenCalledOnce()
+    expect(mockSendRedirect).toHaveBeenCalledWith(event, '/login')
   })
 })
 

@@ -26,23 +26,22 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const isNative = getHeader(event, 'x-client-type') === 'native'
+  const body = await readBody<{ refreshToken?: string }>(event).catch(() => null)
+
+  if (body?.refreshToken) {
+    const hashBuffer = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(body.refreshToken),
+    )
+    const tokenHash = Buffer.from(hashBuffer).toString('hex')
+    // Best-effort revocation — don't expose whether token existed
+    await prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }).catch(() => {})
+  }
 
   if (isNative) {
-    const body = await readBody<{ refreshToken?: string }>(event).catch(() => null)
-
-    if (body?.refreshToken) {
-      const hashBuffer = await crypto.subtle.digest(
-        'SHA-256',
-        new TextEncoder().encode(body.refreshToken),
-      )
-      const tokenHash = Buffer.from(hashBuffer).toString('hex')
-      // Best-effort revocation — don't expose whether token existed
-      await prisma.refreshToken.updateMany({
-        where: { tokenHash, revokedAt: null },
-        data: { revokedAt: new Date() },
-      }).catch(() => {})
-    }
-
     return { success: true }
   }
 
