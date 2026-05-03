@@ -18,7 +18,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'Reset email sent (if account exists)' },
+      200: { description: 'Reset email sent (if account exists)', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       400: { description: 'Email is required' },
     },
   },

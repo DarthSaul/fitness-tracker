@@ -25,10 +25,11 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'JWT access and refresh tokens' },
+      200: { description: 'JWT access and refresh tokens', content: { 'application/json': { schema: { $ref: '#/components/schemas/TokenResponse' } } } },
       400: { description: 'Missing identityToken' },
       401: { description: 'Invalid Apple identity token' },
       403: { description: 'Email not on allow-list' },
+      500: { description: 'Internal server error' },
     },
   },
 })

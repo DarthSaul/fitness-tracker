@@ -19,8 +19,11 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'Session established' },
+      200: { description: 'Session established', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
+      400: { description: 'Email and password are required' },
       401: { description: 'Invalid credentials' },
+      403: { description: 'Email not on allow-list' },
+      500: { description: 'Internal server error' },
     },
   },
 })

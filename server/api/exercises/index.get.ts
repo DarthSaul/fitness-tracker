@@ -7,7 +7,7 @@ defineRouteMeta({
       { name: 'search', in: 'query', required: false, schema: { type: 'string' }, description: 'Case-insensitive name filter' },
     ],
     responses: {
-      200: { description: 'Array of exercises' },
+      200: { description: 'Array of exercises', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Exercise' } } } } },
       401: { description: 'Unauthorized' },
       500: { description: 'Internal server error' },
     },
