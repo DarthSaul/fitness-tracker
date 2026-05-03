@@ -33,7 +33,7 @@ type GoogleUser = {
 const config = handlerConfig as unknown as GoogleOAuthConfig
 
 // ── Stubbed globals ───────────────────────────────────────────────────────────
-const mockPrismaUserUpsert = (prisma as typeof prisma).user.upsert as ReturnType<typeof vi.fn>
+const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockSetUserSession = setUserSession as ReturnType<typeof vi.fn>
 const mockSendRedirect = sendRedirect as ReturnType<typeof vi.fn>
 
@@ -50,8 +50,6 @@ const mockDbUser = {
   email: 'test@example.com',
   name: 'Test User',
   avatarUrl: 'https://example.com/avatar.jpg',
-  provider: 'google',
-  providerId: 'google-sub-001',
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User
@@ -75,36 +73,23 @@ describe('GET /api/auth/google', () => {
   })
 
   describe('onSuccess — happy path', () => {
-    test('upserts user with google provider and correct fields', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+    test('calls findOrLinkUser with the google provider profile', async () => {
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
 
       await config.onSuccess(makeEvent(), { user: mockGoogleUser })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledOnce()
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith({
-        where: {
-          provider_providerId: {
-            provider: 'google',
-            providerId: 'google-sub-001',
-          },
-        },
-        update: {
-          name: 'Test User',
-          avatarUrl: 'https://example.com/avatar.jpg',
-          email: 'test@example.com',
-        },
-        create: {
-          email: 'test@example.com',
-          name: 'Test User',
-          avatarUrl: 'https://example.com/avatar.jpg',
-          provider: 'google',
-          providerId: 'google-sub-001',
-        },
+      expect(mockFindOrLinkUser).toHaveBeenCalledOnce()
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith({
+        provider: 'google',
+        providerId: 'google-sub-001',
+        email: 'test@example.com',
+        name: 'Test User',
+        avatarUrl: 'https://example.com/avatar.jpg',
       })
     })
 
     test('sets user session with db user fields', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
       await config.onSuccess(event, { user: mockGoogleUser })
@@ -121,7 +106,7 @@ describe('GET /api/auth/google', () => {
     })
 
     test('redirects to / after successful login', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
       await config.onSuccess(event, { user: mockGoogleUser })
@@ -132,32 +117,22 @@ describe('GET /api/auth/google', () => {
   })
 
   describe('onSuccess — null/undefined profile fields', () => {
-    test('stores null name when Google user has no name', async () => {
+    test('passes null name to findOrLinkUser when Google user has no name', async () => {
       const userWithoutName: GoogleUser = { ...mockGoogleUser, name: undefined }
-      mockPrismaUserUpsert.mockResolvedValueOnce({ ...mockDbUser, name: null })
+      mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, name: null })
 
       await config.onSuccess(makeEvent(), { user: userWithoutName })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          update: expect.objectContaining({ name: null }),
-          create: expect.objectContaining({ name: null }),
-        }),
-      )
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ name: null }))
     })
 
-    test('stores null avatarUrl when Google user has no picture', async () => {
+    test('passes null avatarUrl to findOrLinkUser when Google user has no picture', async () => {
       const userWithoutPicture: GoogleUser = { ...mockGoogleUser, picture: undefined }
-      mockPrismaUserUpsert.mockResolvedValueOnce({ ...mockDbUser, avatarUrl: null })
+      mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, avatarUrl: null })
 
       await config.onSuccess(makeEvent(), { user: userWithoutPicture })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          update: expect.objectContaining({ avatarUrl: null }),
-          create: expect.objectContaining({ avatarUrl: null }),
-        }),
-      )
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: null }))
     })
   })
 

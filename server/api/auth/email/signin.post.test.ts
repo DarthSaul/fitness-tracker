@@ -4,7 +4,7 @@ import type { User } from '@prisma/client'
 import handler from './signin.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
-const mockPrismaUserUpsert = (prisma as typeof prisma).user.upsert as ReturnType<typeof vi.fn>
+const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockSetUserSession = setUserSession as ReturnType<typeof vi.fn>
 const mockSupabaseSignIn = (supabase as typeof supabase).auth.signInWithPassword as ReturnType<typeof vi.fn>
 
@@ -13,8 +13,6 @@ const mockDbUser = {
   email: 'test@example.com',
   name: null,
   avatarUrl: null,
-  provider: 'email',
-  providerId: 'supabase-uid-001',
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User
@@ -83,29 +81,16 @@ describe('POST /api/auth/email/signin', () => {
         },
         error: null,
       })
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
     })
 
-    test('upserts user with email provider', async () => {
+    test('calls findOrLinkUser with the email provider profile', async () => {
       await handler(makeEvent())
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith({
-        where: {
-          provider_providerId: {
-            provider: 'email',
-            providerId: 'supabase-uid-001',
-          },
-        },
-        update: {
-          email: 'test@example.com',
-        },
-        create: {
-          email: 'test@example.com',
-          name: null,
-          avatarUrl: null,
-          provider: 'email',
-          providerId: 'supabase-uid-001',
-        },
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith({
+        provider: 'email',
+        providerId: 'supabase-uid-001',
+        email: 'test@example.com',
       })
     })
 
@@ -140,7 +125,7 @@ describe('POST /api/auth/email/signin', () => {
       consoleSpy.mockRestore()
     })
 
-    test('throws 500 when prisma upsert fails', async () => {
+    test('throws 500 when findOrLinkUser fails', async () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignIn.mockResolvedValueOnce({
         data: {
@@ -149,7 +134,7 @@ describe('POST /api/auth/email/signin', () => {
         },
         error: null,
       })
-      mockPrismaUserUpsert.mockRejectedValueOnce(new Error('DB error'))
+      mockFindOrLinkUser.mockRejectedValueOnce(new Error('DB error'))
 
       await expect(handler(makeEvent())).rejects.toThrow('Sign-in failed. Please try again.')
     })

@@ -5,7 +5,7 @@
  *  - OAuth config: correct scopes
  *  - onSuccess: email from payload (authoritative) vs user fallback vs missing email
  *  - onSuccess: name composition — both names, first-only, none (subsequent logins)
- *  - onSuccess: name NOT overwritten in update when absent
+ *  - onSuccess: name NOT overwritten in update when absent (delegated to findOrLinkUser)
  *  - onSuccess: session fields and redirect target
  *  - onError: redirect destination and console.error call
  */
@@ -30,7 +30,7 @@ type OAuthAppleConfig = {
 const config = handlerConfig as unknown as OAuthAppleConfig
 
 // ── Stubbed globals ───────────────────────────────────────────────────────────
-const mockPrismaUserUpsert = (prisma as typeof prisma).user.upsert as ReturnType<typeof vi.fn>
+const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockSetUserSession = setUserSession as ReturnType<typeof vi.fn>
 const mockSendRedirect = sendRedirect as ReturnType<typeof vi.fn>
 
@@ -49,8 +49,6 @@ const mockDbUser = {
   email: 'apple@example.com',
   name: 'Jane Appleseed',
   avatarUrl: null,
-  provider: 'apple',
-  providerId: 'apple-sub-001',
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User
@@ -75,23 +73,20 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
   describe('onSuccess — email resolution', () => {
     test('uses payload.email as the authoritative email source', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
 
       await config.onSuccess(makeEvent(), {
         user: mockUserWithName,
         payload: mockPayload,
       })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ email: 'apple@example.com' }),
-          update: expect.objectContaining({ email: 'apple@example.com' }),
-        }),
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'apple@example.com' }),
       )
     })
 
     test('falls back to user.email when payload has no email', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce({
+      mockFindOrLinkUser.mockResolvedValueOnce({
         ...mockDbUser,
         email: 'fallback@example.com',
       })
@@ -101,10 +96,8 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
         payload: { sub: 'apple-sub-002' },
       })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ email: 'fallback@example.com' }),
-        }),
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'fallback@example.com' }),
       )
     })
 
@@ -119,126 +112,71 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       expect(mockSendRedirect).toHaveBeenCalledWith(event, '/login?error=apple_no_email')
     })
 
-    test('does not call prisma or setUserSession when email is missing', async () => {
+    test('does not call findOrLinkUser or setUserSession when email is missing', async () => {
       await config.onSuccess(makeEvent(), {
         user: {},
         payload: { sub: 'apple-sub-003' },
       })
 
-      expect(mockPrismaUserUpsert).not.toHaveBeenCalled()
+      expect(mockFindOrLinkUser).not.toHaveBeenCalled()
       expect(mockSetUserSession).not.toHaveBeenCalled()
     })
   })
 
   describe('onSuccess — name handling', () => {
     test('combines firstName and lastName into a full name string', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
 
       await config.onSuccess(makeEvent(), {
         user: { name: { firstName: 'Jane', lastName: 'Appleseed' } },
         payload: mockPayload,
       })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: 'Jane Appleseed' }),
-        }),
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Jane Appleseed' }),
       )
     })
 
     test('uses only firstName when lastName is absent', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce({ ...mockDbUser, name: 'Jane' })
+      mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, name: 'Jane' })
 
       await config.onSuccess(makeEvent(), {
         user: { name: { firstName: 'Jane' } },
         payload: mockPayload,
       })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: 'Jane' }),
-        }),
-      )
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'Jane' }))
     })
 
-    test('stores null name when Apple provides no name (subsequent logins)', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce({ ...mockDbUser, name: null })
+    // Apple only sends the name on the very first login. The route maps an
+    // absent name to `undefined` so findOrLinkUser skips updating it on
+    // subsequent logins, preserving whatever's already on the User row.
+    test('passes name=undefined to findOrLinkUser when Apple provides no name', async () => {
+      mockFindOrLinkUser.mockResolvedValueOnce({ ...mockDbUser, name: 'Jane Appleseed' })
 
       await config.onSuccess(makeEvent(), {
         user: {},
         payload: mockPayload,
       })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: null }),
-        }),
-      )
-    })
-
-    test('does NOT include name in the update payload on subsequent logins (no name from Apple)', async () => {
-      // Apple only sends the name on the very first login.
-      // When name is absent we must not overwrite what's in the DB.
-      mockPrismaUserUpsert.mockResolvedValueOnce({ ...mockDbUser, name: 'Jane Appleseed' })
-
-      await config.onSuccess(makeEvent(), {
-        user: {},
-        payload: mockPayload,
-      })
-
-      const upsertArg = mockPrismaUserUpsert.mock.calls[0]?.[0] as {
-        update: Record<string, unknown>
-      }
-      expect(upsertArg.update).not.toHaveProperty('name')
-    })
-
-    test('includes name in the update payload on first login when name is present', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
-
-      await config.onSuccess(makeEvent(), {
-        user: { name: { firstName: 'Jane', lastName: 'Appleseed' } },
-        payload: mockPayload,
-      })
-
-      const upsertArg = mockPrismaUserUpsert.mock.calls[0]?.[0] as {
-        update: Record<string, unknown>
-      }
-      expect(upsertArg.update).toHaveProperty('name', 'Jane Appleseed')
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { name?: string | null }
+      expect(arg.name).toBeUndefined()
     })
   })
 
-  describe('onSuccess — upsert where clause', () => {
-    test('upserts on the composite apple provider + providerId key', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+  describe('onSuccess — provider profile', () => {
+    test('calls findOrLinkUser with the apple provider and providerId', async () => {
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
 
       await config.onSuccess(makeEvent(), {
         user: mockUserWithName,
         payload: mockPayload,
       })
 
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {
-            provider_providerId: {
-              provider: 'apple',
-              providerId: 'apple-sub-001',
-            },
-          },
-        }),
-      )
-    })
-
-    test('creates user with avatarUrl: null (Apple has no avatar)', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
-
-      await config.onSuccess(makeEvent(), {
-        user: mockUserWithName,
-        payload: mockPayload,
-      })
-
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ avatarUrl: null }),
+          provider: 'apple',
+          providerId: 'apple-sub-001',
         }),
       )
     })
@@ -246,7 +184,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
   describe('onSuccess — session and redirect', () => {
     test('sets user session with the returned db user fields', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
       await config.onSuccess(event, {
@@ -265,7 +203,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
     })
 
     test('redirects to / after successful login', async () => {
-      mockPrismaUserUpsert.mockResolvedValueOnce(mockDbUser)
+      mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
       await config.onSuccess(event, {

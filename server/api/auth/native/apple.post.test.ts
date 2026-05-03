@@ -7,7 +7,7 @@ const mockVerifyAppleIdentityToken = verifyAppleIdentityToken as ReturnType<type
 const mockIsEmailAllowed = isEmailAllowed as ReturnType<typeof vi.fn>
 const mockSignAccessToken = signAccessToken as ReturnType<typeof vi.fn>
 const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
-const mockPrismaUserUpsert = (prisma as any).user.upsert as ReturnType<typeof vi.fn>
+const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockPrismaRefreshTokenCreate = (prisma as any).refreshToken.create as ReturnType<typeof vi.fn>
 
 function makeEvent() {
@@ -20,8 +20,6 @@ const mockDbUser = {
   email: 'apple@example.com',
   name: 'Jane Appleseed',
   avatarUrl: null,
-  provider: 'apple',
-  providerId: 'apple-sub-001',
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -35,7 +33,7 @@ describe('POST /api/auth/native/apple', () => {
     mockIsEmailAllowed.mockReturnValue(true)
     mockSignAccessToken.mockResolvedValue('access-token-abc')
     mockGetHeader.mockReturnValue('TestApp/1.0')
-    mockPrismaUserUpsert.mockResolvedValue(mockDbUser)
+    mockFindOrLinkUser.mockResolvedValue(mockDbUser)
     mockPrismaRefreshTokenCreate.mockResolvedValue({})
   })
 
@@ -131,27 +129,14 @@ describe('POST /api/auth/native/apple', () => {
       expect(typeof (result as any).refreshToken).toBe('string')
     })
 
-    test('upserts on the composite apple provider + providerId key', async () => {
+    test('calls findOrLinkUser with the apple provider profile', async () => {
       await handler(makeEvent())
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            provider_providerId: {
-              provider: 'apple',
-              providerId: 'apple-sub-001',
-            },
-          },
-        }),
-      )
-    })
-
-    test('creates record with combined full name', async () => {
-      await handler(makeEvent())
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: 'Jane Appleseed' }),
-        }),
-      )
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith({
+        provider: 'apple',
+        providerId: 'apple-sub-001',
+        email: 'apple@example.com',
+        name: 'Jane Appleseed',
+      })
     })
 
     test('creates a refresh token record', async () => {
@@ -186,34 +171,16 @@ describe('POST /api/auth/native/apple', () => {
   })
 
   describe('name handling edge cases', () => {
-    test('does not update name on subsequent sign-ins even when fullName is present', async () => {
-      mockReadBody.mockResolvedValueOnce({
-        identityToken: 'valid-identity-token',
-        fullName: { givenName: 'Jane', familyName: 'Appleseed' },
-      })
-      mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
-      await handler(makeEvent())
-      const arg = mockPrismaUserUpsert.mock.calls[0]?.[0] as { update: Record<string, unknown> }
-      expect(arg.update).not.toHaveProperty('name')
-    })
-
-    test('does not include name in update when fullName is absent', async () => {
+    // The route passes `name: name ?? undefined` to findOrLinkUser, so when no
+    // fullName is sent (subsequent sign-ins) the helper sees `name: undefined`
+    // and skips the name field in its update/create — preserving any existing
+    // name on the User row.
+    test('passes name=undefined to findOrLinkUser when fullName is absent', async () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-identity-token' })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
       await handler(makeEvent())
-      const arg = mockPrismaUserUpsert.mock.calls[0]?.[0] as { update: Record<string, unknown> }
-      expect(arg.update).not.toHaveProperty('name')
-    })
-
-    test('stores null name in create when fullName is absent', async () => {
-      mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-identity-token' })
-      mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
-      await handler(makeEvent())
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: null }),
-        }),
-      )
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { name?: string | null }
+      expect(arg.name).toBeUndefined()
     })
 
     test('uses only givenName when familyName is null', async () => {
@@ -223,11 +190,7 @@ describe('POST /api/auth/native/apple', () => {
       })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
       await handler(makeEvent())
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: 'Jane' }),
-        }),
-      )
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'Jane' }))
     })
 
     test('treats non-string givenName as null without throwing', async () => {
@@ -237,11 +200,7 @@ describe('POST /api/auth/native/apple', () => {
       })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
       await handler(makeEvent())
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: 'Appleseed' }),
-        }),
-      )
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'Appleseed' }))
     })
 
     test('treats non-string familyName as null without throwing', async () => {
@@ -251,25 +210,18 @@ describe('POST /api/auth/native/apple', () => {
       })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
       await handler(makeEvent())
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: 'Jane' }),
-        }),
-      )
+      expect(mockFindOrLinkUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'Jane' }))
     })
 
-    test('stores null name when both fullName fields are non-string', async () => {
+    test('passes name=undefined when both fullName fields are non-string', async () => {
       mockReadBody.mockResolvedValueOnce({
         identityToken: 'valid-identity-token',
         fullName: { givenName: true, familyName: [] },
       })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
       await handler(makeEvent())
-      expect(mockPrismaUserUpsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({ name: null }),
-        }),
-      )
+      const arg = mockFindOrLinkUser.mock.calls[0]?.[0] as { name?: string | null }
+      expect(arg.name).toBeUndefined()
     })
   })
 
@@ -277,14 +229,14 @@ describe('POST /api/auth/native/apple', () => {
     test('throws 500 on unexpected DB error', async () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-identity-token' })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
-      mockPrismaUserUpsert.mockRejectedValueOnce(new Error('DB connection lost'))
+      mockFindOrLinkUser.mockRejectedValueOnce(new Error('DB connection lost'))
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 500 })
     })
 
     test('logs the error on unexpected failure', async () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-identity-token' })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
-      mockPrismaUserUpsert.mockRejectedValueOnce(new Error('DB connection lost'))
+      mockFindOrLinkUser.mockRejectedValueOnce(new Error('DB connection lost'))
       try {
         await handler(makeEvent())
       } catch {

@@ -30,25 +30,12 @@ export default defineOAuthGoogleEventHandler({
     }
 
     try {
-      const dbUser = await prisma.user.upsert({
-        where: {
-          provider_providerId: {
-            provider: 'google',
-            providerId: user.sub,
-          },
-        },
-        update: {
-          name: user.name ?? null,
-          avatarUrl: user.picture ?? null,
-          email: user.email,
-        },
-        create: {
-          email: user.email,
-          name: user.name ?? null,
-          avatarUrl: user.picture ?? null,
-          provider: 'google',
-          providerId: user.sub,
-        },
+      const dbUser = await findOrLinkUser({
+        provider: 'google',
+        providerId: user.sub,
+        email: user.email,
+        name: user.name ?? null,
+        avatarUrl: user.picture ?? null,
       })
 
       await setUserSession(event, {

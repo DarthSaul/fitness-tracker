@@ -78,18 +78,13 @@ export default defineEventHandler(async (event) => {
   const name = [firstName, lastName].filter(Boolean).join(' ') || null
 
   try {
-    const user = await prisma.user.upsert({
-      where: { provider_providerId: { provider: 'apple', providerId: sub } },
-      update: {
-        email,
-      },
-      create: {
-        email,
-        name,
-        avatarUrl: null,
-        provider: 'apple',
-        providerId: sub,
-      },
+    const user = await findOrLinkUser({
+      provider: 'apple',
+      providerId: sub,
+      email,
+      // Apple only sends fullName on first sign-in. Pass undefined (not null) on
+      // subsequent calls so findOrLinkUser doesn't overwrite an existing name.
+      name: name ?? undefined,
     })
 
     const accessToken = await signAccessToken(user.id)

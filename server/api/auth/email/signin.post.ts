@@ -49,23 +49,10 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const dbUser = await prisma.user.upsert({
-      where: {
-        provider_providerId: {
-          provider: 'email',
-          providerId: data.user.id,
-        },
-      },
-      update: {
-        email: data.user.email!,
-      },
-      create: {
-        email: data.user.email!,
-        name: null,
-        avatarUrl: null,
-        provider: 'email',
-        providerId: data.user.id,
-      },
+    const dbUser = await findOrLinkUser({
+      provider: 'email',
+      providerId: data.user.id,
+      email: data.user.email!,
     })
 
     await setUserSession(event, {

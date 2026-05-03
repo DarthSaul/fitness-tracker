@@ -41,25 +41,13 @@ export default defineOAuthAppleEventHandler({
     const name = [firstName, lastName].filter(Boolean).join(' ') || null
 
     try {
-      const dbUser = await prisma.user.upsert({
-        where: {
-          provider_providerId: {
-            provider: 'apple',
-            providerId: payload.sub,
-          },
-        },
-        update: {
-          email,
-          // Only overwrite name when Apple provides it (first login only)
-          ...(name ? { name } : {}),
-        },
-        create: {
-          email,
-          name,
-          avatarUrl: null,
-          provider: 'apple',
-          providerId: payload.sub,
-        },
+      const dbUser = await findOrLinkUser({
+        provider: 'apple',
+        providerId: payload.sub,
+        email,
+        // Apple only sends name on the very first login. Pass undefined (not null) on
+        // subsequent logins so findOrLinkUser doesn't overwrite an existing name.
+        name: name ?? undefined,
       })
 
       await setUserSession(event, {
