@@ -1,6 +1,6 @@
 # Workout Tracker
 
-A mobile-first PWA for tracking structured workout programs. Private use (invite-only).
+A mobile-first PWA for tracking structured workout programs. Also consumed by a native iOS client. Private use (invite-only).
 
 ## Tech Stack
 
@@ -8,7 +8,7 @@ A mobile-first PWA for tracking structured workout programs. Private use (invite
 - **Server Engine:** Nitro (built into Nuxt 4 — not a separate backend)
 - **ORM:** Prisma (schema, migrations, typed queries)
 - **Database:** PostgreSQL hosted on Supabase (accessed via Prisma connection string)
-- **Auth:** Supabase Auth (Google + Apple OAuth) via `nuxt-auth-utils`
+- **Auth:** Dual-mode — cookie sessions via `nuxt-auth-utils` (web) + JWT via `jose` (native iOS)
 - **Deployment:** Vercel
 - **PWA:** `@vite-pwa/nuxt`
 - **Styling:** Tailwind CSS + Nuxt UI
@@ -22,17 +22,23 @@ workout-tracker/
 │   └── schema.prisma          # Database schema & models
 ├── server/
 │   ├── api/
-│   │   ├── auth/              # OAuth endpoints
+│   │   ├── auth/              # OAuth + JWT auth endpoints
+│   │   │   ├── native/        # Native iOS sign-in (Apple, Google)
+│   │   │   └── refresh.post.ts  # JWT token refresh
+│   │   ├── devices/           # APNs device token registration
 │   │   ├── programs/          # Program library CRUD
 │   │   ├── user-programs/     # User's saved & active programs
 │   │   ├── workouts/          # Workout session & set tracking
 │   │   └── health.get.ts      # Health check endpoint
 │   ├── middleware/
-│   │   ├── auth.ts            # Auth guard
-│   │   └── logging.ts         # Request/response logging (pino)
+│   │   └── auth.ts            # Dual auth guard (JWT Bearer + cookie session)
 │   └── utils/
 │       ├── prisma.ts          # Prisma client singleton
-│       └── logger.ts          # Shared pino logger instance
+│       ├── jwt.ts             # Sign/verify HS256 access + refresh tokens
+│       ├── jwks.ts            # Apple/Google JWKS verification for native sign-in
+│       ├── apns.ts            # APNs push notification utility
+│       ├── rate-limit.ts      # Upstash rate limiting (no-op when KV not configured)
+│       └── allowList.ts       # Email allow-list helper
 ├── app/
 │   ├── pages/                 # File-based routing (Vue pages)
 │   ├── components/            # Reusable Vue components
@@ -41,21 +47,72 @@ workout-tracker/
 │   ├── types/                 # TypeScript type definitions
 │   ├── middleware/            # Client-side route middleware
 │   └── plugins/               # Nuxt plugins (v-wave, etc.)
-│       └── sentry.client.ts   # Sentry client-side init
 ├── public/                    # Static assets, PWA icons
 ├── nuxt.config.ts             # Nuxt + PWA + module config
-├── sentry.server.config.ts    # Sentry server-side config
-└── .env                       # Supabase URL, OAuth secrets, Sentry DSN
+└── .env                       # Supabase URL, OAuth secrets, JWT secrets, APNs keys
 ```
 
 ## Database Schema
 
-9 models organized around immutable program definitions and mutable user progress:
+11 models organized around immutable program definitions, mutable user progress, and auth/push infrastructure:
 
 - **Program library (immutable):** `Program → ProgramWeek → ProgramDay → ProgramExercise → ExerciseSet`
 - **User progress (mutable):** `User`, `UserProgram` (saved/active + current position), `WorkoutSession`, `CompletedSet`
+- **Auth tokens:** `RefreshToken` (hashed, 30-day, revocable)
+- **Push:** `DeviceToken` (APNs token per user device, soft-deletable)
 
 All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full definitions.
+
+## Dual-Auth Model
+
+The API supports two authentication paths that share a single `server/middleware/auth.ts` guard:
+
+| Client | Auth method | How it works |
+|---|---|---|
+| Web PWA | Cookie session | `nuxt-auth-utils` sets a 30-day encrypted cookie after OAuth login |
+| Native iOS | JWT Bearer | Short-lived access token (15 min) + long-lived refresh token (30 days) stored as SHA-256 hash in `RefreshToken` table |
+
+**Detection:** The middleware checks `Authorization: Bearer <token>` first. If present, it calls `verifyAccessToken` (HS256 via `jose`). If absent, it falls back to `getUserSession` (cookie). Both paths set `event.context.userId`.
+
+**Native sign-in endpoints** (under `/api/auth/`, public):
+- `POST /api/auth/native/apple` — accepts Apple identity token from iOS SDK, returns `{ accessToken, refreshToken }`
+- `POST /api/auth/native/google` — accepts Google ID token from iOS SDK, returns `{ accessToken, refreshToken }`
+- `POST /api/auth/refresh` — exchange refresh token for new access token (optionally rotates)
+
+**Native logout:** send `X-Client-Type: native` header; optionally include `refreshToken` in the body to revoke it.
+
+## iOS Client Notes
+
+- The iOS app lives in a separate repository and consumes this API over HTTPS.
+- It uses Sign in with Apple as primary auth and Sign in with Google as secondary.
+- Native sign-in flow: iOS SDK returns an identity token → send to `/api/auth/native/{apple|google}` → receive JWT pair → store securely (Keychain).
+- Token refresh: on 401, POST to `/api/auth/refresh` with the refresh token.
+- Push notifications: register device token via `POST /api/devices/register` after sign-in. Environment must be `SANDBOX` for development builds, `PRODUCTION` for App Store builds.
+- Apple identity token audience is the **bundle ID** (e.g. `com.example.fitnesstracker`), not the web service ID.
+
+## API Security
+
+- **CORS:** Restricted to `NUXT_PUBLIC_APP_URL` origin (never `*`). Native iOS apps don't send `Origin` headers so CORS doesn't apply to them. OPTIONS preflights are handled without auth.
+- **Rate limiting:** Auth endpoints (`/api/auth/native/*`, `/api/auth/refresh`) use Upstash sliding window (10 req/min per IP). No-ops when `UPSTASH_REDIS_REST_URL` is absent (dev mode).
+- **Error responses:** All routes return generic error messages — no stack traces or Prisma error details exposed.
+- **Input validation:** Manual inline validation on all routes (same pattern as existing API); Zod is not used.
+
+## Environment Variables
+
+See `.env.example` for the full list. Key variables for native iOS support:
+
+```bash
+NUXT_JWT_ACCESS_SECRET=      # HS256 signing key for access tokens
+NUXT_JWT_REFRESH_SECRET=     # HS256 signing key for refresh tokens
+NUXT_JWT_REFRESH_ROTATION=   # Set to "true" to rotate refresh tokens on each use
+NUXT_APPLE_BUNDLE_ID=        # iOS app bundle ID (audience for Apple identity tokens)
+NUXT_APNS_TEAM_ID=           # Apple developer Team ID
+NUXT_APNS_KEY_ID=            # APNs .p8 Key ID
+NUXT_APNS_PRIVATE_KEY=       # base64-encoded .p8 file content
+NUXT_PUBLIC_APP_URL=         # Web frontend origin for CORS
+UPSTASH_REDIS_REST_URL=      # Optional — enables rate limiting
+UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
+```
 
 ## Conventions
 
@@ -80,7 +137,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - Route files are named with the HTTP method suffix: `index.get.ts`, `index.post.ts`, `[id].patch.ts`, etc.
 - Return objects directly from `defineEventHandler` — Nitro serializes to JSON.
 - Use `createError` from `h3` for error responses with appropriate status codes.
-- Validate request bodies with a simple validation helper or zod (if added later).
+- Validate request bodies with manual inline checks (no Zod) consistent with the existing pattern.
 
 ### Error Handling
 
@@ -129,7 +186,7 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 
 ## Roadmap
 
-**Current phase: Phase 3 — Frontend**
+**Current phase: Phase 3.5 — Native iOS Client**
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
@@ -152,12 +209,25 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [x] Program completion handling
 - [x] Document API with Scalar
 
-### Phase 3 — Frontend
+### Phase 3 — Frontend ✅ (mostly)
 - [x] Mobile-first layout with Tailwind + Nuxt UI
 - [x] Program browser page
 - [x] Active workout session UI
 - [x] Auth flow pages (login, callback)
 - [ ] PWA install / offline config
+
+### Phase 3.5 — Native iOS Client
+- [x] JWT infrastructure: `RefreshToken` model, `server/utils/jwt.ts`, dual-auth middleware
+- [x] Token refresh endpoint (`POST /api/auth/refresh`)
+- [x] Native Sign in with Apple (`POST /api/auth/native/apple`)
+- [x] Native Sign in with Google (`POST /api/auth/native/google`)
+- [x] Native logout with refresh token revocation
+- [x] APNs push infrastructure: `DeviceToken` model, `server/utils/apns.ts`
+- [x] Device token registration/unregistration (`POST /api/devices/register`, `DELETE /api/devices/:id`)
+- [x] CORS config (restricted to known web origin)
+- [x] Upstash rate limiting on auth endpoints
+- [ ] Wire up push notification triggers (e.g., workout reminders)
+- [ ] Apple web OAuth configuration (backlog — web frontend not yet built)
 
 ### Phase 4 — Observability
 - [ ] pino structured logging middleware
@@ -173,9 +243,11 @@ All models use `cuid()` for primary keys. See `prisma/schema.prisma` for full de
 - [ ] Accessibility review (aria-labels, aria-pressed, keyboard nav, screen reader testing)
 
 ### Backlog
-- [ ] Configure Apple OAuth
+- [ ] Configure Apple OAuth (web redirect flow — needed only when web frontend is built)
 - [ ] RPE tracking (optional, user-enabled in settings)
 - [ ] Fix iPadOS desktop UA detection in `PwaInstallBanner.vue` — iPads in Safari desktop-class mode (iPadOS 13+) report `Macintosh` UA; extend `isIOS` computed to also check `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1`
+- [ ] Push notification triggers (workout reminders, etc.)
+- [ ] Account linking — currently a user who signs in with both Apple and Google gets two separate User records (blocked by `email @unique`); needs a merge flow
 
 ## Subagents
 
