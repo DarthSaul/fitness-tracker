@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   const authHeader = getHeader(event, 'authorization')
   const bearerMatch = authHeader?.match(/^Bearer\s+(.+)$/i)
   if (bearerMatch) {
-    const token = bearerMatch[1].trim()
+    const token = bearerMatch[1]!.trim()
     try {
       const payload = await verifyAccessToken(token)
       event.context.userId = payload.sub

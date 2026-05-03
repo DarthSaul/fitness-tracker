@@ -39,20 +39,29 @@ export default defineEventHandler(async (event) => {
     fullName?: { givenName?: string | null; familyName?: string | null }
   }>(event)
 
-  if (!body?.identityToken) {
+  if (!body?.identityToken || body.identityToken.trim().length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'identityToken is required' })
   }
 
   let applePayload: { sub: string; email?: string }
   try {
-    applePayload = await verifyAppleIdentityToken(body.identityToken)
-  } catch {
-    throw createError({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
+    applePayload = await verifyAppleIdentityToken(body.identityToken.trim())
+  } catch (error) {
+    const code = (error as { code?: string }).code ?? ''
+    if (
+      code.startsWith('ERR_JWT') ||
+      code.startsWith('ERR_JWS') ||
+      (error instanceof Error && error.message === 'Apple identity token missing email claim')
+    ) {
+      throw createError({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
+    }
+    console.error('[POST /api/auth/native/apple] JWKS or infrastructure error', error)
+    throw createError({ statusCode: 500, statusMessage: 'Sign-in failed. Please try again.' })
   }
 
   const { sub, email } = applePayload
   if (!email) {
-    throw createError({ statusCode: 400, statusMessage: 'Email not provided by Apple' })
+    throw createError({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
   }
 
   if (!isEmailAllowed(email)) {
@@ -70,7 +79,6 @@ export default defineEventHandler(async (event) => {
       where: { provider_providerId: { provider: 'apple', providerId: sub } },
       update: {
         email,
-        ...(name ? { name } : {}),
       },
       create: {
         email,

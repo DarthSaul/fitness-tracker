@@ -58,19 +58,51 @@ describe('POST /api/auth/native/apple', () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: '' })
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'identityToken is required' })
     })
+
+    test('throws 400 when identityToken is whitespace only', async () => {
+      mockReadBody.mockResolvedValueOnce({ identityToken: '   ' })
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'identityToken is required' })
+    })
   })
 
   describe('identity token verification', () => {
-    test('throws 401 when verifyAppleIdentityToken rejects', async () => {
+    test('throws 401 when verifyAppleIdentityToken rejects with a JWT credential error', async () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'bad-token' })
-      mockVerifyAppleIdentityToken.mockRejectedValueOnce(new Error('JWT verification failed'))
+      const jwtError = Object.assign(new Error('JWT expired'), { code: 'ERR_JWT_EXPIRED' })
+      mockVerifyAppleIdentityToken.mockRejectedValueOnce(jwtError)
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
     })
 
-    test('throws 400 when Apple payload has no email', async () => {
+    test('throws 401 when verifyAppleIdentityToken rejects with a JWS signature error', async () => {
+      mockReadBody.mockResolvedValueOnce({ identityToken: 'tampered-token' })
+      const jwsError = Object.assign(new Error('signature verification failed'), { code: 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' })
+      mockVerifyAppleIdentityToken.mockRejectedValueOnce(jwsError)
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
+    })
+
+    test('propagates as 500 when verifyAppleIdentityToken rejects with an infrastructure error', async () => {
+      mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-token' })
+      const infraError = Object.assign(new Error('JWKS fetch timed out'), { code: 'ERR_JWKS_TIMEOUT' })
+      mockVerifyAppleIdentityToken.mockRejectedValueOnce(infraError)
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 500 })
+    })
+
+    test('logs the error on infrastructure failure', async () => {
+      mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-token' })
+      const infraError = Object.assign(new Error('JWKS fetch timed out'), { code: 'ERR_JWKS_TIMEOUT' })
+      mockVerifyAppleIdentityToken.mockRejectedValueOnce(infraError)
+      try {
+        await handler(makeEvent())
+      } catch {
+        // expected
+      }
+      expect(consoleSpy).toHaveBeenCalledWith('[POST /api/auth/native/apple] JWKS or infrastructure error', expect.any(Error))
+    })
+
+    test('throws 401 when Apple payload has no email', async () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-token' })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce({ sub: 'apple-sub-001' })
-      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Email not provided by Apple' })
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
     })
   })
 
@@ -122,12 +154,6 @@ describe('POST /api/auth/native/apple', () => {
       )
     })
 
-    test('includes name in update when present on first sign-in', async () => {
-      await handler(makeEvent())
-      const arg = mockPrismaUserUpsert.mock.calls[0]?.[0] as { update: Record<string, unknown> }
-      expect(arg.update).toHaveProperty('name', 'Jane Appleseed')
-    })
-
     test('creates a refresh token record', async () => {
       await handler(makeEvent())
       expect(mockPrismaRefreshTokenCreate).toHaveBeenCalledWith(
@@ -160,6 +186,17 @@ describe('POST /api/auth/native/apple', () => {
   })
 
   describe('name handling edge cases', () => {
+    test('does not update name on subsequent sign-ins even when fullName is present', async () => {
+      mockReadBody.mockResolvedValueOnce({
+        identityToken: 'valid-identity-token',
+        fullName: { givenName: 'Jane', familyName: 'Appleseed' },
+      })
+      mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
+      await handler(makeEvent())
+      const arg = mockPrismaUserUpsert.mock.calls[0]?.[0] as { update: Record<string, unknown> }
+      expect(arg.update).not.toHaveProperty('name')
+    })
+
     test('does not include name in update when fullName is absent', async () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-identity-token' })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
