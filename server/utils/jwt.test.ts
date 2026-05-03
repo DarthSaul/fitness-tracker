@@ -119,12 +119,28 @@ describe('server/utils/jwt', () => {
   describe('missing secrets', () => {
     test('signAccessToken throws when jwtAccessSecret is absent', async () => {
       mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: '', jwtRefreshSecret: TEST_REFRESH_SECRET })
-      await expect(signAccessToken('user-abc')).rejects.toThrow('JWT secrets are not configured')
+      await expect(signAccessToken('user-abc')).rejects.toThrow('JWT access secret is not configured')
+    })
+
+    test('signAccessToken does not throw when only jwtRefreshSecret is absent', async () => {
+      mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: TEST_ACCESS_SECRET, jwtRefreshSecret: '' })
+      await expect(signAccessToken('user-abc')).resolves.toBeDefined()
     })
 
     test('signRefreshToken throws when jwtRefreshSecret is absent', async () => {
       mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: TEST_ACCESS_SECRET, jwtRefreshSecret: '' })
-      await expect(signRefreshToken('user-abc')).rejects.toThrow('JWT secrets are not configured')
+      await expect(signRefreshToken('user-abc')).rejects.toThrow('JWT refresh secret is not configured')
+    })
+
+    test('signRefreshToken does not throw when only jwtAccessSecret is absent', async () => {
+      mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: '', jwtRefreshSecret: TEST_REFRESH_SECRET })
+      await expect(signRefreshToken('user-abc')).resolves.toBeDefined()
+    })
+
+    test('verifyAccessToken throws when jwtAccessSecret is absent', async () => {
+      const token = await signAccessToken('user-abc')
+      mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: '', jwtRefreshSecret: TEST_REFRESH_SECRET })
+      await expect(verifyAccessToken(token)).rejects.toThrow('JWT access secret is not configured')
     })
   })
 })

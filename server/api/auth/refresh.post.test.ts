@@ -201,5 +201,13 @@ describe('POST /api/auth/refresh', () => {
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401 })
       expect(consoleSpy).not.toHaveBeenCalled()
     })
+
+    test('does not mutate the refresh token when signAccessToken fails', async () => {
+      mockReadBody.mockResolvedValueOnce({ refreshToken: 'valid-raw-token' })
+      mockRefreshTokenFindUnique.mockResolvedValueOnce(makeStoredToken())
+      mockSignAccessToken.mockRejectedValueOnce(new Error('signing service unavailable'))
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 500 })
+      expect(mockPrismaTransaction).not.toHaveBeenCalled()
+    })
   })
 })

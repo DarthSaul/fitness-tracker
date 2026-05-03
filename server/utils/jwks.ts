@@ -16,7 +16,7 @@ export async function verifyAppleIdentityToken(identityToken: string): Promise<{
 export async function verifyGoogleIdToken(idToken: string): Promise<{ sub: string; email: string; name?: string; picture?: string }> {
   const config = useRuntimeConfig()
   const { payload } = await jwtVerify(idToken, googleJWKS, {
-    issuer: 'https://accounts.google.com',
+    issuer: ['https://accounts.google.com', 'accounts.google.com'],
     audience: config.oauthGoogleClientId as string,
   })
   return {
