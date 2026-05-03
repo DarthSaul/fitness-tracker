@@ -4,21 +4,22 @@ defineRouteMeta({
     summary: 'Log out',
     description:
       'Web clients: clears the session cookie and redirects to /login. ' +
-      'Native clients (X-Client-Type: native): optionally revokes the refresh token and returns JSON.',
+      'Native clients: revokes the refresh token and returns JSON. ' +
+      'A request is treated as native if it sends X-Client-Type: native OR includes a refreshToken in the request body.',
     requestBody: {
       content: {
         'application/json': {
           schema: {
             type: 'object',
             properties: {
-              refreshToken: { type: 'string', description: 'Refresh token to revoke (native clients only)' },
+              refreshToken: { type: 'string', description: 'Refresh token to revoke; presence also triggers the native (JSON) logout path' },
             },
           },
         },
       },
     },
     responses: {
-      200: { description: 'Native client logout successful' },
+      200: { description: 'Native client logout successful (via X-Client-Type header or refreshToken in request body)' },
       302: { description: 'Web client redirect to /login' },
     },
   },
