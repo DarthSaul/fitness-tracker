@@ -55,6 +55,7 @@ export default defineEventHandler(async (event) => {
     // Check if rotation is enabled
     const rotationEnabled = process.env.NUXT_JWT_REFRESH_ROTATION === 'true'
 
+    const now = new Date()
     let newRefreshToken: string | undefined
     let newRefreshTokenRecord: { tokenHash: string; expiresAt: Date } | undefined
 
@@ -63,20 +64,27 @@ export default defineEventHandler(async (event) => {
       const raw = crypto.randomUUID() + crypto.randomUUID()
       const newHashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))
       const newTokenHash = Buffer.from(newHashBuffer).toString('hex')
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
       newRefreshToken = raw
       newRefreshTokenRecord = { tokenHash: newTokenHash, expiresAt }
     }
 
-    // Atomic: update lastUsedAt (+ rotate if enabled)
+    // Atomic: conditional update guards against concurrent replay (TOCTOU)
     await prisma.$transaction(async (tx) => {
-      await tx.refreshToken.update({
-        where: { id: storedToken.id },
+      const updated = await tx.refreshToken.updateMany({
+        where: {
+          id: storedToken.id,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
         data: {
-          lastUsedAt: new Date(),
-          ...(rotationEnabled ? { revokedAt: new Date() } : {}),
+          lastUsedAt: now,
+          ...(rotationEnabled ? { revokedAt: now } : {}),
         },
       })
+      if (updated.count !== 1) {
+        throw createError({ statusCode: 401, statusMessage: 'Invalid refresh token' })
+      }
       if (rotationEnabled && newRefreshTokenRecord) {
         await tx.refreshToken.create({
           data: {

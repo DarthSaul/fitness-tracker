@@ -4,7 +4,7 @@ import handler from './refresh.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockRefreshTokenFindUnique = (prisma as any).refreshToken.findUnique as ReturnType<typeof vi.fn>
-const mockRefreshTokenUpdate = (prisma as any).refreshToken.update as ReturnType<typeof vi.fn>
+const mockRefreshTokenUpdateMany = (prisma as any).refreshToken.updateMany as ReturnType<typeof vi.fn>
 const mockRefreshTokenCreate = (prisma as any).refreshToken.create as ReturnType<typeof vi.fn>
 const mockPrismaTransaction = (prisma as any).$transaction as ReturnType<typeof vi.fn>
 const mockSignAccessToken = signAccessToken as ReturnType<typeof vi.fn>
@@ -41,9 +41,11 @@ describe('POST /api/auth/refresh', () => {
     vi.clearAllMocks()
     delete process.env.NUXT_JWT_REFRESH_ROTATION
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // Default: updateMany succeeds (count: 1) so rotation/happy-path tests don't need extra setup
+    mockRefreshTokenUpdateMany.mockResolvedValue({ count: 1 })
     // Default: transaction calls the callback with a tx object backed by the prisma mock
     mockPrismaTransaction.mockImplementation(async (cb: (tx: any) => Promise<any>) =>
-      cb({ refreshToken: { update: mockRefreshTokenUpdate, create: mockRefreshTokenCreate } }),
+      cb({ refreshToken: { updateMany: mockRefreshTokenUpdateMany, create: mockRefreshTokenCreate } }),
     )
     mockSignAccessToken.mockResolvedValue('new-access-token')
   })
@@ -117,9 +119,9 @@ describe('POST /api/auth/refresh', () => {
     test('updates lastUsedAt in a transaction', async () => {
       await handler(makeEvent())
       expect(mockPrismaTransaction).toHaveBeenCalledOnce()
-      expect(mockRefreshTokenUpdate).toHaveBeenCalledWith(
+      expect(mockRefreshTokenUpdateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'clrtoken001' },
+          where: expect.objectContaining({ id: 'clrtoken001' }),
           data: expect.objectContaining({ lastUsedAt: expect.any(Date) }),
         }),
       )
@@ -127,7 +129,7 @@ describe('POST /api/auth/refresh', () => {
 
     test('does not set revokedAt when rotation is disabled', async () => {
       await handler(makeEvent())
-      expect(mockRefreshTokenUpdate).toHaveBeenCalledWith(
+      expect(mockRefreshTokenUpdateMany).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.not.objectContaining({ revokedAt: expect.anything() }) }),
       )
     })
@@ -149,7 +151,7 @@ describe('POST /api/auth/refresh', () => {
 
     test('revokes the old token (sets revokedAt)', async () => {
       await handler(makeEvent())
-      expect(mockRefreshTokenUpdate).toHaveBeenCalledWith(
+      expect(mockRefreshTokenUpdateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ revokedAt: expect.any(Date) }),
         }),

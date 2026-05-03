@@ -103,6 +103,17 @@ describe('server/utils/jwt', () => {
     test('rejects a plaintext string that is not a JWT', async () => {
       await expect(verifyAccessToken('not.a.jwt')).rejects.toThrow()
     })
+
+    test('rejects a token with tokenType refresh even when signed with the access secret', async () => {
+      const secret = new TextEncoder().encode(TEST_ACCESS_SECRET)
+      const token = await new SignJWT({ sub: 'user-abc', tokenType: 'refresh' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuer('fitness-tracker')
+        .setAudience('fitness-tracker-api')
+        .setExpirationTime('15m')
+        .sign(secret)
+      await expect(verifyAccessToken(token)).rejects.toThrow()
+    })
   })
 
   describe('missing secrets', () => {

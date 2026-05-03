@@ -13,7 +13,7 @@ function getSecrets() {
 
 export async function signAccessToken(userId: string): Promise<string> {
   const { accessSecret } = getSecrets()
-  return new SignJWT({ sub: userId })
+  return new SignJWT({ sub: userId, tokenType: 'access' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('15m')
@@ -24,7 +24,7 @@ export async function signAccessToken(userId: string): Promise<string> {
 
 export async function signRefreshToken(userId: string): Promise<string> {
   const { refreshSecret } = getSecrets()
-  return new SignJWT({ sub: userId })
+  return new SignJWT({ sub: userId, tokenType: 'refresh' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('30d')
@@ -40,5 +40,6 @@ export async function verifyAccessToken(token: string): Promise<{ sub: string }>
     audience: 'fitness-tracker-api',
   })
   if (!payload.sub) throw new joseErrors.JWTInvalid('Missing sub claim')
+  if (payload.tokenType !== 'access') throw new joseErrors.JWTInvalid('Invalid token type')
   return { sub: payload.sub }
 }
