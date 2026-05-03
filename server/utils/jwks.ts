@@ -19,9 +19,12 @@ export async function verifyGoogleIdToken(idToken: string): Promise<{ sub: strin
     issuer: ['https://accounts.google.com', 'accounts.google.com'],
     audience: config.oauthGoogleClientId as string,
   })
+  if (typeof payload.email !== 'string' || payload.email.length === 0) {
+    throw new Error('Google ID token missing email claim')
+  }
   return {
     sub: payload.sub as string,
-    email: payload.email as string,
+    email: payload.email,
     name: payload.name as string | undefined,
     picture: payload.picture as string | undefined,
   }
