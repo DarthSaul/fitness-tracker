@@ -93,7 +93,7 @@ model DeviceToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, token])
+  @@unique([token, environment])
   @@index([userId])
 }
 

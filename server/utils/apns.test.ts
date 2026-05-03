@@ -212,7 +212,7 @@ describe('server/utils/apns', () => {
       await sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } })
 
       expect(mockDeviceTokenUpdate).toHaveBeenCalledWith({
-        where: { userId_token: { userId: 'user001', token: 'stale-tok' } },
+        where: { token_environment: { token: 'stale-tok', environment: 'SANDBOX' } },
         data: { revokedAt: expect.any(Date) },
       })
     })
@@ -248,7 +248,7 @@ describe('server/utils/apns', () => {
       ).resolves.toBeUndefined()
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[APNs] Push failed for device tok-bad'),
+        expect.stringContaining('[APNs] Push failed for device'),
       )
     })
   })
@@ -334,7 +334,9 @@ describe('server/utils/apns', () => {
 
   describe('APNs configuration errors', () => {
     test('incomplete config: sendPush resolves (error contained by allSettled)', async () => {
-      mockUseRuntimeConfig.mockReturnValueOnce({
+      // Reset module registry so the JWT cache from earlier tests is not reused
+      vi.resetModules()
+      mockUseRuntimeConfig.mockReturnValue({
         apnsTeamId: '',
         apnsKeyId: '',
         apnsPrivateKey: '',
@@ -342,9 +344,11 @@ describe('server/utils/apns', () => {
       })
       mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord()])
 
+      const { sendPush: freshSendPush } = await import('./apns')
+
       // sendPush uses Promise.allSettled — individual device errors don't propagate
       await expect(
-        sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
+        freshSendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
       ).resolves.toBeUndefined()
     })
   })

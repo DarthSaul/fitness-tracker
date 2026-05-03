@@ -73,11 +73,14 @@ async function sendPushToDevice(
     body: JSON.stringify(payload),
   })
 
+  const maskedToken = `${deviceToken.slice(0, 4)}${'*'.repeat(Math.max(0, deviceToken.length - 8))}${deviceToken.slice(-4)}`
+
   if (response.statusCode === 410) {
-    // Device token is no longer active — soft-revoke it
+    // Device token is no longer active — consume body then soft-revoke
+    await response.body.text().catch(() => {})
     await prisma.deviceToken
       .update({
-        where: { userId_token: { userId, token: deviceToken } },
+        where: { token_environment: { token: deviceToken, environment } },
         data: { revokedAt: new Date() },
       })
       .catch((err: unknown) => console.error('[APNs] Failed to revoke stale device token', err))
@@ -86,8 +89,11 @@ async function sendPushToDevice(
 
   if (response.statusCode !== 200) {
     const body = await response.body.text()
-    console.error(`[APNs] Push failed for device ${deviceToken}: ${response.statusCode} ${body}`)
+    console.error(`[APNs] Push failed for device ${maskedToken}: ${response.statusCode} ${body}`)
+    return
   }
+
+  await response.body.text().catch(() => {})
 }
 
 export async function sendPush(userId: string, payload: ApnsPayload): Promise<void> {
@@ -100,7 +106,12 @@ export async function sendPush(userId: string, payload: ApnsPayload): Promise<vo
 
   if (tokens.length === 0) return
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     tokens.map((t) => sendPushToDevice(t.token, bundleId, t.environment, payload, userId)),
   )
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      console.error('[APNs] sendPushToDevice failed', result.reason)
+    }
+  }
 }

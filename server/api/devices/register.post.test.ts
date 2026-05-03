@@ -63,8 +63,8 @@ describe('POST /api/devices/register', () => {
       await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
       expect(mockUpsert).toHaveBeenCalledWith({
-        where: { userId_token: { userId: 'user001', token: 'tok-xyz' } },
-        update: { lastSeenAt: expect.any(Date), revokedAt: null },
+        where: { token_environment: { token: 'tok-xyz', environment: 'PRODUCTION' } },
+        update: { userId: 'user001', lastSeenAt: expect.any(Date), revokedAt: null },
         create: {
           userId: 'user001',
           token: 'tok-xyz',

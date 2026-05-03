@@ -42,8 +42,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     const deviceToken = await prisma.deviceToken.upsert({
-      where: { userId_token: { userId, token: body.token } },
-      update: { lastSeenAt: new Date(), revokedAt: null },
+      where: { token_environment: { token: body.token, environment: body.environment } },
+      update: { userId, lastSeenAt: new Date(), revokedAt: null },
       create: {
         userId,
         token: body.token,
