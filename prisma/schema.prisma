@@ -33,6 +33,15 @@ enum ExerciseGroupType {
   SUPERSET
 }
 
+enum Platform {
+  IOS
+}
+
+enum PushEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
 // ---------------------------------------------------------------------------
 // Auth / User
 // ---------------------------------------------------------------------------
@@ -52,6 +61,7 @@ model User {
   feedback          Feedback[]
   userExerciseNotes UserExerciseNote[]
   refreshTokens     RefreshToken[]
+  deviceTokens      DeviceToken[]
 
   @@unique([provider, providerId])
 }
@@ -68,6 +78,22 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+}
+
+model DeviceToken {
+  id          String          @id @default(cuid())
+  userId      String
+  token       String
+  platform    Platform
+  environment PushEnvironment
+  createdAt   DateTime        @default(now())
+  lastSeenAt  DateTime?
+  revokedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token, environment])
   @@index([userId])
 }
 
