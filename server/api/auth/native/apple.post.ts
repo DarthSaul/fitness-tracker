@@ -29,6 +29,7 @@ defineRouteMeta({
       400: { description: 'Missing identityToken' },
       401: { description: 'Invalid Apple identity token' },
       403: { description: 'Email not on allow-list' },
+      500: { description: 'Internal server error' },
     },
   },
 })

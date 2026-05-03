@@ -7,7 +7,7 @@ defineRouteMeta({
       { name: 'exerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'Exercise CUID' },
     ],
     responses: {
-      200: { description: 'Exercise notes (may be null if not set)', content: { 'application/json': { schema: { type: 'object', properties: { notes: { type: ['string', 'null'], example: 'Keep elbows tucked' } } } } } },
+      200: { description: 'Exercise notes (may be null if not set)', content: { 'application/json': { schema: { type: 'object', required: ['notes'], properties: { notes: { type: ['string', 'null'], example: 'Keep elbows tucked' } } } } } },
       400: { description: 'Missing exercise ID' },
       401: { description: 'Unauthorized' },
       500: { description: 'Internal server error' },

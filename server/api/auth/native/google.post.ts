@@ -22,6 +22,7 @@ defineRouteMeta({
       400: { description: 'Missing idToken' },
       401: { description: 'Invalid Google ID token' },
       403: { description: 'Email not on allow-list' },
+      500: { description: 'Internal server error' },
     },
   },
 })

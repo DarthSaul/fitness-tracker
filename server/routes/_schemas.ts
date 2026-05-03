@@ -325,6 +325,7 @@ defineRouteMeta({
 					},
 					UserExerciseNote: {
 						type: 'object',
+						required: ['id', 'userId', 'exerciseId', 'notes', 'createdAt', 'updatedAt'],
 						properties: {
 							id: {
 								type: 'string',
