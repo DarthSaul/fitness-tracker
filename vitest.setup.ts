@@ -15,6 +15,7 @@ vi.stubGlobal('defineRouteMeta', vi.fn())
 vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
 vi.stubGlobal('getRouterParam', vi.fn())
 vi.stubGlobal('getQuery', vi.fn(() => ({})))
+vi.stubGlobal('getHeader', vi.fn(() => null))
 vi.stubGlobal('readBody', vi.fn())
 vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
   const err = new Error(opts.statusMessage) as Error & {
@@ -54,6 +55,7 @@ vi.stubGlobal('prisma', {
   completedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   userExerciseNote: { findUnique: vi.fn(), upsert: vi.fn() },
   workoutExerciseSwap: { upsert: vi.fn() },
+  refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
 })
 
 // ── Supabase client global (used in Nitro server route handlers via auto-import) ─
@@ -80,6 +82,10 @@ vi.stubGlobal('supabase', {
 // Default: allow all emails so existing tests pass unmodified.
 // Override per-test with mockReturnValueOnce(false) to exercise blocking paths.
 vi.stubGlobal('isEmailAllowed', vi.fn(() => true))
+// JWT utilities — default to no-op; override per-test as needed
+vi.stubGlobal('signAccessToken', vi.fn())
+vi.stubGlobal('signRefreshToken', vi.fn())
+vi.stubGlobal('verifyAccessToken', vi.fn())
 
 // ── H3 request helpers ───────────────────────────────────────────────────────
 vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/email/test')))
@@ -88,6 +94,8 @@ vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/au
 vi.stubGlobal('useRuntimeConfig', vi.fn(() => ({
   supabaseUrl: 'https://test.supabase.co',
   supabaseServiceRoleKey: 'test-service-role-key',
+  jwtAccessSecret: 'test-access-secret-that-is-at-least-32-chars-long',
+  jwtRefreshSecret: 'test-refresh-secret-that-is-at-least-32-chars-long',
 })))
 
 // ── Nuxt composable / navigation globals (used in app/composables) ────────────

@@ -12,6 +12,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     supabaseUrl: '',
     supabaseServiceRoleKey: '',
+    jwtAccessSecret: '',
+    jwtRefreshSecret: '',
   },
   css: ['~/assets/css/main.css'],
   colorMode: {

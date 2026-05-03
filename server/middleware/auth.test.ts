@@ -17,6 +17,8 @@ import handler from './auth'
 // Grab the stubbed globals so we can configure and assert on them per-test.
 const mockGetUserSession = getUserSession as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
+const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
+const mockVerifyAccessToken = verifyAccessToken as ReturnType<typeof vi.fn>
 
 function makeEvent(path: string): { path: string; context: Record<string, unknown> } {
   return { path, context: {} }
@@ -158,6 +160,57 @@ describe('server/middleware/auth', () => {
       const event = makeEvent('/api/programs/clprog001')
       await (handler as (e: typeof event) => Promise<void>)(event)
       expect(mockGetUserSession).toHaveBeenCalled()
+    })
+  })
+
+  describe('JWT Bearer token auth', () => {
+    test('accepts valid Bearer token, sets userId and authMethod=jwt, skips session check', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer valid-token')
+      mockVerifyAccessToken.mockResolvedValueOnce({ sub: 'user-jwt-123' })
+      const event = makeEvent('/api/workouts')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(event.context.userId).toBe('user-jwt-123')
+      expect(event.context.authMethod).toBe('jwt')
+      expect(mockGetUserSession).not.toHaveBeenCalled()
+    })
+
+    test('throws 401 when Bearer token fails verification', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer bad-token')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT expired'))
+      const event = makeEvent('/api/workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+      expect(mockGetUserSession).not.toHaveBeenCalled()
+    })
+
+    test('does not set userId when Bearer token is invalid', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer bad-token')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT expired'))
+      const event = makeEvent('/api/workouts')
+      try {
+        await (handler as (e: typeof event) => Promise<void>)(event)
+      } catch {
+        // expected
+      }
+      expect(event.context.userId).toBeUndefined()
+    })
+
+    test('falls through to session check when no Bearer prefix', async () => {
+      mockGetHeader.mockReturnValueOnce('Basic dXNlcjpwYXNz')
+      mockGetUserSession.mockResolvedValueOnce({ user: { id: 'session-user' } })
+      const event = makeEvent('/api/workouts')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(event.context.userId).toBe('session-user')
+      expect(event.context.authMethod).toBe('session')
+      expect(mockVerifyAccessToken).not.toHaveBeenCalled()
+    })
+
+    test('session path sets authMethod=session', async () => {
+      mockGetUserSession.mockResolvedValueOnce({ user: { id: 'session-user' } })
+      const event = makeEvent('/api/programs')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(event.context.authMethod).toBe('session')
     })
   })
 })
