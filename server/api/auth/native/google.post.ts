@@ -27,6 +27,8 @@ defineRouteMeta({
 })
 
 export default defineEventHandler(async (event) => {
+  await rateLimitByIp(event)
+
   const body = await readBody<{ idToken?: string }>(event)
 
   if (!body?.idToken || body.idToken.trim().length === 0) {

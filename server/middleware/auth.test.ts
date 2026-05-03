@@ -18,6 +18,7 @@ import handler from './auth'
 const mockGetUserSession = getUserSession as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
+const mockGetMethod = getMethod as ReturnType<typeof vi.fn>
 const mockVerifyAccessToken = verifyAccessToken as ReturnType<typeof vi.fn>
 
 function makeEvent(path: string): { path: string; context: Record<string, unknown> } {
@@ -160,6 +161,16 @@ describe('server/middleware/auth', () => {
       const event = makeEvent('/api/programs/clprog001')
       await (handler as (e: typeof event) => Promise<void>)(event)
       expect(mockGetUserSession).toHaveBeenCalled()
+    })
+  })
+
+  describe('OPTIONS preflight passthrough', () => {
+    test('allows OPTIONS requests through without checking auth', async () => {
+      mockGetMethod.mockReturnValueOnce('OPTIONS')
+      const event = makeEvent('/api/workouts')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(mockGetUserSession).not.toHaveBeenCalled()
+      expect(event.context.userId).toBeUndefined()
     })
   })
 

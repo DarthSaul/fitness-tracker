@@ -90,6 +90,18 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    routeRules: {
+      '/api/**': {
+        headers: {
+          // Restrict CORS to the known web origin; native iOS apps don't send Origin headers
+          // so these headers are a no-op for them. Never allow *.
+          'Access-Control-Allow-Origin': process.env.NUXT_PUBLIC_APP_URL ?? '',
+          'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Type',
+          'Access-Control-Max-Age': '86400',
+        },
+      },
+    },
     experimental: {
       openAPI: true,
     },

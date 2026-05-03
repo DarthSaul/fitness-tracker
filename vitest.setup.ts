@@ -92,9 +92,12 @@ vi.stubGlobal('verifyAccessToken', vi.fn())
 // JWKS identity token verifiers — default to no-op; override per-test as needed
 vi.stubGlobal('verifyAppleIdentityToken', vi.fn())
 vi.stubGlobal('verifyGoogleIdToken', vi.fn())
+// Rate limiting — no-op by default in tests (Upstash not configured)
+vi.stubGlobal('rateLimitByIp', vi.fn().mockResolvedValue(undefined))
 
 // ── H3 request helpers ───────────────────────────────────────────────────────
 vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/email/test')))
+vi.stubGlobal('getMethod', vi.fn(() => 'GET'))
 
 // ── Nuxt runtime config ─────────────────────────────────────────────────────
 vi.stubGlobal('useRuntimeConfig', vi.fn(() => ({
