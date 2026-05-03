@@ -212,5 +212,23 @@ describe('server/middleware/auth', () => {
       await (handler as (e: typeof event) => Promise<void>)(event)
       expect(event.context.authMethod).toBe('session')
     })
+
+    test('accepts lowercase bearer scheme (case-insensitive)', async () => {
+      mockGetHeader.mockReturnValueOnce('bearer valid-token')
+      mockVerifyAccessToken.mockResolvedValueOnce({ sub: 'user-ci-123' })
+      const event = makeEvent('/api/workouts')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(event.context.userId).toBe('user-ci-123')
+      expect(event.context.authMethod).toBe('jwt')
+    })
+
+    test('accepts mixed-case BEARER scheme', async () => {
+      mockGetHeader.mockReturnValueOnce('BEARER valid-token')
+      mockVerifyAccessToken.mockResolvedValueOnce({ sub: 'user-ci-456' })
+      const event = makeEvent('/api/workouts')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(event.context.userId).toBe('user-ci-456')
+      expect(event.context.authMethod).toBe('jwt')
+    })
   })
 })

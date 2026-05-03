@@ -69,6 +69,10 @@ export default defineEventHandler(async (event) => {
       newRefreshTokenRecord = { tokenHash: newTokenHash, expiresAt }
     }
 
+    // Sign the access token before mutating DB state — a signing failure must
+    // not consume the client's only refresh token
+    const accessToken = await signAccessToken(storedToken.userId)
+
     // Atomic: conditional update guards against concurrent replay (TOCTOU)
     await prisma.$transaction(async (tx) => {
       const updated = await tx.refreshToken.updateMany({
@@ -96,8 +100,6 @@ export default defineEventHandler(async (event) => {
         })
       }
     })
-
-    const accessToken = await signAccessToken(storedToken.userId)
 
     return {
       accessToken,
