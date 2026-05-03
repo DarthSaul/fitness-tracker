@@ -26,8 +26,8 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   try {
-    const isNative = getHeader(event, 'x-client-type') === 'native'
     const body = await readBody<{ refreshToken?: string }>(event).catch(() => null)
+    const isNative = getHeader(event, 'x-client-type') === 'native' || Boolean(body?.refreshToken)
 
     if (body?.refreshToken) {
       const hashBuffer = await crypto.subtle.digest(

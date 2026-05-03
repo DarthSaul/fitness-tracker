@@ -69,19 +69,20 @@ describe('POST /api/auth/logout', () => {
     expect(mockSendRedirect).not.toHaveBeenCalled()
   })
 
-  test('revokes refresh token and still redirects when refreshToken present without native header', async () => {
+  test('revokes refresh token and returns success when refreshToken present without native header', async () => {
     mockReadBody.mockResolvedValueOnce({ refreshToken: 'raw-refresh-token' })
     mockRefreshTokenUpdateMany.mockResolvedValueOnce({ count: 1 })
     const event = makeEvent()
-    await (handler as (e: typeof event) => Promise<void>)(event)
+    const result = await (handler as (e: typeof event) => Promise<unknown>)(event)
     expect(mockRefreshTokenUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ revokedAt: null }),
         data: { revokedAt: expect.any(Date) },
       }),
     )
-    expect(mockClearUserSession).toHaveBeenCalledOnce()
-    expect(mockSendRedirect).toHaveBeenCalledWith(event, '/login')
+    expect(result).toEqual({ success: true })
+    expect(mockClearUserSession).not.toHaveBeenCalled()
+    expect(mockSendRedirect).not.toHaveBeenCalled()
   })
 })
 
