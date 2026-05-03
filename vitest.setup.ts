@@ -86,6 +86,9 @@ vi.stubGlobal('isEmailAllowed', vi.fn(() => true))
 vi.stubGlobal('signAccessToken', vi.fn())
 vi.stubGlobal('signRefreshToken', vi.fn())
 vi.stubGlobal('verifyAccessToken', vi.fn())
+// JWKS identity token verifiers — default to no-op; override per-test as needed
+vi.stubGlobal('verifyAppleIdentityToken', vi.fn())
+vi.stubGlobal('verifyGoogleIdToken', vi.fn())
 
 // ── H3 request helpers ───────────────────────────────────────────────────────
 vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/email/test')))

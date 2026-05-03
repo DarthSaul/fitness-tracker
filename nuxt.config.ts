@@ -14,6 +14,8 @@ export default defineNuxtConfig({
     supabaseServiceRoleKey: '',
     jwtAccessSecret: '',
     jwtRefreshSecret: '',
+    appleBundleId: '',
+    oauthGoogleClientId: '',
   },
   css: ['~/assets/css/main.css'],
   colorMode: {
