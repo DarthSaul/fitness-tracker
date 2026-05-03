@@ -25,26 +25,33 @@ defineRouteMeta({
 })
 
 export default defineEventHandler(async (event) => {
-  const isNative = getHeader(event, 'x-client-type') === 'native'
-  const body = await readBody<{ refreshToken?: string }>(event).catch(() => null)
+  try {
+    const isNative = getHeader(event, 'x-client-type') === 'native'
+    const body = await readBody<{ refreshToken?: string }>(event).catch(() => null)
 
-  if (body?.refreshToken) {
-    const hashBuffer = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(body.refreshToken),
-    )
-    const tokenHash = Buffer.from(hashBuffer).toString('hex')
-    // Best-effort revocation — don't expose whether token existed
-    await prisma.refreshToken.updateMany({
-      where: { tokenHash, revokedAt: null },
-      data: { revokedAt: new Date() },
-    }).catch(() => {})
+    if (body?.refreshToken) {
+      const hashBuffer = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(body.refreshToken),
+      )
+      const tokenHash = Buffer.from(hashBuffer).toString('hex')
+      // Best-effort revocation — don't expose whether token existed
+      await prisma.refreshToken.updateMany({
+        where: { tokenHash, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }).catch(() => {})
+    }
+
+    if (isNative) {
+      return { success: true }
+    }
+
+    await clearUserSession(event)
+    return sendRedirect(event, '/login')
+  } catch (err) {
+    throw createError({
+      statusCode: (err as { statusCode?: number }).statusCode || 500,
+      statusMessage: (err as Error).message,
+    })
   }
-
-  if (isNative) {
-    return { success: true }
-  }
-
-  await clearUserSession(event)
-  return sendRedirect(event, '/login')
 })
