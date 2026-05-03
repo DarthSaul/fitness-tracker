@@ -12,6 +12,9 @@ import handler from './logout.post'
 
 const mockClearUserSession = clearUserSession as ReturnType<typeof vi.fn>
 const mockSendRedirect = sendRedirect as ReturnType<typeof vi.fn>
+const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
+const mockReadBody = readBody as ReturnType<typeof vi.fn>
+const mockRefreshTokenUpdateMany = (prisma as any).refreshToken.updateMany as ReturnType<typeof vi.fn>
 
 function makeEvent() {
   return { path: '/api/auth/logout', context: {} }
@@ -62,5 +65,53 @@ describe('POST /api/auth/logout', () => {
       (handler as (e: typeof event) => Promise<void>)(event),
     ).rejects.toThrow('session store failure')
     expect(mockSendRedirect).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/auth/logout — native client', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetHeader.mockImplementation((_event: unknown, header: string) =>
+      header === 'x-client-type' ? 'native' : null,
+    )
+    mockRefreshTokenUpdateMany.mockResolvedValue({ count: 1 })
+  })
+
+  test('returns { success: true } for native clients', async () => {
+    mockReadBody.mockResolvedValueOnce({})
+    const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(result).toEqual({ success: true })
+  })
+
+  test('does not call clearUserSession or sendRedirect for native clients', async () => {
+    mockReadBody.mockResolvedValueOnce({})
+    await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(mockClearUserSession).not.toHaveBeenCalled()
+    expect(mockSendRedirect).not.toHaveBeenCalled()
+  })
+
+  test('revokes the refresh token when provided', async () => {
+    mockReadBody.mockResolvedValueOnce({ refreshToken: 'raw-refresh-token' })
+    await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(mockRefreshTokenUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ revokedAt: null }),
+        data: { revokedAt: expect.any(Date) },
+      }),
+    )
+  })
+
+  test('returns success even when refreshToken is not provided', async () => {
+    mockReadBody.mockResolvedValueOnce(null)
+    const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(result).toEqual({ success: true })
+    expect(mockRefreshTokenUpdateMany).not.toHaveBeenCalled()
+  })
+
+  test('returns success even when token hash is not found (no token leak)', async () => {
+    mockReadBody.mockResolvedValueOnce({ refreshToken: 'unknown-token' })
+    mockRefreshTokenUpdateMany.mockResolvedValueOnce({ count: 0 })
+    const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(result).toEqual({ success: true })
   })
 })
