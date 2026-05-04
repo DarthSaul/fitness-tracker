@@ -249,6 +249,8 @@ UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
 - [ ] Fix iPadOS desktop UA detection in `PwaInstallBanner.vue` — iPads in Safari desktop-class mode (iPadOS 13+) report `Macintosh` UA; extend `isIOS` computed to also check `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1`
 - [ ] Push notification triggers (workout reminders, etc.)
 - [ ] Manual unlink flow — UI to disconnect a specific provider Identity from a User (covers the "I changed my Apple email" case). Account linking on sign-in is implemented; this is the inverse operation.
+- [ ] `GET /api/feedback` authorization gating — restrict results to the authenticated user's own feedback unless the caller has an admin role; only admins should see cross-user entries (flagged by CodeRabbit on PR #93).
+- [ ] `GET /api/feedback` pagination — add a hard server-side cap (e.g. `take: 100`) and cursor- or page-based pagination to prevent unbounded system-wide reads as the dataset grows (flagged by CodeRabbit on PR #93).
 
 ## Subagents
 
