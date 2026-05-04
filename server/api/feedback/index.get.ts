@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Feedback'],
     summary: 'List feedback',
-    description: "Returns all feedback entries for the authenticated user, newest first.",
+    description: 'Returns all feedback entries from every user, newest first.',
     responses: {
       200: { description: 'List of feedback entries' },
       500: { description: 'Internal server error' },
@@ -10,12 +10,9 @@ defineRouteMeta({
   },
 })
 
-export default defineEventHandler(async (event) => {
-  const userId = event.context.userId as string
-
+export default defineEventHandler(async () => {
   try {
     const items = await prisma.feedback.findMany({
-      where: { userId },
       orderBy: { createdAt: 'desc' },
       include: { user: { select: { name: true } } },
     })
