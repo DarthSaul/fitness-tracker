@@ -24,27 +24,31 @@ const DIGITS_ONLY = /^\d+$/
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
-  const query = getQuery(event) as { limit?: string; before?: string; beforeId?: string }
+  // Repeated query params (e.g. `?limit=1&limit=2`) arrive as arrays from
+  // getQuery, so each input is validated as a non-empty string before use.
+  const query = getQuery(event)
 
   let limit = DEFAULT_LIMIT
-  if (query.limit !== undefined && query.limit !== '') {
-    // parseInt would silently accept "10foo" or "1.5" — require digits only.
-    if (!DIGITS_ONLY.test(query.limit)) {
+  if (query.limit !== undefined) {
+    if (typeof query.limit !== 'string' || !DIGITS_ONLY.test(query.limit)) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid limit' })
     }
     limit = Math.max(MIN_LIMIT, Math.min(MAX_LIMIT, Number.parseInt(query.limit, 10)))
   }
 
-  const hasBefore = query.before !== undefined && query.before !== ''
-  const hasBeforeId = query.beforeId !== undefined && query.beforeId !== ''
-  if (hasBefore !== hasBeforeId) {
-    throw createError({ statusCode: 400, statusMessage: 'before and beforeId must be provided together' })
-  }
-
   let before: Date | undefined
   let beforeId: string | undefined
-  if (hasBefore && hasBeforeId) {
-    const parsed = new Date(query.before!)
+  if (query.before !== undefined || query.beforeId !== undefined) {
+    if (query.before === undefined || query.beforeId === undefined) {
+      throw createError({ statusCode: 400, statusMessage: 'before and beforeId must be provided together' })
+    }
+    if (typeof query.before !== 'string' || query.before === '') {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid before' })
+    }
+    if (typeof query.beforeId !== 'string' || query.beforeId === '') {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid beforeId' })
+    }
+    const parsed = new Date(query.before)
     if (Number.isNaN(parsed.getTime())) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid before timestamp' })
     }

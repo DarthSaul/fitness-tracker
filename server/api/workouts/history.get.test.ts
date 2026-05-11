@@ -109,6 +109,30 @@ describe('GET /api/workouts/history', () => {
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid limit' })
   })
 
+  test('rejects array limit (regression: repeated ?limit= must not coerce)', async () => {
+    mockGetQuery.mockReturnValue({ limit: ['10', '20'] })
+
+    await expect(
+      (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid limit' })
+  })
+
+  test('rejects array before with 400', async () => {
+    mockGetQuery.mockReturnValue({ before: ['2026-05-01T00:00:00Z', '2026-05-02T00:00:00Z'], beforeId: 'ws050' })
+
+    await expect(
+      (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid before' })
+  })
+
+  test('rejects array beforeId with 400 (regression: array previously leaked to Prisma)', async () => {
+    mockGetQuery.mockReturnValue({ before: '2026-05-01T00:00:00Z', beforeId: ['ws050', 'ws051'] })
+
+    await expect(
+      (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid beforeId' })
+  })
+
   test('applies composite before/beforeId cursor with (completedAt, id) tiebreaker', async () => {
     const before = '2026-05-01T00:00:00Z'
     const beforeId = 'ws050'
