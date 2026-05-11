@@ -64,6 +64,18 @@ describe('server/middleware/auth', () => {
       await (handler as (e: typeof event) => Promise<void>)(event)
       expect(mockGetUserSession).not.toHaveBeenCalled()
     })
+
+    test('requires auth for /api/auth/me even though it sits under /api/auth/', async () => {
+      // /api/auth/me is listed in PROTECTED_EXACT so the public-prefix carve-out
+      // does NOT apply; the middleware must run a session check.
+      mockGetUserSession.mockResolvedValueOnce(null)
+      mockGetHeader.mockReturnValueOnce(null)
+      const event = makeEvent('/api/auth/me')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401 })
+      expect(mockGetUserSession).toHaveBeenCalled()
+    })
   })
 
   describe('authenticated requests', () => {

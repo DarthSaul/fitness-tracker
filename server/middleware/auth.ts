@@ -2,6 +2,9 @@
 const PUBLIC_PREFIXES = ['/api/auth/', '/api/_auth/', '/api/docs', '/_openapi']
 // Exact paths that do not require authentication
 const PUBLIC_EXACT = ['/api/health']
+// Exact paths nested under a PUBLIC_PREFIXES entry that still require auth.
+// Listed here so we don't have to slice prefixes into ever-narrower patterns.
+const PROTECTED_EXACT = ['/api/auth/me']
 
 /**
  * Global auth guard that protects all non-public API routes.
@@ -17,7 +20,9 @@ export default defineEventHandler(async (event) => {
   // Let CORS preflight requests through — OPTIONS must not require auth
   if (getMethod(event) === 'OPTIONS') return
 
-  if (PUBLIC_EXACT.includes(event.path) || PUBLIC_PREFIXES.some((p) => event.path.startsWith(p))) return
+  if (!PROTECTED_EXACT.includes(event.path)) {
+    if (PUBLIC_EXACT.includes(event.path) || PUBLIC_PREFIXES.some((p) => event.path.startsWith(p))) return
+  }
 
   const authHeader = getHeader(event, 'authorization')
   const bearerMatch = authHeader?.match(/^Bearer\s+(.+)$/i)
