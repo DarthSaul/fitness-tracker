@@ -62,7 +62,7 @@ describe('GET /api/workouts/history', () => {
     ])
     expect(mockFindManySession).toHaveBeenCalledWith(expect.objectContaining({
       where: { userId: 'user001', status: 'COMPLETED', completedAt: { not: null } },
-      orderBy: { completedAt: 'desc' },
+      orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
       take: 20,
     }))
   })
@@ -93,22 +93,62 @@ describe('GET /api/workouts/history', () => {
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid limit' })
   })
 
-  test('applies before cursor as completedAt < before', async () => {
+  test('rejects limit with trailing garbage (regression: parseInt accepts "10foo")', async () => {
+    mockGetQuery.mockReturnValue({ limit: '10foo' })
+
+    await expect(
+      (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid limit' })
+  })
+
+  test('rejects fractional limit (regression: parseInt accepts "1.5")', async () => {
+    mockGetQuery.mockReturnValue({ limit: '1.5' })
+
+    await expect(
+      (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid limit' })
+  })
+
+  test('applies composite before/beforeId cursor with (completedAt, id) tiebreaker', async () => {
     const before = '2026-05-01T00:00:00Z'
-    mockGetQuery.mockReturnValue({ before })
+    const beforeId = 'ws050'
+    mockGetQuery.mockReturnValue({ before, beforeId })
     mockFindManySession.mockResolvedValueOnce([])
 
     await (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
 
     expect(mockFindManySession).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({
-        completedAt: { not: null, lt: new Date(before) },
-      }),
+      where: {
+        userId: 'user001',
+        status: 'COMPLETED',
+        completedAt: { not: null },
+        OR: [
+          { completedAt: { lt: new Date(before) } },
+          { completedAt: new Date(before), id: { lt: beforeId } },
+        ],
+      },
+      orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
     }))
   })
 
+  test('rejects before without beforeId with 400', async () => {
+    mockGetQuery.mockReturnValue({ before: '2026-05-01T00:00:00Z' })
+
+    await expect(
+      (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'before and beforeId must be provided together' })
+  })
+
+  test('rejects beforeId without before with 400', async () => {
+    mockGetQuery.mockReturnValue({ beforeId: 'ws050' })
+
+    await expect(
+      (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'before and beforeId must be provided together' })
+  })
+
   test('rejects unparseable before with 400', async () => {
-    mockGetQuery.mockReturnValue({ before: 'not-a-date' })
+    mockGetQuery.mockReturnValue({ before: 'not-a-date', beforeId: 'ws050' })
 
     await expect(
       (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
