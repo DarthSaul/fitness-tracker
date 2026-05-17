@@ -9,6 +9,10 @@ export default defineNuxtConfig({
     client: 'hidden',
   },
   sentry: {
+    // Vercel serverless doesn't apply Node's --import flag, so the default
+    // instrumentation never runs Sentry.init() at runtime. Inject the server
+    // config as a top-level import instead so error capture works on Vercel.
+    autoInjectServerSentry: 'top-level-import',
     sourceMapsUploadOptions: {
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
