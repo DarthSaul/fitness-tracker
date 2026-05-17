@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
     if ((error as { code?: string }).code === 'P2002') {
       throw createError({ statusCode: 409, statusMessage: 'Program already saved' })
     }
-    console.error('[POST /api/user-programs] Failed to save program', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/user-programs' }, '[POST /api/user-programs] Failed to save program')
     throw createError({ statusCode: 500, statusMessage: 'Failed to save program' })
   }
 })

@@ -148,10 +148,7 @@ describe('DELETE /api/devices/:id', () => {
         // expected
       }
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[DELETE /api/devices/:id] Failed to unregister device token',
-        dbError,
-      )
+      expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'DELETE /api/devices/:id' }, '[DELETE /api/devices/:id] Failed to unregister device token')
     })
 
     test('re-throws H3 errors without wrapping as 500', async () => {

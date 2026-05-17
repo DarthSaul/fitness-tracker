@@ -225,10 +225,7 @@ describe('POST /api/workouts', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to start workout session' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[POST /api/workouts] Failed to start workout session',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/workouts' }, '[POST /api/workouts] Failed to start workout session')
     consoleSpy.mockRestore()
   })
 

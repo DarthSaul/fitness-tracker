@@ -133,10 +133,7 @@ describe('PATCH /api/user-programs/:id/activate', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to activate program' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[PATCH /api/user-programs/:id/activate] Failed to activate program',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'PATCH /api/user-programs/:id/activate' }, '[PATCH /api/user-programs/:id/activate] Failed to activate program')
     consoleSpy.mockRestore()
   })
 

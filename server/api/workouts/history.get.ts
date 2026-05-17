@@ -107,7 +107,7 @@ export default defineEventHandler(async (event) => {
     return { sessions: shaped }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/workouts/history] Failed to fetch history', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/workouts/history' }, '[GET /api/workouts/history] Failed to fetch history')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch workout history' })
   }
 })

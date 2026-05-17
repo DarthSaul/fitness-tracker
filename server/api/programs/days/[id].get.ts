@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
     return day
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/programs/days/:id] Failed to fetch day', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/programs/days/:id' }, '[GET /api/programs/days/:id] Failed to fetch day')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch day' })
   }
 })

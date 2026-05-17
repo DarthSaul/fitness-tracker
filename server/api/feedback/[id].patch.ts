@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
     })
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[PATCH /api/feedback/:id] Failed to update feedback', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/feedback/:id' }, '[PATCH /api/feedback/:id] Failed to update feedback')
     throw createError({ statusCode: 500, statusMessage: 'Failed to update feedback' })
   }
 })

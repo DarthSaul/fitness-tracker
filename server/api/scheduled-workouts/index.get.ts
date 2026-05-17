@@ -73,7 +73,7 @@ export default defineEventHandler(async (event) => {
     return { scheduledWorkouts }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/scheduled-workouts] Failed to fetch scheduled workouts', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/scheduled-workouts' }, '[GET /api/scheduled-workouts] Failed to fetch scheduled workouts')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch scheduled workouts' })
   }
 })

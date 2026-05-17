@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     return updated
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[PATCH /api/workouts/:id/sets/:setId] Failed to update completed set', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/workouts/:id/sets/:setId' }, '[PATCH /api/workouts/:id/sets/:setId] Failed to update completed set')
     throw createError({ statusCode: 500, statusMessage: 'Failed to update completed set' })
   }
 })

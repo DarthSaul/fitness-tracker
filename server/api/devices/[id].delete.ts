@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     return null
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[DELETE /api/devices/:id] Failed to unregister device token', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'DELETE /api/devices/:id' }, '[DELETE /api/devices/:id] Failed to unregister device token')
     throw createError({ statusCode: 500, statusMessage: 'Failed to unregister device token' })
   }
 })

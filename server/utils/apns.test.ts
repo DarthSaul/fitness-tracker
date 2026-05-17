@@ -234,9 +234,9 @@ describe('server/utils/apns', () => {
         sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
       ).resolves.toBeUndefined()
 
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: expect.any(Error), route: 'APNs' },
         '[APNs] Failed to revoke stale device token',
-        expect.any(Error),
       )
     })
 
@@ -251,8 +251,9 @@ describe('server/utils/apns', () => {
         sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
       ).resolves.toBeUndefined()
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[APNs] Push failed for device'),
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ route: 'APNs' }),
+        '[APNs] Push failed',
       )
     })
   })
@@ -351,7 +352,8 @@ describe('server/utils/apns', () => {
 
       expect(mockDeviceTokenFindMany).not.toHaveBeenCalled()
       expect(mockRequest).not.toHaveBeenCalled()
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.warn).toHaveBeenCalledWith(
+        { route: 'APNs' },
         '[APNs] Missing appleBundleId; skipping push dispatch',
       )
     })
@@ -365,7 +367,7 @@ describe('server/utils/apns', () => {
       ).resolves.toBeUndefined()
 
       expect(mockRequest).not.toHaveBeenCalled()
-      expect(consoleSpy).toHaveBeenCalledWith('[APNs] Failed to load device tokens', dbError)
+      expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'APNs' }, '[APNs] Failed to load device tokens')
     })
   })
 

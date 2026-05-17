@@ -9,6 +9,7 @@
  *  - Protected path matching: non-public paths do trigger session check
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import * as Sentry from '@sentry/nuxt'
 
 // The source file uses Nuxt auto-import globals (defineEventHandler, getUserSession,
 // createError). vitest.setup.ts stubs those globals before any module is imported.
@@ -234,6 +235,32 @@ describe('server/middleware/auth', () => {
       const event = makeEvent('/api/programs')
       await (handler as (e: typeof event) => Promise<void>)(event)
       expect(event.context.authMethod).toBe('session')
+    })
+
+    test('binds authenticated JWT user to Sentry scope', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer valid-token')
+      mockVerifyAccessToken.mockResolvedValueOnce({ sub: 'user-jwt-sentry' })
+      const event = makeEvent('/api/workouts')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'user-jwt-sentry' })
+    })
+
+    test('binds authenticated session user to Sentry scope', async () => {
+      mockGetUserSession.mockResolvedValueOnce({ user: { id: 'session-user-sentry' } })
+      const event = makeEvent('/api/programs')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'session-user-sentry' })
+    })
+
+    test('does not call Sentry.setUser on auth failure', async () => {
+      mockGetUserSession.mockResolvedValueOnce(null)
+      const event = makeEvent('/api/workouts')
+      try {
+        await (handler as (e: typeof event) => Promise<void>)(event)
+      } catch {
+        // expected
+      }
+      expect(Sentry.setUser).not.toHaveBeenCalled()
     })
 
     test('accepts lowercase bearer scheme (case-insensitive)', async () => {

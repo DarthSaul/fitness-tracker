@@ -8,8 +8,21 @@
  */
 import { vi } from 'vitest'
 
+// ── Sentry SDK (imported by server/middleware/auth.ts and server/plugins/sentry.ts) ─
+// Mock at module level so any `import * as Sentry from '@sentry/nuxt'` in source
+// resolves to spies. Tests can assert on Sentry.setUser / captureException.
+vi.mock('@sentry/nuxt', () => ({
+  setUser: vi.fn(),
+  captureException: vi.fn(),
+  withIsolationScope: (fn: (scope: { setTag: () => void; setUser: () => void }) => unknown) =>
+    fn({ setTag: vi.fn(), setUser: vi.fn() }),
+  prismaIntegration: vi.fn(() => ({})),
+  init: vi.fn(),
+}))
+
 // ── Nitro compile-time macros ────────────────────────────────────────────────
 vi.stubGlobal('defineRouteMeta', vi.fn())
+vi.stubGlobal('defineNitroPlugin', (fn: (app: unknown) => unknown) => fn)
 
 // ── H3 helpers (used in server routes and middleware) ─────────────────────────
 vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
@@ -61,6 +74,21 @@ vi.stubGlobal('prisma', {
 })
 
 vi.stubGlobal('sendPush', vi.fn())
+
+// ── Pino logger global (auto-imported via server/utils/logger.ts) ────────────
+// Tests assert against logger.error / logger.info argument shapes. `child()`
+// returns the same stub so request-scoped child loggers in tests are spy-able.
+const loggerStub = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  fatal: vi.fn(),
+  trace: vi.fn(),
+  child: vi.fn() as ReturnType<typeof vi.fn>,
+}
+loggerStub.child.mockReturnValue(loggerStub)
+vi.stubGlobal('logger', loggerStub)
 
 // ── Supabase client global (used in Nitro server route handlers via auto-import) ─
 vi.stubGlobal('supabase', {

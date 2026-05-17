@@ -150,10 +150,7 @@ describe('GET /api/workouts/active', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch active session' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/workouts/active] Failed to fetch active session',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/workouts/active' }, '[GET /api/workouts/active] Failed to fetch active session')
     consoleSpy.mockRestore()
   })
 

@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
     return completedSet
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/workouts/:id/ad-hoc-sets] Failed to create ad-hoc set', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/workouts/:id/ad-hoc-sets' }, '[POST /api/workouts/:id/ad-hoc-sets] Failed to create ad-hoc set')
     throw createError({ statusCode: 500, statusMessage: 'Failed to create ad-hoc set' })
   }
 })

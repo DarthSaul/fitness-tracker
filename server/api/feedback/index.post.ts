@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
         .upload(storagePath, filePart.data, { contentType: filePart.type, upsert: false })
 
       if (error) {
-        console.error('[POST /api/feedback] Screenshot upload failed', error)
+        ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/feedback' }, '[POST /api/feedback] Screenshot upload failed')
         throw createError({ statusCode: 500, statusMessage: 'Failed to upload screenshot' })
       }
 
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
     }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/feedback] Failed to save feedback', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/feedback' }, '[POST /api/feedback] Failed to save feedback')
     throw createError({ statusCode: 500, statusMessage: 'Failed to save feedback' })
   }
 })

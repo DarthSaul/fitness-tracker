@@ -88,10 +88,7 @@ describe('GET /api/user-programs', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to list user programs' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/user-programs] Failed to list user programs',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/user-programs' }, '[GET /api/user-programs] Failed to list user programs')
     consoleSpy.mockRestore()
   })
 

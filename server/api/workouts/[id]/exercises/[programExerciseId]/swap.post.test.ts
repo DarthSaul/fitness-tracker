@@ -221,10 +221,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to swap exercise' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[POST /api/workouts/:id/exercises/:programExerciseId/swap] Failed to swap exercise',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/workouts/:id/exercises/:programExerciseId/swap' }, '[POST /api/workouts/:id/exercises/:programExerciseId/swap] Failed to swap exercise')
     consoleSpy.mockRestore()
   })
 })

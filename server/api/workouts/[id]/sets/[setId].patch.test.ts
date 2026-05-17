@@ -243,10 +243,7 @@ describe('PATCH /api/workouts/:id/sets/:setId', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to update completed set' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[PATCH /api/workouts/:id/sets/:setId] Failed to update completed set',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'PATCH /api/workouts/:id/sets/:setId' }, '[PATCH /api/workouts/:id/sets/:setId] Failed to update completed set')
     consoleSpy.mockRestore()
   })
 

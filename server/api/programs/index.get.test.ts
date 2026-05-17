@@ -88,10 +88,7 @@ describe('GET /api/programs', () => {
       statusCode: 500,
       statusMessage: 'Failed to fetch programs',
     })
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/programs] Failed to fetch programs',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/programs' }, '[GET /api/programs] Failed to fetch programs')
     consoleSpy.mockRestore()
   })
 })

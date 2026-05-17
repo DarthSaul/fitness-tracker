@@ -3,7 +3,18 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
   devtools: { enabled: true },
-  modules: ['nuxt-auth-utils', '@nuxt/ui', '@vite-pwa/nuxt'],
+  modules: ['nuxt-auth-utils', '@nuxt/ui', '@vite-pwa/nuxt', '@sentry/nuxt/module'],
+  sourcemap: {
+    server: true,
+    client: 'hidden',
+  },
+  sentry: {
+    sourceMapsUploadOptions: {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    },
+  },
   auth: {
     sessionCookie: {
       maxAge: 60 * 60 * 24 * 30, // 30 days

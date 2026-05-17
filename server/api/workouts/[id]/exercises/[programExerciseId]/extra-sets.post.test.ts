@@ -205,10 +205,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/extra-sets', () =>
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to record extra set' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[POST /api/workouts/:id/exercises/:programExerciseId/extra-sets] Failed to record extra set',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/workouts/:id/exercises/:programExerciseId/extra-sets' }, '[POST /api/workouts/:id/exercises/:programExerciseId/extra-sets] Failed to record extra set')
     consoleSpy.mockRestore()
   })
 })

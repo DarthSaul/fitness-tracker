@@ -108,7 +108,7 @@ export default defineEventHandler(async (event) => {
     }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/auth/refresh] Failed to refresh token', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/auth/refresh' }, '[POST /api/auth/refresh] Failed to refresh token')
     throw createError({ statusCode: 500, statusMessage: 'Failed to refresh token' })
   }
 })

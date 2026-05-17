@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     return userPrograms
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/user-programs] Failed to list user programs', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/user-programs' }, '[GET /api/user-programs] Failed to list user programs')
     throw createError({ statusCode: 500, statusMessage: 'Failed to list user programs' })
   }
 })

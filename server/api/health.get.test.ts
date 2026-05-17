@@ -84,10 +84,7 @@ describe('GET /api/health', () => {
       // expected
     }
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Health check failed: database unreachable',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, }, 'Health check failed: database unreachable')
     consoleSpy.mockRestore()
   })
 })

@@ -88,7 +88,7 @@ export default defineEventHandler(async (event) => {
     return { session, day }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/workouts/active] Failed to fetch active session', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/workouts/active' }, '[GET /api/workouts/active] Failed to fetch active session')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch active session' })
   }
 })

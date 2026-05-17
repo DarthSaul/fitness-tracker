@@ -94,7 +94,7 @@ describe('POST /api/auth/native/apple', () => {
       } catch {
         // expected
       }
-      expect(consoleSpy).toHaveBeenCalledWith('[POST /api/auth/native/apple] JWKS or infrastructure error', expect.any(Error))
+      expect(logger.error).toHaveBeenCalledWith({ err: expect.any(Error), route: 'POST /api/auth/native/apple' }, '[POST /api/auth/native/apple] JWKS or infrastructure error')
     })
 
     test('throws 401 when Apple payload has no email', async () => {
@@ -242,7 +242,7 @@ describe('POST /api/auth/native/apple', () => {
       } catch {
         // expected
       }
-      expect(consoleSpy).toHaveBeenCalledWith('[POST /api/auth/native/apple] Failed', expect.any(Error))
+      expect(logger.error).toHaveBeenCalledWith({ err: expect.any(Error), route: 'POST /api/auth/native/apple' }, '[POST /api/auth/native/apple] Failed')
     })
 
     test('re-throws H3 errors without wrapping', async () => {
@@ -250,7 +250,7 @@ describe('POST /api/auth/native/apple', () => {
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
       mockIsEmailAllowed.mockReturnValueOnce(false)
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 403 })
-      expect(consoleSpy).not.toHaveBeenCalled()
+      expect(logger.error).not.toHaveBeenCalled()
     })
   })
 })

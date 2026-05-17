@@ -163,7 +163,7 @@ describe('GET /api/auth/google', () => {
 
       config.onError(event, err)
 
-      expect(consoleSpy).toHaveBeenCalledWith('Google OAuth error:', err)
+      expect(logger.error).toHaveBeenCalledWith({ err: err }, 'Google OAuth error:')
     })
   })
 })

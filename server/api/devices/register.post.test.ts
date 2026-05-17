@@ -151,10 +151,7 @@ describe('POST /api/devices/register', () => {
         // expected
       }
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[POST /api/devices/register] Failed to register device token',
-        dbError,
-      )
+      expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/devices/register' }, '[POST /api/devices/register] Failed to register device token')
     })
 
     test('re-throws H3 errors without wrapping as 500', async () => {

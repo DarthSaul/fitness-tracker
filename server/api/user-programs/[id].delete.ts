@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     return { success: true }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[DELETE /api/user-programs/:id] Failed to delete user program', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'DELETE /api/user-programs/:id' }, '[DELETE /api/user-programs/:id] Failed to delete user program')
     throw createError({ statusCode: 500, statusMessage: 'Failed to delete user program' })
   }
 })

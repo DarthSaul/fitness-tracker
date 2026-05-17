@@ -238,7 +238,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
       config.onError(event, err)
 
-      expect(consoleSpy).toHaveBeenCalledWith('Apple OAuth error:', err)
+      expect(logger.error).toHaveBeenCalledWith({ err: err }, 'Apple OAuth error:')
     })
   })
 })

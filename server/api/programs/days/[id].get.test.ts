@@ -128,10 +128,7 @@ describe('GET /api/programs/days/:id', () => {
       statusCode: 500,
       statusMessage: 'Failed to fetch day',
     })
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/programs/days/:id] Failed to fetch day',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/programs/days/:id' }, '[GET /api/programs/days/:id] Failed to fetch day')
     consoleSpy.mockRestore()
   })
 

@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
     ) {
       throw createError({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
     }
-    console.error('[POST /api/auth/native/apple] JWKS or infrastructure error', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/auth/native/apple' }, '[POST /api/auth/native/apple] JWKS or infrastructure error')
     throw createError({ statusCode: 500, statusMessage: 'Sign-in failed. Please try again.' })
   }
 
@@ -106,7 +106,7 @@ export default defineEventHandler(async (event) => {
     return { accessToken, refreshToken: raw }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/auth/native/apple] Failed', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/auth/native/apple' }, '[POST /api/auth/native/apple] Failed')
     throw createError({ statusCode: 500, statusMessage: 'Sign-in failed. Please try again.' })
   }
 })

@@ -115,7 +115,7 @@ export default defineEventHandler(async (event) => {
     return result
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/workouts/:id/exercises/:programExerciseId/swap] Failed to swap exercise', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/workouts/:id/exercises/:programExerciseId/swap' }, '[POST /api/workouts/:id/exercises/:programExerciseId/swap] Failed to swap exercise')
     throw createError({ statusCode: 500, statusMessage: 'Failed to swap exercise' })
   }
 })

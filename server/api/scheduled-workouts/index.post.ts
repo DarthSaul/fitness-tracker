@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
     if ((error as { code?: string }).code === 'P2002') {
       throw createError({ statusCode: 409, statusMessage: 'This day or date is already scheduled' })
     }
-    console.error('[POST /api/scheduled-workouts] Failed to schedule workout', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/scheduled-workouts' }, '[POST /api/scheduled-workouts] Failed to schedule workout')
     throw createError({ statusCode: 500, statusMessage: 'Failed to schedule workout' })
   }
 })

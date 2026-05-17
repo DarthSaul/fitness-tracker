@@ -118,10 +118,7 @@ describe('POST /api/user-programs', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to save program' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[POST /api/user-programs] Failed to save program',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/user-programs' }, '[POST /api/user-programs] Failed to save program')
     consoleSpy.mockRestore()
   })
 
