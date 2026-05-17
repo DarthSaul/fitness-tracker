@@ -11,7 +11,7 @@ const PROTECTED_EXACT = ['/api/auth/me']
 /**
  * Global auth guard that protects all non-public API routes.
  * Attaches `event.context.userId` for authenticated requests so downstream handlers don't need to re-read the session.
- * Binds the authenticated user to the request-scoped Sentry isolation scope opened by `server/plugins/sentry.ts`.
+ * Binds the authenticated user to the per-request Sentry isolation scope that `@sentry/nuxt` opens around every Nitro request.
  * @throws {H3Error} 401 Unauthorized when the session is absent or has no user.
  */
 export default defineEventHandler(async (event) => {

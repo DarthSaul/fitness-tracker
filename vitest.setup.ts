@@ -8,23 +8,15 @@
  */
 import { vi } from 'vitest'
 
-// ── Sentry SDK (imported by server/middleware/auth.ts and server/plugins/sentry.ts) ─
-// Mock at module level so any `import * as Sentry from '@sentry/nuxt'` in source
-// resolves to spies. Tests can assert on Sentry.setUser / captureException.
+// ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
+// Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
+// resolves to spies. Tests assert on Sentry.setUser.
 vi.mock('@sentry/nuxt', () => ({
   setUser: vi.fn(),
-  captureException: vi.fn(),
-  withIsolationScope: (fn: (scope: { setTag: () => void; setUser: () => void }) => unknown) =>
-    fn({ setTag: vi.fn(), setUser: vi.fn() }),
-  prismaIntegration: vi.fn(() => ({})),
-  init: vi.fn(),
-  getClient: vi.fn(() => undefined),
-  flush: vi.fn(() => Promise.resolve(true)),
 }))
 
 // ── Nitro compile-time macros ────────────────────────────────────────────────
 vi.stubGlobal('defineRouteMeta', vi.fn())
-vi.stubGlobal('defineNitroPlugin', (fn: (app: unknown) => unknown) => fn)
 
 // ── H3 helpers (used in server routes and middleware) ─────────────────────────
 vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
