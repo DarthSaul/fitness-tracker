@@ -1,10 +1,15 @@
+import * as Sentry from '@sentry/nuxt'
+
 export default defineEventHandler(async (event) => {
-  // TEMPORARY — Sentry smoke test. Remove before merge.
-  // Gated on a header, not a query param: event.path includes the query string,
-  // so `/api/health?x=1` would miss the auth middleware's exact-match public
-  // carve-out and 401 before reaching here. Trigger with header `x-sentry-smoke: 1`.
+  // TEMPORARY — self-diagnosing Sentry smoke probe. Remove before merge.
+  // Returns whether Sentry.init() actually ran in this serverless function and
+  // the captured event id, and explicitly flushes so the event isn't dropped
+  // when the Vercel function suspends. Trigger with header `x-sentry-smoke: 1`.
   if (getHeader(event, 'x-sentry-smoke')) {
-    throw new Error('sentry smoke test')
+    const initialized = Boolean(Sentry.getClient())
+    const eventId = Sentry.captureException(new Error('sentry smoke test'))
+    const flushed = await Sentry.flush(3000)
+    return { sentrySmoke: true, initialized, eventId, flushed }
   }
 
   try {

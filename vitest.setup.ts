@@ -18,6 +18,8 @@ vi.mock('@sentry/nuxt', () => ({
     fn({ setTag: vi.fn(), setUser: vi.fn() }),
   prismaIntegration: vi.fn(() => ({})),
   init: vi.fn(),
+  getClient: vi.fn(() => undefined),
+  flush: vi.fn(() => Promise.resolve(true)),
 }))
 
 // ── Nitro compile-time macros ────────────────────────────────────────────────
