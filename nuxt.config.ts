@@ -31,6 +31,7 @@ export default defineNuxtConfig({
     jwtRefreshSecret: '',
     appleBundleId: '',
     oauthGoogleClientId: '',
+    googleIosClientId: '',
     apnsTeamId: '',
     apnsKeyId: '',
     apnsPrivateKey: '',
