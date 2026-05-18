@@ -40,7 +40,14 @@ export default defineEventHandler(async (event) => {
       event.context.authMethod = 'jwt'
       Sentry.setUser({ id: payload.sub })
       return
-    } catch {
+    } catch (err) {
+      if (!isJwtVerificationError(err)) {
+        // Not a token problem — a server misconfig/infra failure (e.g. missing
+        // JWT secret). Do NOT mask it as a 401: a 4xx would be filtered out of
+        // Sentry by sentry.server.config.ts, hiding a real outage. Surface it.
+        Sentry.captureException(err)
+        throw err
+      }
       // Token failed verification (expired/invalid/forged). We can't trust it,
       // so this stays a 401 and never sets the authenticated `userId`. But the
       // unverified `sub` is still useful to spot a specific user/client stuck in

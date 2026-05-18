@@ -10,10 +10,11 @@ import { vi } from 'vitest'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
-// resolves to spies. Tests assert on Sentry.setUser / Sentry.setTag.
+// resolves to spies. Tests assert on setUser / setTag / captureException.
 vi.mock('@sentry/nuxt', () => ({
   setUser: vi.fn(),
   setTag: vi.fn(),
+  captureException: vi.fn(),
 }))
 
 // ── Nitro compile-time macros ────────────────────────────────────────────────
@@ -120,6 +121,11 @@ vi.stubGlobal('verifyAccessToken', vi.fn())
 // Default returns null (no decodable sub); override per-test. Real logic is
 // exercised by server/utils/jwt.test.ts.
 vi.stubGlobal('decodeUnverifiedSub', vi.fn(() => null))
+// Classifies a failed-verify error as a token problem (401) vs a server
+// misconfig (rethrow). Default true so the common "bad token → 401" path
+// holds; override with mockReturnValueOnce(false) for the server-error case.
+// Real logic is exercised by server/utils/jwt.test.ts.
+vi.stubGlobal('isJwtVerificationError', vi.fn(() => true))
 // JWKS identity token verifiers — default to no-op; override per-test as needed
 vi.stubGlobal('verifyAppleIdentityToken', vi.fn())
 vi.stubGlobal('verifyGoogleIdToken', vi.fn())

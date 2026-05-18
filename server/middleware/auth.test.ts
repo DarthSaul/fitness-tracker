@@ -22,6 +22,7 @@ const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockGetMethod = getMethod as ReturnType<typeof vi.fn>
 const mockVerifyAccessToken = verifyAccessToken as ReturnType<typeof vi.fn>
 const mockDecodeUnverifiedSub = decodeUnverifiedSub as ReturnType<typeof vi.fn>
+const mockIsJwtVerificationError = isJwtVerificationError as ReturnType<typeof vi.fn>
 
 function makeEvent(path: string): { path: string; context: Record<string, unknown> } {
   return { path, context: {} }
@@ -289,6 +290,40 @@ describe('server/middleware/auth', () => {
       ).rejects.toMatchObject({ statusCode: 401 })
       expect(event.context.unverifiedUserId).toBeUndefined()
       expect(Sentry.setUser).not.toHaveBeenCalled()
+      expect(Sentry.setTag).toHaveBeenCalledWith('auth.failed', true)
+    })
+
+    test('rethrows the original error (not 401) when the failure is not a token problem', async () => {
+      // e.g. missing JWT secret — a server misconfig. Masking it as 401 would
+      // get it filtered out of Sentry, hiding a real outage.
+      const serverErr = new Error('JWT access secret is not configured')
+      mockGetHeader.mockReturnValueOnce('Bearer some-token')
+      mockVerifyAccessToken.mockRejectedValueOnce(serverErr)
+      mockIsJwtVerificationError.mockReturnValueOnce(false)
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toBe(serverErr)
+      expect(Sentry.captureException).toHaveBeenCalledWith(serverErr)
+      // Not treated as a failed-auth attempt
+      expect(mockDecodeUnverifiedSub).not.toHaveBeenCalled()
+      expect(Sentry.setUser).not.toHaveBeenCalled()
+      expect(Sentry.setTag).not.toHaveBeenCalledWith('auth.failed', true)
+      expect(event.context.userId).toBeUndefined()
+    })
+
+    test('does not capture or rethrow as 500 for a genuine token failure', async () => {
+      // The normal expired-token path must stay a clean 401 with no
+      // captureException (it is intentionally filtered from Sentry).
+      mockGetHeader.mockReturnValueOnce('Bearer expired')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT expired'))
+      mockIsJwtVerificationError.mockReturnValueOnce(true)
+      mockDecodeUnverifiedSub.mockReturnValueOnce('user-7')
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401 })
+      expect(Sentry.captureException).not.toHaveBeenCalled()
       expect(Sentry.setTag).toHaveBeenCalledWith('auth.failed', true)
     })
 

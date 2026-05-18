@@ -48,6 +48,21 @@ export function decodeUnverifiedSub(token: string): string | null {
   }
 }
 
+/**
+ * True when `err` is a JWT verification failure — i.e. a problem with the
+ * client-supplied token itself (expired, malformed, bad signature, wrong
+ * issuer/audience, missing/invalid claims). All such errors thrown by
+ * `verifyAccessToken` originate from `jose` and extend `JOSEError`.
+ *
+ * Returns false for non-token failures — notably the missing-secret server
+ * misconfiguration thrown by `getAccessSecret()`. Those must NOT be masked as
+ * a 401 (a 4xx would be filtered out of Sentry by `sentry.server.config.ts`),
+ * so the caller can surface them as real server errors.
+ */
+export function isJwtVerificationError(err: unknown): boolean {
+  return err instanceof joseErrors.JOSEError
+}
+
 export async function verifyAccessToken(token: string): Promise<{ sub: string }> {
   const { payload } = await jwtVerify(token, getAccessSecret(), {
     issuer: 'fitness-tracker',
