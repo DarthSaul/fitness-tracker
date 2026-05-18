@@ -53,7 +53,26 @@ describe('verifyGoogleIdToken', () => {
     await verifyGoogleIdToken('token')
     expect(mockJwtVerify).toHaveBeenCalledWith('token', 'mock-jwks-set', {
       issuer: ['https://accounts.google.com', 'accounts.google.com'],
-      audience: 'google-client-id.apps.googleusercontent.com',
+      // verifyGoogleIdToken always passes audience as an array (web +
+      // optional iOS client ID, empties filtered) — see PR #98. Only the
+      // web client ID is configured in this test's runtime config.
+      audience: ['google-client-id.apps.googleusercontent.com'],
+    })
+  })
+
+  test('includes the iOS client ID in audience when googleIosClientId is configured', async () => {
+    mockUseRuntimeConfig.mockReturnValueOnce({
+      oauthGoogleClientId: 'google-client-id.apps.googleusercontent.com',
+      googleIosClientId: 'ios-client-id.apps.googleusercontent.com',
+    })
+    mockJwtVerify.mockResolvedValueOnce({ payload: { sub: 'g-sub-002', email: 'ios@gmail.com' } } as any)
+    await verifyGoogleIdToken('token')
+    expect(mockJwtVerify).toHaveBeenCalledWith('token', 'mock-jwks-set', {
+      issuer: ['https://accounts.google.com', 'accounts.google.com'],
+      audience: [
+        'google-client-id.apps.googleusercontent.com',
+        'ios-client-id.apps.googleusercontent.com',
+      ],
     })
   })
 
