@@ -1,3 +1,4 @@
+import type { PushEnvironment } from '@prisma/client'
 import { importPKCS8, SignJWT } from 'jose'
 import { Pool } from 'undici'
 
@@ -54,7 +55,7 @@ interface ApnsPayload {
 async function sendPushToDevice(
   deviceToken: string,
   bundleId: string,
-  environment: string,
+  environment: PushEnvironment,
   payload: ApnsPayload,
   userId: string,
 ): Promise<void> {
