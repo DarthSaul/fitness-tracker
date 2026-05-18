@@ -100,8 +100,40 @@ Sentry.init({
     // Prisma tracing — shows DB queries as spans
     Sentry.prismaIntegration(),
   ],
+  // Drop expected 4xx client errors — see policy below.
+  beforeSend(event, hint) {
+    return isClientError(hint?.originalException) ? null : event
+  },
 })
 ```
+
+### 4xx filtering policy (important)
+
+`sentry.server.config.ts` exports `isClientError(err)` and wires it into
+`beforeSend`. **Any error with a 4xx `statusCode` is dropped from Sentry**
+(401/403/404/429/…). These are expected, caller-driven outcomes — most
+commonly the routine 401 from an expired iOS access token, which the client
+recovers from via `/api/auth/refresh`. They are **not** server bugs.
+
+- Do **not** "fix" a recurring 4xx by capturing it in Sentry or wrapping it so
+  it reports as 5xx. The suppression is intentional — it keeps the dashboard
+  and quota focused on actionable server faults.
+- 4xx outcomes remain fully visible in the pino `request.complete` log line
+  (`server/middleware/00.logging.ts`); triage there, not in Sentry.
+- Only genuine server faults should be 5xx. When implementing/reviewing a
+  route, confirm `createError` uses a 4xx `statusCode` for client/validation/
+  auth failures so this filter applies.
+
+### Failed-auth user attribution
+
+On a failed Bearer verification, `server/middleware/auth.ts` decodes the JWT
+**without verifying the signature** (`decodeUnverifiedSub` from
+`server/utils/jwt.ts`) and attaches the `sub` as an **untrusted** id via
+`Sentry.setUser({ id })` plus a `Sentry.setTag('auth.failed', true)`, and sets
+`event.context.unverifiedUserId` (logged separately, never as `userId`). This
+exists purely so a user/client stuck in a token-refresh loop can be identified.
+The id is untrusted by construction — never use `unverifiedUserId` for any
+authorization decision.
 
 ### Client Side (`plugins/sentry.client.ts`)
 
@@ -173,7 +205,7 @@ When verifying observability for new or existing routes:
 - [ ] Route is handled by `server/middleware/logging.ts` (all routes under `server/api/` are automatic)
 - [ ] Error cases use `event.context.logger.error()` with useful context before throwing
 - [ ] No `console.log` or `console.error` in server code (use pino logger)
-- [ ] Sentry captures unhandled exceptions (test with a deliberate throw)
+- [ ] Sentry captures unhandled **5xx** exceptions (test with a deliberate throw); 4xx are intentionally dropped by `isClientError`/`beforeSend`
 - [ ] Prisma queries appear as spans in Sentry performance traces
 - [ ] Health check returns correct status and responds within 1 second
 - [ ] Log output in dev is human-readable (pino-pretty)

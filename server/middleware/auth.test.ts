@@ -21,6 +21,7 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockGetMethod = getMethod as ReturnType<typeof vi.fn>
 const mockVerifyAccessToken = verifyAccessToken as ReturnType<typeof vi.fn>
+const mockDecodeUnverifiedSub = decodeUnverifiedSub as ReturnType<typeof vi.fn>
 
 function makeEvent(path: string): { path: string; context: Record<string, unknown> } {
   return { path, context: {} }
@@ -261,6 +262,34 @@ describe('server/middleware/auth', () => {
         // expected
       }
       expect(Sentry.setUser).not.toHaveBeenCalled()
+    })
+
+    test('attaches best-effort unverified user + auth.failed tag when a failed Bearer token is decodable', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer expired-but-decodable')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT expired'))
+      mockDecodeUnverifiedSub.mockReturnValueOnce('user-expired-42')
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+      // Untrusted id goes to a separate context key, never `userId`
+      expect(event.context.unverifiedUserId).toBe('user-expired-42')
+      expect(event.context.userId).toBeUndefined()
+      expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'user-expired-42' })
+      expect(Sentry.setTag).toHaveBeenCalledWith('auth.failed', true)
+    })
+
+    test('tags auth.failed but does not call setUser when the failed token is undecodable', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer garbage')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT malformed'))
+      mockDecodeUnverifiedSub.mockReturnValueOnce(null)
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401 })
+      expect(event.context.unverifiedUserId).toBeUndefined()
+      expect(Sentry.setUser).not.toHaveBeenCalled()
+      expect(Sentry.setTag).toHaveBeenCalledWith('auth.failed', true)
     })
 
     test('accepts lowercase bearer scheme (case-insensitive)', async () => {

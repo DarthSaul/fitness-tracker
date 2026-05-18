@@ -1,6 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { SignJWT } from 'jose'
-import { signAccessToken, signRefreshToken, verifyAccessToken } from './jwt'
+import { signAccessToken, signRefreshToken, verifyAccessToken, decodeUnverifiedSub } from './jwt'
 
 // The test secret matches what vitest.setup.ts stubs into useRuntimeConfig
 const TEST_ACCESS_SECRET = 'test-access-secret-that-is-at-least-32-chars-long'
@@ -141,6 +141,44 @@ describe('server/utils/jwt', () => {
       const token = await signAccessToken('user-abc')
       mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: '', jwtRefreshSecret: TEST_REFRESH_SECRET })
       await expect(verifyAccessToken(token)).rejects.toThrow('JWT access secret is not configured')
+    })
+  })
+
+  describe('decodeUnverifiedSub', () => {
+    test('extracts sub from a validly-signed token without needing the secret', async () => {
+      const token = await signAccessToken('user-unverified-1')
+      expect(decodeUnverifiedSub(token)).toBe('user-unverified-1')
+    })
+
+    test('extracts sub from an EXPIRED token (no claim validation)', async () => {
+      // A token verifyAccessToken would reject (expired) must still yield its sub
+      // for observability triage.
+      const expired = await new SignJWT({ sub: 'user-expired', tokenType: 'access' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
+        .setExpirationTime(Math.floor(Date.now() / 1000) - 3600)
+        .sign(new TextEncoder().encode(TEST_ACCESS_SECRET))
+      expect(decodeUnverifiedSub(expired)).toBe('user-expired')
+    })
+
+    test('extracts sub from a token signed with a DIFFERENT secret (signature not checked)', async () => {
+      const forged = await new SignJWT({ sub: 'user-forged', tokenType: 'access' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(new TextEncoder().encode('a-totally-different-secret-that-is-32-chars'))
+      expect(decodeUnverifiedSub(forged)).toBe('user-forged')
+    })
+
+    test('returns null for a malformed / non-JWT token', () => {
+      expect(decodeUnverifiedSub('not-a-jwt')).toBeNull()
+      expect(decodeUnverifiedSub('')).toBeNull()
+      expect(decodeUnverifiedSub('a.b.c')).toBeNull()
+    })
+
+    test('returns null when the token has no sub claim', async () => {
+      const noSub = await new SignJWT({ tokenType: 'access' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(new TextEncoder().encode(TEST_ACCESS_SECRET))
+      expect(decodeUnverifiedSub(noSub)).toBeNull()
     })
   })
 })
