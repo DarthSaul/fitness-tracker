@@ -7,7 +7,7 @@
  *  - onSuccess: name composition — both names, first-only, none (subsequent logins)
  *  - onSuccess: name NOT overwritten in update when absent (delegated to findOrLinkUser)
  *  - onSuccess: session fields and redirect target
- *  - onError: redirect destination and console.error call
+ *  - onError: redirect destination and logger.error call
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { User } from '@prisma/client'
@@ -232,7 +232,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       expect(mockSendRedirect).toHaveBeenCalledWith(event, '/login?error=apple_failed')
     })
 
-    test('logs the error via console.error', () => {
+    test('logs the error via logger.error', () => {
       const event = makeEvent()
       const err = new Error('id token invalid')
 
