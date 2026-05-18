@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
     return { id: deviceToken.id }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/devices/register] Failed to register device token', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/devices/register' }, '[POST /api/devices/register] Failed to register device token')
     throw createError({ statusCode: 500, statusMessage: 'Failed to register device token' })
   }
 })

@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
 
     return { notes: record?.notes ?? null }
   } catch (error) {
-    console.error('[GET /api/exercises/:exerciseId/notes] Failed to fetch exercise notes', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/exercises/:exerciseId/notes' }, '[GET /api/exercises/:exerciseId/notes] Failed to fetch exercise notes')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch exercise notes' })
   }
 })

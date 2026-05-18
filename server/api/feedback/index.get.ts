@@ -10,7 +10,7 @@ defineRouteMeta({
   },
 })
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   try {
     const items = await prisma.feedback.findMany({
       orderBy: { createdAt: 'desc' },
@@ -24,7 +24,7 @@ export default defineEventHandler(async () => {
         : null,
     }))
   } catch (error) {
-    console.error('[GET /api/feedback] Failed to fetch feedback', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/feedback' }, '[GET /api/feedback] Failed to fetch feedback')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch feedback' })
   }
 })

@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 401, statusMessage: 'Invalid Google ID token' })
     }
     // Infrastructure errors (JWKS fetch failure, config, etc.) → 5xx
-    console.error('[POST /api/auth/native/google] JWKS or infrastructure error', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/auth/native/google' }, '[POST /api/auth/native/google] JWKS or infrastructure error')
     throw createError({ statusCode: 500, statusMessage: 'Sign-in failed. Please try again.' })
   }
 
@@ -87,7 +87,7 @@ export default defineEventHandler(async (event) => {
     return { accessToken, refreshToken: raw }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/auth/native/google] Failed', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/auth/native/google' }, '[POST /api/auth/native/google] Failed')
     throw createError({ statusCode: 500, statusMessage: 'Sign-in failed. Please try again.' })
   }
 })

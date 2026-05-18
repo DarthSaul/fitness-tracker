@@ -169,10 +169,7 @@ describe('PUT /api/exercises/:exerciseId/notes', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to upsert exercise notes' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[PUT /api/exercises/:exerciseId/notes] Failed to upsert exercise notes',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'PUT /api/exercises/:exerciseId/notes' }, '[PUT /api/exercises/:exerciseId/notes] Failed to upsert exercise notes')
     consoleSpy.mockRestore()
   })
 })

@@ -62,13 +62,13 @@ export default defineOAuthAppleEventHandler({
       return sendRedirect(event, '/')
     }
     catch (error) {
-      console.error('Apple OAuth upsert error:', error)
+      ;(event.context.logger ?? logger).error({ err: error }, 'Apple OAuth upsert error:')
       return sendRedirect(event, '/login?error=apple_failed')
     }
   },
   /** Logs the error and redirects to the login page with a query-string error code. */
   onError(event, error) {
-    console.error('Apple OAuth error:', error)
+    ;(event.context.logger ?? logger).error({ err: error }, 'Apple OAuth error:')
     return sendRedirect(event, '/login?error=apple_failed')
   },
 })

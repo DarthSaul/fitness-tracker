@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     return { id: updated.id, notes: updated.notes }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[PATCH /api/workouts/:id] Failed to update workout session', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/workouts/:id' }, '[PATCH /api/workouts/:id] Failed to update workout session')
     throw createError({ statusCode: 500, statusMessage: 'Failed to update workout session' })
   }
 })

@@ -3,7 +3,22 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false,
   devtools: { enabled: true },
-  modules: ['nuxt-auth-utils', '@nuxt/ui', '@vite-pwa/nuxt'],
+  modules: ['nuxt-auth-utils', '@nuxt/ui', '@vite-pwa/nuxt', '@sentry/nuxt/module'],
+  sourcemap: {
+    server: true,
+    client: 'hidden',
+  },
+  sentry: {
+    // Vercel serverless doesn't apply Node's --import flag, so the default
+    // instrumentation never runs Sentry.init() at runtime. Inject the server
+    // config as a top-level import instead so error capture works on Vercel.
+    autoInjectServerSentry: 'top-level-import',
+    sourceMapsUploadOptions: {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    },
+  },
   auth: {
     sessionCookie: {
       maxAge: 60 * 60 * 24 * 30, // 30 days

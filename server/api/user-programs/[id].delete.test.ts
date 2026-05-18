@@ -101,10 +101,7 @@ describe('DELETE /api/user-programs/:id', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to delete user program' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[DELETE /api/user-programs/:id] Failed to delete user program',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'DELETE /api/user-programs/:id' }, '[DELETE /api/user-programs/:id] Failed to delete user program')
     consoleSpy.mockRestore()
   })
 

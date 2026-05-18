@@ -320,9 +320,9 @@ describe('GET /api/analytics/exercises/:exerciseId', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch exercise history' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/analytics/exercises/ex001] Failed to fetch exercise history',
-      dbError,
+    expect(logger.error).toHaveBeenCalledWith(
+      { err: dbError, route: 'GET /api/analytics/exercises/:exerciseId', exerciseId: 'ex001' },
+      'Failed to fetch exercise history',
     )
     consoleSpy.mockRestore()
   })
@@ -338,9 +338,9 @@ describe('GET /api/analytics/exercises/:exerciseId', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch exercise history' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/analytics/exercises/ex001] Failed to fetch exercise history',
-      dbError,
+    expect(logger.error).toHaveBeenCalledWith(
+      { err: dbError, route: 'GET /api/analytics/exercises/:exerciseId', exerciseId: 'ex001' },
+      'Failed to fetch exercise history',
     )
     consoleSpy.mockRestore()
   })

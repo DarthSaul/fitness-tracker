@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
     return activeProgram
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/user-programs/active] Failed to get active program', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/user-programs/active' }, '[GET /api/user-programs/active] Failed to get active program')
     throw createError({ statusCode: 500, statusMessage: 'Failed to get active program' })
   }
 })

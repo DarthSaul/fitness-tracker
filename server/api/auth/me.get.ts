@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     return user
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/auth/me] Failed to fetch current user', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/auth/me' }, '[GET /api/auth/me] Failed to fetch current user')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch current user' })
   }
 })

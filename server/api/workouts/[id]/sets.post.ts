@@ -114,7 +114,7 @@ export default defineEventHandler(async (event) => {
     if ((error as { code?: string }).code === 'P2002') {
       throw createError({ statusCode: 409, statusMessage: 'Set already recorded for this session' })
     }
-    console.error('[POST /api/workouts/:id/sets] Failed to record completed set', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/workouts/:id/sets' }, '[POST /api/workouts/:id/sets] Failed to record completed set')
     throw createError({ statusCode: 500, statusMessage: 'Failed to record completed set' })
   }
 })

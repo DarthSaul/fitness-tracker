@@ -208,7 +208,7 @@ describe('POST /api/auth/native/google', () => {
       } catch {
         // expected
       }
-      expect(consoleSpy).toHaveBeenCalledWith('[POST /api/auth/native/google] Failed', expect.any(Error))
+      expect(logger.error).toHaveBeenCalledWith({ err: expect.any(Error), route: 'POST /api/auth/native/google' }, '[POST /api/auth/native/google] Failed')
     })
 
     test('re-throws H3 errors without wrapping', async () => {
@@ -216,7 +216,7 @@ describe('POST /api/auth/native/google', () => {
       mockVerifyGoogleIdToken.mockResolvedValueOnce(mockGooglePayload)
       mockIsEmailAllowed.mockReturnValueOnce(false)
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 403 })
-      expect(consoleSpy).not.toHaveBeenCalled()
+      expect(logger.error).not.toHaveBeenCalled()
     })
   })
 })

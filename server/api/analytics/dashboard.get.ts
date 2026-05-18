@@ -149,7 +149,7 @@ export default defineEventHandler(async (event) => {
     }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/analytics/dashboard] Failed to fetch dashboard stats', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/analytics/dashboard' }, '[GET /api/analytics/dashboard] Failed to fetch dashboard stats')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch dashboard stats' })
   }
 })

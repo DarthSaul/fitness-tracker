@@ -147,7 +147,12 @@ UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
 
 ### Observability
 
-> **Note:** The Observability phase (Phase 4) has not been started yet. Until it is complete, pino logging and Sentry instrumentation are **not** available. Do not import or reference `server/utils/logger.ts`, `server/middleware/logging.ts`, or Sentry APIs in new code. Simple `console.log`/`console.error` is fine for debugging until Phase 4 lands.
+Server-side observability is live. **Do not use `console.log`/`console.error` in server code** — use the structured logger.
+
+- **Logging:** `logger` is auto-imported from `server/utils/logger.ts` (pino). In route handlers prefer the request-scoped child logger: `(event.context.logger ?? logger).error({ err, route: 'GET /api/foo' }, 'message')`. The `?? logger` fallback covers non-request contexts (e.g. unit tests). Never string-interpolate; pass structured fields. Secrets are redacted by the logger config.
+- **Request lifecycle:** `server/middleware/00.logging.ts` runs before `auth.ts` (numeric prefix orders it first), generates `event.context.requestId`, and logs request completion.
+- **Sentry:** `@sentry/nuxt` auto-instruments Nitro (per-request isolation scope, uncaught-error capture, serverless flush) — do **not** add a custom Nitro error-capture plugin; it double-reports. `server/middleware/auth.ts` calls `Sentry.setUser` after auth. Server config is `sentry.server.config.ts`; it no-ops when `SENTRY_DSN` is unset (local dev). On Vercel, `autoInjectServerSentry: 'top-level-import'` in `nuxt.config.ts` is required (serverless ignores Node `--import`).
+- **Still pending:** client-side Sentry (`sentry.client.config.ts` is a stub).
 
 ### TypeScript
 
@@ -231,9 +236,9 @@ UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
 - [ ] Apple web OAuth configuration (backlog — web frontend not yet built)
 
 ### Phase 4 — Observability
-- [ ] pino structured logging middleware
-- [ ] Sentry error tracking (client + server)
-- [ ] Sentry performance tracing (API routes + Prisma)
+- [x] pino structured logging middleware
+- [x] Sentry error tracking (server) — client still pending
+- [x] Sentry performance tracing (API routes + Prisma)
 - [x] `/api/health` endpoint
 
 ### Phase 5 — Polish & Iteration

@@ -23,7 +23,7 @@ defineRouteMeta({
 })
 
 /** Returns a summary list of all programs in the library, ordered alphabetically. */
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   try {
     const programs = await prisma.program.findMany({
       select: {
@@ -37,7 +37,7 @@ export default defineEventHandler(async () => {
     })
     return programs
   } catch (error) {
-    console.error('[GET /api/programs] Failed to fetch programs', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/programs' }, '[GET /api/programs] Failed to fetch programs')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch programs' })
   }
 })

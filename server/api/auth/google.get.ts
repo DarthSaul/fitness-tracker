@@ -50,13 +50,13 @@ export default defineOAuthGoogleEventHandler({
       return sendRedirect(event, '/')
     }
     catch (error) {
-      console.error('Google OAuth upsert error:', error)
+      ;(event.context.logger ?? logger).error({ err: error }, 'Google OAuth upsert error:')
       return sendRedirect(event, '/login?error=upsert')
     }
   },
   /** Logs the error and redirects to the login page with a query-string error code. */
   onError(event, error) {
-    console.error('Google OAuth error:', error)
+    ;(event.context.logger ?? logger).error({ err: error }, 'Google OAuth error:')
     return sendRedirect(event, '/login?error=google_failed')
   },
 })

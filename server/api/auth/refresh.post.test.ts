@@ -187,9 +187,9 @@ describe('POST /api/auth/refresh', () => {
       } catch {
         // expected
       }
-      expect(consoleSpy).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: expect.any(Error), route: 'POST /api/auth/refresh' },
         '[POST /api/auth/refresh] Failed to refresh token',
-        expect.any(Error),
       )
     })
 
@@ -199,7 +199,7 @@ describe('POST /api/auth/refresh', () => {
         makeStoredToken({ expiresAt: new Date(Date.now() - 1000) }),
       )
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401 })
-      expect(consoleSpy).not.toHaveBeenCalled()
+      expect(logger.error).not.toHaveBeenCalled()
     })
 
     test('does not mutate the refresh token when signAccessToken fails', async () => {

@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
     return { sessions }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[GET /api/user-programs/active/sessions] Failed to fetch sessions', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/user-programs/active/sessions' }, '[GET /api/user-programs/active/sessions] Failed to fetch sessions')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch sessions' })
   }
 })

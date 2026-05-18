@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
     return { success: true }
   }
   catch (err) {
-    console.error('Email sign-in upsert error:', err)
+    ;(event.context.logger ?? logger).error({ err: err }, 'Email sign-in upsert error:')
     throw createError({ statusCode: 500, statusMessage: 'Sign-in failed. Please try again.' })
   }
 })

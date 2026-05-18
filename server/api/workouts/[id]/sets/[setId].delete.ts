@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
     return { deleted: true }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[DELETE /api/workouts/:id/sets/:setId] Failed to delete completed set', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'DELETE /api/workouts/:id/sets/:setId' }, '[DELETE /api/workouts/:id/sets/:setId] Failed to delete completed set')
     throw createError({ statusCode: 500, statusMessage: 'Failed to delete completed set' })
   }
 })

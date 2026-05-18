@@ -169,10 +169,7 @@ describe('DELETE /api/workouts/:id/sets/:setId', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to delete completed set' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[DELETE /api/workouts/:id/sets/:setId] Failed to delete completed set',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'DELETE /api/workouts/:id/sets/:setId' }, '[DELETE /api/workouts/:id/sets/:setId] Failed to delete completed set')
     consoleSpy.mockRestore()
   })
 

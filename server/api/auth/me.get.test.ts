@@ -62,7 +62,7 @@ describe('GET /api/auth/me', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch current user' })
 
-    expect(consoleSpy).toHaveBeenCalledWith('[GET /api/auth/me] Failed to fetch current user', dbError)
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/auth/me' }, '[GET /api/auth/me] Failed to fetch current user')
     consoleSpy.mockRestore()
   })
 

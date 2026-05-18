@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
     return { confirmationRequired: false }
   }
   catch (err) {
-    console.error('Email sign-up upsert error:', err)
+    ;(event.context.logger ?? logger).error({ err: err }, 'Email sign-up upsert error:')
     throw createError({ statusCode: 500, statusMessage: 'Account setup failed. Please try again.' })
   }
 })

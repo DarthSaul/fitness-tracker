@@ -265,10 +265,7 @@ describe('POST /api/workouts/:id/sets', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to record completed set' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[POST /api/workouts/:id/sets] Failed to record completed set',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/workouts/:id/sets' }, '[POST /api/workouts/:id/sets] Failed to record completed set')
     consoleSpy.mockRestore()
   })
 

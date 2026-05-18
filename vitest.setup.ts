@@ -8,6 +8,13 @@
  */
 import { vi } from 'vitest'
 
+// ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
+// Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
+// resolves to spies. Tests assert on Sentry.setUser.
+vi.mock('@sentry/nuxt', () => ({
+  setUser: vi.fn(),
+}))
+
 // ── Nitro compile-time macros ────────────────────────────────────────────────
 vi.stubGlobal('defineRouteMeta', vi.fn())
 
@@ -61,6 +68,21 @@ vi.stubGlobal('prisma', {
 })
 
 vi.stubGlobal('sendPush', vi.fn())
+
+// ── Pino logger global (auto-imported via server/utils/logger.ts) ────────────
+// Tests assert against logger.error / logger.info argument shapes. `child()`
+// returns the same stub so request-scoped child loggers in tests are spy-able.
+const loggerStub = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+  fatal: vi.fn(),
+  trace: vi.fn(),
+  child: vi.fn() as ReturnType<typeof vi.fn>,
+}
+loggerStub.child.mockReturnValue(loggerStub)
+vi.stubGlobal('logger', loggerStub)
 
 // ── Supabase client global (used in Nitro server route handlers via auto-import) ─
 vi.stubGlobal('supabase', {

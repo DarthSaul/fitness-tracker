@@ -121,10 +121,7 @@ describe('DELETE /api/workouts/:id', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to delete workout session' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[DELETE /api/workouts/:id] Failed to delete workout session',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'DELETE /api/workouts/:id' }, '[DELETE /api/workouts/:id] Failed to delete workout session')
     consoleSpy.mockRestore()
   })
 

@@ -83,13 +83,13 @@ async function sendPushToDevice(
         where: { token_environment: { token: deviceToken, environment } },
         data: { revokedAt: new Date() },
       })
-      .catch((err: unknown) => console.error('[APNs] Failed to revoke stale device token', err))
+      .catch((err: unknown) => logger.error({ err, route: 'APNs' }, '[APNs] Failed to revoke stale device token'))
     return
   }
 
   if (response.statusCode !== 200) {
     const body = await response.body.text()
-    console.error(`[APNs] Push failed for device ${maskedToken}: ${response.statusCode} ${body}`)
+    logger.error({ route: 'APNs', maskedToken, statusCode: response.statusCode, body }, '[APNs] Push failed')
     return
   }
 
@@ -101,14 +101,14 @@ export async function sendPush(userId: string, payload: ApnsPayload): Promise<vo
   const bundleId = config.appleBundleId as string
 
   if (!bundleId) {
-    console.error('[APNs] Missing appleBundleId; skipping push dispatch')
+    logger.warn({ route: 'APNs' }, '[APNs] Missing appleBundleId; skipping push dispatch')
     return
   }
 
   const tokens = await prisma.deviceToken
     .findMany({ where: { userId, revokedAt: null } })
     .catch((err: unknown) => {
-      console.error('[APNs] Failed to load device tokens', err)
+      logger.error({ err, route: 'APNs' }, '[APNs] Failed to load device tokens')
       return null
     })
 
@@ -119,7 +119,7 @@ export async function sendPush(userId: string, payload: ApnsPayload): Promise<vo
   )
   for (const result of results) {
     if (result.status === 'rejected') {
-      console.error('[APNs] sendPushToDevice failed', result.reason)
+      logger.error({ err: result.reason, route: 'APNs' }, '[APNs] sendPushToDevice failed')
     }
   }
 }

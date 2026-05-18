@@ -196,7 +196,7 @@ describe('GET /api/workouts/history', () => {
       (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent()),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch workout history' })
 
-    expect(consoleSpy).toHaveBeenCalledWith('[GET /api/workouts/history] Failed to fetch history', dbError)
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/workouts/history' }, '[GET /api/workouts/history] Failed to fetch history')
     consoleSpy.mockRestore()
   })
 })

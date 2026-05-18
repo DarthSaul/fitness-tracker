@@ -5,7 +5,7 @@
  *  - OAuth config: correct scopes requested
  *  - onSuccess happy path: upsert shape, session fields, redirect target
  *  - onSuccess with null profile fields (no name, no picture)
- *  - onError: redirect destination and console.error call
+ *  - onError: redirect destination and logger.error call
  *
  * The global stub defineOAuthGoogleEventHandler(config) returns config
  * unchanged (see vitest.setup.ts), so importing the handler module gives us
@@ -157,13 +157,13 @@ describe('GET /api/auth/google', () => {
       expect(mockSendRedirect).toHaveBeenCalledWith(event, '/login?error=google_failed')
     })
 
-    test('logs the error via console.error', () => {
+    test('logs the error via logger.error', () => {
       const event = makeEvent()
       const err = new Error('token exchange failed')
 
       config.onError(event, err)
 
-      expect(consoleSpy).toHaveBeenCalledWith('Google OAuth error:', err)
+      expect(logger.error).toHaveBeenCalledWith({ err: err }, 'Google OAuth error:')
     })
   })
 })

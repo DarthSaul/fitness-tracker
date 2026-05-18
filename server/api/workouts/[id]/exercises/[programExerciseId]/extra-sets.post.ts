@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
     return completedSet
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[POST /api/workouts/:id/exercises/:programExerciseId/extra-sets] Failed to record extra set', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/workouts/:id/exercises/:programExerciseId/extra-sets' }, '[POST /api/workouts/:id/exercises/:programExerciseId/extra-sets] Failed to record extra set')
     throw createError({ statusCode: 500, statusMessage: 'Failed to record extra set' })
   }
 })

@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
     return record
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[PUT /api/exercises/:exerciseId/notes] Failed to upsert exercise notes', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'PUT /api/exercises/:exerciseId/notes' }, '[PUT /api/exercises/:exerciseId/notes] Failed to upsert exercise notes')
     throw createError({ statusCode: 500, statusMessage: 'Failed to upsert exercise notes' })
   }
 })

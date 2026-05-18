@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     return updated
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[PATCH /api/user-programs/:id/deactivate] Failed to deactivate program', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/user-programs/:id/deactivate' }, '[PATCH /api/user-programs/:id/deactivate] Failed to deactivate program')
     throw createError({ statusCode: 500, statusMessage: 'Failed to deactivate program' })
   }
 })

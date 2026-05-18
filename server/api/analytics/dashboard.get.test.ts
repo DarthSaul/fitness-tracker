@@ -329,10 +329,7 @@ describe('GET /api/analytics/dashboard', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch dashboard stats' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/analytics/dashboard] Failed to fetch dashboard stats',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/analytics/dashboard' }, '[GET /api/analytics/dashboard] Failed to fetch dashboard stats')
     consoleSpy.mockRestore()
   })
 

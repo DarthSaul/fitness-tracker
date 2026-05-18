@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     return result[1]
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[PATCH /api/user-programs/:id/activate] Failed to activate program', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/user-programs/:id/activate' }, '[PATCH /api/user-programs/:id/activate] Failed to activate program')
     throw createError({ statusCode: 500, statusMessage: 'Failed to activate program' })
   }
 })

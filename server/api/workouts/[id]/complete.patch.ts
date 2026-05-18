@@ -148,7 +148,7 @@ export default defineEventHandler(async (event) => {
     return { session: updatedSession, userProgram: updatedUserProgram, programCompleted }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    console.error('[PATCH /api/workouts/:id/complete] Failed to complete workout', error)
+    ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/workouts/:id/complete' }, '[PATCH /api/workouts/:id/complete] Failed to complete workout')
     throw createError({ statusCode: 500, statusMessage: 'Failed to complete workout' })
   }
 })

@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/nuxt'
+
 // Path prefixes that do not require authentication
 const PUBLIC_PREFIXES = ['/api/auth/', '/api/_auth/', '/api/docs', '/_openapi']
 // Exact paths that do not require authentication
@@ -9,11 +11,10 @@ const PROTECTED_EXACT = ['/api/auth/me']
 /**
  * Global auth guard that protects all non-public API routes.
  * Attaches `event.context.userId` for authenticated requests so downstream handlers don't need to re-read the session.
+ * Binds the authenticated user to the per-request Sentry isolation scope that `@sentry/nuxt` opens around every Nitro request.
  * @throws {H3Error} 401 Unauthorized when the session is absent or has no user.
  */
 export default defineEventHandler(async (event) => {
-  event.context.requestId = crypto.randomUUID()
-
   // Only guard API and OpenAPI routes — let page SSR requests through for client-side auth handling
   if (!event.path.startsWith('/api/') && !event.path.startsWith('/_openapi')) return
 
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
       const payload = await verifyAccessToken(token)
       event.context.userId = payload.sub
       event.context.authMethod = 'jwt'
+      Sentry.setUser({ id: payload.sub })
       return
     } catch {
       throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
@@ -42,6 +44,7 @@ export default defineEventHandler(async (event) => {
   if (session?.user) {
     event.context.userId = session.user.id
     event.context.authMethod = 'session'
+    Sentry.setUser({ id: session.user.id })
     return
   }
 

@@ -310,10 +310,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to complete workout' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[PATCH /api/workouts/:id/complete] Failed to complete workout',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'PATCH /api/workouts/:id/complete' }, '[PATCH /api/workouts/:id/complete] Failed to complete workout')
     consoleSpy.mockRestore()
   })
 

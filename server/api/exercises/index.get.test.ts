@@ -102,10 +102,7 @@ describe('GET /api/exercises', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch exercises' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/exercises] Failed to fetch exercises',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/exercises' }, '[GET /api/exercises] Failed to fetch exercises')
     consoleSpy.mockRestore()
   })
 })

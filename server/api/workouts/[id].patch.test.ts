@@ -143,10 +143,7 @@ describe('PATCH /api/workouts/:id', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to update workout session' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[PATCH /api/workouts/:id] Failed to update workout session',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'PATCH /api/workouts/:id' }, '[PATCH /api/workouts/:id] Failed to update workout session')
     consoleSpy.mockRestore()
   })
 })

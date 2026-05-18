@@ -106,10 +106,7 @@ describe('GET /api/user-programs/active', () => {
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to get active program' })
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[GET /api/user-programs/active] Failed to get active program',
-      dbError,
-    )
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/user-programs/active' }, '[GET /api/user-programs/active] Failed to get active program')
     consoleSpy.mockRestore()
   })
 
