@@ -21,6 +21,8 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockGetMethod = getMethod as ReturnType<typeof vi.fn>
 const mockVerifyAccessToken = verifyAccessToken as ReturnType<typeof vi.fn>
+const mockDecodeUnverifiedSub = decodeUnverifiedSub as ReturnType<typeof vi.fn>
+const mockIsJwtVerificationError = isJwtVerificationError as ReturnType<typeof vi.fn>
 
 function makeEvent(path: string): { path: string; context: Record<string, unknown> } {
   return { path, context: {} }
@@ -261,6 +263,68 @@ describe('server/middleware/auth', () => {
         // expected
       }
       expect(Sentry.setUser).not.toHaveBeenCalled()
+    })
+
+    test('attaches best-effort unverified user + auth.failed tag when a failed Bearer token is decodable', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer expired-but-decodable')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT expired'))
+      mockDecodeUnverifiedSub.mockReturnValueOnce('user-expired-42')
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+      // Untrusted id goes to a separate context key, never `userId`
+      expect(event.context.unverifiedUserId).toBe('user-expired-42')
+      expect(event.context.userId).toBeUndefined()
+      expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'user-expired-42' })
+      expect(Sentry.setTag).toHaveBeenCalledWith('auth.failed', true)
+    })
+
+    test('tags auth.failed but does not call setUser when the failed token is undecodable', async () => {
+      mockGetHeader.mockReturnValueOnce('Bearer garbage')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT malformed'))
+      mockDecodeUnverifiedSub.mockReturnValueOnce(null)
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401 })
+      expect(event.context.unverifiedUserId).toBeUndefined()
+      expect(Sentry.setUser).not.toHaveBeenCalled()
+      expect(Sentry.setTag).toHaveBeenCalledWith('auth.failed', true)
+    })
+
+    test('rethrows the original error (not 401) when the failure is not a token problem', async () => {
+      // e.g. missing JWT secret — a server misconfig. Masking it as 401 would
+      // get it filtered out of Sentry, hiding a real outage.
+      const serverErr = new Error('JWT access secret is not configured')
+      mockGetHeader.mockReturnValueOnce('Bearer some-token')
+      mockVerifyAccessToken.mockRejectedValueOnce(serverErr)
+      mockIsJwtVerificationError.mockReturnValueOnce(false)
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toBe(serverErr)
+      expect(Sentry.captureException).toHaveBeenCalledWith(serverErr)
+      // Not treated as a failed-auth attempt
+      expect(mockDecodeUnverifiedSub).not.toHaveBeenCalled()
+      expect(Sentry.setUser).not.toHaveBeenCalled()
+      expect(Sentry.setTag).not.toHaveBeenCalledWith('auth.failed', true)
+      expect(event.context.userId).toBeUndefined()
+    })
+
+    test('does not capture or rethrow as 500 for a genuine token failure', async () => {
+      // The normal expired-token path must stay a clean 401 with no
+      // captureException (it is intentionally filtered from Sentry).
+      mockGetHeader.mockReturnValueOnce('Bearer expired')
+      mockVerifyAccessToken.mockRejectedValueOnce(new Error('JWT expired'))
+      mockIsJwtVerificationError.mockReturnValueOnce(true)
+      mockDecodeUnverifiedSub.mockReturnValueOnce('user-7')
+      const event = makeEvent('/api/scheduled-workouts')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401 })
+      expect(Sentry.captureException).not.toHaveBeenCalled()
+      expect(Sentry.setTag).toHaveBeenCalledWith('auth.failed', true)
     })
 
     test('accepts lowercase bearer scheme (case-insensitive)', async () => {

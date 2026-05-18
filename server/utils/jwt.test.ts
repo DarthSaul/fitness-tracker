@@ -1,6 +1,12 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { SignJWT } from 'jose'
-import { signAccessToken, signRefreshToken, verifyAccessToken } from './jwt'
+import { SignJWT, errors as joseErrors } from 'jose'
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyAccessToken,
+  decodeUnverifiedSub,
+  isJwtVerificationError,
+} from './jwt'
 
 // The test secret matches what vitest.setup.ts stubs into useRuntimeConfig
 const TEST_ACCESS_SECRET = 'test-access-secret-that-is-at-least-32-chars-long'
@@ -141,6 +147,85 @@ describe('server/utils/jwt', () => {
       const token = await signAccessToken('user-abc')
       mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: '', jwtRefreshSecret: TEST_REFRESH_SECRET })
       await expect(verifyAccessToken(token)).rejects.toThrow('JWT access secret is not configured')
+    })
+  })
+
+  describe('decodeUnverifiedSub', () => {
+    test('extracts sub from a validly-signed token without needing the secret', async () => {
+      const token = await signAccessToken('user-unverified-1')
+      expect(decodeUnverifiedSub(token)).toBe('user-unverified-1')
+    })
+
+    test('extracts sub from an EXPIRED token (no claim validation)', async () => {
+      // A token verifyAccessToken would reject (expired) must still yield its sub
+      // for observability triage.
+      const expired = await new SignJWT({ sub: 'user-expired', tokenType: 'access' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
+        .setExpirationTime(Math.floor(Date.now() / 1000) - 3600)
+        .sign(new TextEncoder().encode(TEST_ACCESS_SECRET))
+      expect(decodeUnverifiedSub(expired)).toBe('user-expired')
+    })
+
+    test('extracts sub from a token signed with a DIFFERENT secret (signature not checked)', async () => {
+      const forged = await new SignJWT({ sub: 'user-forged', tokenType: 'access' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(new TextEncoder().encode('a-totally-different-secret-that-is-32-chars'))
+      expect(decodeUnverifiedSub(forged)).toBe('user-forged')
+    })
+
+    test('returns null for a malformed / non-JWT token', () => {
+      expect(decodeUnverifiedSub('not-a-jwt')).toBeNull()
+      expect(decodeUnverifiedSub('')).toBeNull()
+      expect(decodeUnverifiedSub('a.b.c')).toBeNull()
+    })
+
+    test('returns null when the token has no sub claim', async () => {
+      const noSub = await new SignJWT({ tokenType: 'access' })
+        .setProtectedHeader({ alg: 'HS256' })
+        .sign(new TextEncoder().encode(TEST_ACCESS_SECRET))
+      expect(decodeUnverifiedSub(noSub)).toBeNull()
+    })
+  })
+
+  describe('isJwtVerificationError', () => {
+    test('true for jose verification errors (client token problem → 401)', () => {
+      expect(isJwtVerificationError(new joseErrors.JWTExpired('expired', {}))).toBe(true)
+      expect(isJwtVerificationError(new joseErrors.JWTInvalid('bad'))).toBe(true)
+      expect(isJwtVerificationError(new joseErrors.JWSSignatureVerificationFailed())).toBe(true)
+      expect(isJwtVerificationError(new joseErrors.JWTClaimValidationFailed('aud', {}))).toBe(true)
+    })
+
+    test('true for an error actually thrown by verifyAccessToken on a bad token', async () => {
+      let caught: unknown
+      try {
+        await verifyAccessToken('not-a-real-token')
+      } catch (err) {
+        caught = err
+      }
+      expect(isJwtVerificationError(caught)).toBe(true)
+    })
+
+    test('false for the missing-secret server misconfig (must NOT become 401)', async () => {
+      mockUseRuntimeConfig.mockReturnValueOnce({ jwtAccessSecret: '', jwtRefreshSecret: TEST_REFRESH_SECRET })
+      let caught: unknown
+      try {
+        await verifyAccessToken('any-token')
+      } catch (err) {
+        caught = err
+      }
+      expect(caught).toBeInstanceOf(Error)
+      expect((caught as Error).message).toBe('JWT access secret is not configured')
+      expect(isJwtVerificationError(caught)).toBe(false)
+    })
+
+    test('false for generic non-jose errors and non-errors', () => {
+      expect(isJwtVerificationError(new Error('boom'))).toBe(false)
+      expect(isJwtVerificationError(new TypeError('nope'))).toBe(false)
+      expect(isJwtVerificationError({ name: 'JWTExpired' })).toBe(false)
+      expect(isJwtVerificationError(null)).toBe(false)
+      expect(isJwtVerificationError(undefined)).toBe(false)
+      expect(isJwtVerificationError('JWTExpired')).toBe(false)
     })
   })
 })

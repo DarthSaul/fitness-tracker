@@ -12,6 +12,11 @@ const PROTECTED_EXACT = ['/api/auth/me']
  * Global auth guard that protects all non-public API routes.
  * Attaches `event.context.userId` for authenticated requests so downstream handlers don't need to re-read the session.
  * Binds the authenticated user to the per-request Sentry isolation scope that `@sentry/nuxt` opens around every Nitro request.
+ * On a failed Bearer verification, attaches a best-effort UNVERIFIED user id and
+ * an `auth.failed` tag to the Sentry scope (and `event.context.unverifiedUserId`
+ * for the request log) so token-expiry churn can be triaged per user. These
+ * 401s are filtered out of Sentry by the `beforeSend` 4xx rule — see
+ * `sentry.server.config.ts` and the Observability section in CLAUDE.md.
  * @throws {H3Error} 401 Unauthorized when the session is absent or has no user.
  */
 export default defineEventHandler(async (event) => {
@@ -35,7 +40,24 @@ export default defineEventHandler(async (event) => {
       event.context.authMethod = 'jwt'
       Sentry.setUser({ id: payload.sub })
       return
-    } catch {
+    } catch (err) {
+      if (!isJwtVerificationError(err)) {
+        // Not a token problem — a server misconfig/infra failure (e.g. missing
+        // JWT secret). Do NOT mask it as a 401: a 4xx would be filtered out of
+        // Sentry by sentry.server.config.ts, hiding a real outage. Surface it.
+        Sentry.captureException(err)
+        throw err
+      }
+      // Token failed verification (expired/invalid/forged). We can't trust it,
+      // so this stays a 401 and never sets the authenticated `userId`. But the
+      // unverified `sub` is still useful to spot a specific user/client stuck in
+      // a refresh loop — attach it as clearly-untrusted observability context.
+      const unverifiedUserId = decodeUnverifiedSub(token)
+      if (unverifiedUserId) {
+        event.context.unverifiedUserId = unverifiedUserId
+        Sentry.setUser({ id: unverifiedUserId })
+      }
+      Sentry.setTag('auth.failed', true)
       throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
     }
   }

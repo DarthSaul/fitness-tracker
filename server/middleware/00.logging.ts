@@ -19,6 +19,9 @@ export default defineEventHandler((event) => {
         statusCode: event.node.res.statusCode,
         durationMs: Date.now() - start,
         userId: event.context.userId,
+        // Best-effort, UNVERIFIED id set by auth.ts on a failed Bearer verify
+        // (token expired/invalid). Present only on 401s; never trust for authz.
+        unverifiedUserId: event.context.unverifiedUserId,
         authMethod: event.context.authMethod,
       },
       'request.complete',
