@@ -15,9 +15,11 @@ export async function verifyAppleIdentityToken(identityToken: string): Promise<{
 
 export async function verifyGoogleIdToken(idToken: string): Promise<{ sub: string; email: string; name?: string; picture?: string }> {
   const config = useRuntimeConfig()
+  const audiences = [config.oauthGoogleClientId, config.googleIosClientId]
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
   const { payload } = await jwtVerify(idToken, googleJWKS, {
     issuer: ['https://accounts.google.com', 'accounts.google.com'],
-    audience: config.oauthGoogleClientId as string,
+    audience: audiences,
   })
   if (typeof payload.email !== 'string' || payload.email.length === 0) {
     throw new Error('Google ID token missing email claim')
