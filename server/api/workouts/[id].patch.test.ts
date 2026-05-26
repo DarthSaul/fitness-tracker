@@ -145,6 +145,33 @@ describe('PATCH /api/workouts/:id', () => {
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
   })
 
+  test('throws 400 when completedAt is not a string (e.g. a number)', async () => {
+    mockReadBody.mockResolvedValueOnce({ completedAt: 1716750000000 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
+  })
+
+  test('throws 400 when body is a primitive (not an object)', async () => {
+    mockReadBody.mockResolvedValueOnce('not-an-object')
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid request body' })
+  })
+
+  test('throws 400 when body is an array', async () => {
+    mockReadBody.mockResolvedValueOnce(['notes', 'completedAt'])
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid request body' })
+  })
+
   test('throws 400 when session ID is missing', async () => {
     const event = makeEvent(undefined as unknown as string)
     mockGetRouterParam.mockReturnValue(undefined)

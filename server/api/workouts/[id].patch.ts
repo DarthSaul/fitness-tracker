@@ -26,7 +26,11 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const body = (await readBody(event)) ?? {}
+    const rawBody = (await readBody(event)) ?? {}
+    if (typeof rawBody !== 'object' || rawBody === null || Array.isArray(rawBody)) {
+      throw createError({ statusCode: 400, statusMessage: 'Invalid request body' })
+    }
+    const body = rawBody as { notes?: unknown; completedAt?: unknown }
     const hasNotes = 'notes' in body
     const hasCompletedAt = 'completedAt' in body
 
@@ -51,6 +55,9 @@ export default defineEventHandler(async (event) => {
     }
 
     if (hasCompletedAt) {
+      if (typeof body.completedAt !== 'string') {
+        throw createError({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
+      }
       const completedAtDate = new Date(body.completedAt)
       if (isNaN(completedAtDate.getTime())) {
         throw createError({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
