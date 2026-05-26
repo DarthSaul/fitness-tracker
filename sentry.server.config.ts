@@ -1,16 +1,17 @@
 import * as Sentry from '@sentry/nuxt'
 
 /**
- * True when `err` is an HTTP client error (status 4xx). These are expected,
- * caller-driven outcomes (e.g. a 401 from an expired iOS access token, which
- * the client recovers from via `/api/auth/refresh`) — not server bugs. We drop
- * them from Sentry so the dashboard and quota are reserved for actionable 5xx
- * errors. They are still recorded in the structured request log
- * (`server/middleware/00.logging.ts`). H3 errors expose `statusCode`.
+ * True when `err` is an expected/noisy client error we deliberately drop from
+ * Sentry. Today that is exactly 401 (Unauthorized), which the iOS client emits
+ * on every 15-min access-token expiry and then recovers from via
+ * `/api/auth/refresh`. Other 4xx (400 validation bugs, 403 authorization
+ * failures, 409 state conflicts, 422 unprocessable, 429 rate limits) are
+ * actionable and should reach Sentry. All errors still land in the structured
+ * request log (`server/middleware/00.logging.ts`). H3 errors expose `statusCode`.
  */
-export function isClientError(err: unknown): boolean {
+export function isExpectedClientError(err: unknown): boolean {
   const statusCode = (err as { statusCode?: unknown } | null | undefined)?.statusCode
-  return typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500
+  return statusCode === 401
 }
 
 const dsn = process.env.SENTRY_DSN
@@ -31,10 +32,11 @@ if (dsn) {
     release,
     tracesSampleRate,
     integrations: [Sentry.prismaIntegration()],
-    // Drop expected 4xx client errors (incl. routine 401 token-expiry from the
-    // iOS client) so only actionable 5xx errors reach Sentry. See isClientError.
+    // Drop only known-noisy 4xx (today: 401 from routine iOS token expiry).
+    // Everything else — including 4xx like 409 that indicate real client/server
+    // state bugs — flows through to Sentry. See isExpectedClientError.
     beforeSend(event, hint) {
-      return isClientError(hint?.originalException) ? null : event
+      return isExpectedClientError(hint?.originalException) ? null : event
     },
   })
 }
