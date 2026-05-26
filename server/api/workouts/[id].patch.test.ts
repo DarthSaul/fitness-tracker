@@ -38,27 +38,30 @@ describe('PATCH /api/workouts/:id', () => {
     mockReadBody.mockResolvedValue({ notes: 'Great session today' })
   })
 
-  test('updates notes successfully and returns { id, notes }', async () => {
+  test('updates notes successfully and returns { id, notes, completedAt }', async () => {
     mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockUpdateSession.mockResolvedValueOnce({ ...mockSession, notes: 'Great session today' })
+    mockUpdateSession.mockResolvedValueOnce({ ...mockSession, notes: 'Great session today', completedAt: null })
 
     const event = makeEvent()
-    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string; notes: string | null }>)(event)
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string; notes: string | null; completedAt: Date | null }>)(event)
 
-    expect(result).toEqual({ id: 'ws001', notes: 'Great session today' })
+    expect(result).toEqual({ id: 'ws001', notes: 'Great session today', completedAt: null })
     expect(mockUpdateSession).toHaveBeenCalledWith({
       where: { id: 'ws001' },
       data: { notes: 'Great session today' },
     })
   })
 
-  test('throws 400 when notes is missing from body', async () => {
+  test('throws 400 when body is empty (no notes or completedAt)', async () => {
     mockReadBody.mockResolvedValueOnce({})
 
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'notes must be a string' })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'At least one of notes or completedAt must be provided',
+    })
   })
 
   test('throws 400 when notes is not a string', async () => {
@@ -83,12 +86,90 @@ describe('PATCH /api/workouts/:id', () => {
     const longNotes = 'x'.repeat(2000)
     mockReadBody.mockResolvedValueOnce({ notes: longNotes })
     mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockUpdateSession.mockResolvedValueOnce({ ...mockSession, notes: longNotes })
+    mockUpdateSession.mockResolvedValueOnce({ ...mockSession, notes: longNotes, completedAt: null })
 
     const event = makeEvent()
-    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string; notes: string | null }>)(event)
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string; notes: string | null; completedAt: Date | null }>)(event)
 
     expect(result.notes).toHaveLength(2000)
+  })
+
+  test('updates completedAt on a COMPLETED session (backdating a finished workout)', async () => {
+    const backdated = new Date('2026-05-20T19:00:00.000Z')
+    mockReadBody.mockResolvedValueOnce({ completedAt: backdated.toISOString() })
+    const completedSession = { ...mockSession, status: 'COMPLETED', completedAt: new Date('2026-05-25T12:00:00.000Z') }
+    mockFindUniqueSession.mockResolvedValueOnce(completedSession)
+    mockUpdateSession.mockResolvedValueOnce({ ...completedSession, completedAt: backdated })
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string; notes: string | null; completedAt: Date | null }>)(event)
+
+    expect(result.completedAt).toEqual(backdated)
+    expect(mockUpdateSession).toHaveBeenCalledWith({
+      where: { id: 'ws001' },
+      data: { completedAt: backdated },
+    })
+  })
+
+  test('updates notes and completedAt together', async () => {
+    const backdated = new Date('2026-05-20T19:00:00.000Z')
+    mockReadBody.mockResolvedValueOnce({ notes: 'Brutal day', completedAt: backdated.toISOString() })
+    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
+    mockUpdateSession.mockResolvedValueOnce({ ...mockSession, notes: 'Brutal day', completedAt: backdated })
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockUpdateSession).toHaveBeenCalledWith({
+      where: { id: 'ws001' },
+      data: { notes: 'Brutal day', completedAt: backdated },
+    })
+  })
+
+  test('throws 400 when completedAt is in the future', async () => {
+    const future = new Date(Date.now() + 60_000)
+    mockReadBody.mockResolvedValueOnce({ completedAt: future.toISOString() })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'completedAt cannot be in the future' })
+  })
+
+  test('throws 400 when completedAt is not a parseable date', async () => {
+    mockReadBody.mockResolvedValueOnce({ completedAt: 'not-a-date' })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
+  })
+
+  test('throws 400 when completedAt is not a string (e.g. a number)', async () => {
+    mockReadBody.mockResolvedValueOnce({ completedAt: 1716750000000 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid completedAt date' })
+  })
+
+  test('throws 400 when body is a primitive (not an object)', async () => {
+    mockReadBody.mockResolvedValueOnce('not-an-object')
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid request body' })
+  })
+
+  test('throws 400 when body is an array', async () => {
+    mockReadBody.mockResolvedValueOnce(['notes', 'completedAt'])
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid request body' })
   })
 
   test('throws 400 when session ID is missing', async () => {
