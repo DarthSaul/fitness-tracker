@@ -13,7 +13,6 @@ defineRouteMeta({
 })
 
 export default defineEventHandler(async (event) => {
-  const userId = event.context.userId as string
   const id = getRouterParam(event, 'id')
   if (!id?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Missing feedback ID' })
@@ -26,7 +25,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const existing = await prisma.feedback.findUnique({ where: { id } })
-    if (!existing || existing.userId !== userId) {
+    if (!existing) {
       throw createError({ statusCode: 404, statusMessage: 'Feedback not found' })
     }
 
