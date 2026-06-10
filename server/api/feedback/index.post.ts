@@ -55,10 +55,16 @@ export default defineEventHandler(async (event) => {
     try {
       const feedback = await prisma.feedback.create({
         data: { userId, content, screenshotPath },
+        include: { user: { select: { name: true } } },
       })
 
       event.node.res.statusCode = 201
-      return feedback
+      return {
+        ...feedback,
+        screenshotUrl: feedback.screenshotPath
+          ? supabase.storage.from('feedback-screenshots').getPublicUrl(feedback.screenshotPath).data.publicUrl
+          : null,
+      }
     } catch (dbError) {
       if (screenshotPath) {
         await supabase.storage.from('feedback-screenshots').remove([screenshotPath])
