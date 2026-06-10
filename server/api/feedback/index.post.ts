@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client'
+
 defineRouteMeta({
   openAPI: {
     tags: ['Feedback'],
@@ -13,7 +15,10 @@ defineRouteMeta({
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024 // 5 MB
 
-export default defineEventHandler(async (event) => {
+type FeedbackWithUser = Prisma.FeedbackGetPayload<{ include: { user: { select: { name: true } } } }>
+type FeedbackCreateResponse = FeedbackWithUser & { screenshotUrl: string | null }
+
+export default defineEventHandler(async (event): Promise<FeedbackCreateResponse> => {
   const userId = event.context.userId as string
 
   try {
@@ -55,10 +60,16 @@ export default defineEventHandler(async (event) => {
     try {
       const feedback = await prisma.feedback.create({
         data: { userId, content, screenshotPath },
+        include: { user: { select: { name: true } } },
       })
 
       event.node.res.statusCode = 201
-      return feedback
+      return {
+        ...feedback,
+        screenshotUrl: feedback.screenshotPath
+          ? supabase.storage.from('feedback-screenshots').getPublicUrl(feedback.screenshotPath).data.publicUrl
+          : null,
+      }
     } catch (dbError) {
       if (screenshotPath) {
         await supabase.storage.from('feedback-screenshots').remove([screenshotPath])
