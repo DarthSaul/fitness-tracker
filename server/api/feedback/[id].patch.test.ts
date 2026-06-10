@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import type { Feedback } from '@prisma/client'
 
 import handler from './[id].patch'
 
@@ -16,12 +17,13 @@ function makeEvent(id = 'fb001') {
   }
 }
 
-const mockFeedback = {
+const mockFeedback: Feedback = {
   id: 'fb001',
   userId: 'user001',
-  message: 'The set timer drifts by a second',
-  screenshotUrl: null,
+  content: 'The set timer drifts by a second',
+  screenshotPath: null,
   addressed: false,
+  createdAt: new Date('2026-06-01T12:00:00.000Z'),
 }
 
 describe('PATCH /api/feedback/:id', () => {
