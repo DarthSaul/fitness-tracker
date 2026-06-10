@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client'
+
 defineRouteMeta({
   openAPI: {
     tags: ['Feedback'],
@@ -13,7 +15,10 @@ defineRouteMeta({
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024 // 5 MB
 
-export default defineEventHandler(async (event) => {
+type FeedbackWithUser = Prisma.FeedbackGetPayload<{ include: { user: { select: { name: true } } } }>
+type FeedbackCreateResponse = FeedbackWithUser & { screenshotUrl: string | null }
+
+export default defineEventHandler(async (event): Promise<FeedbackCreateResponse> => {
   const userId = event.context.userId as string
 
   try {
