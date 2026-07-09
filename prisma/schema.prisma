@@ -284,7 +284,8 @@ model CompletedSet {
 // work interval, so the number of entries is the number of "sets". The timer
 // runs client-side — the server persists only the plan and an optional
 // completion timestamp. Time bounds are also enforced by raw-SQL CHECK
-// constraints (timeSeconds > 0, restSeconds >= 0).
+// constraints matching the API contract (timeSeconds 1..3600, restSeconds
+// 0..3600).
 model CoreWorkout {
   id               String    @id @default(cuid())
   workoutSessionId String    @unique

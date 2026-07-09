@@ -61,9 +61,20 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 409, statusMessage: 'Core workout already completed' })
     }
 
-    const updated = await prisma.coreWorkout.update({
-      where: { id: coreWorkout.id },
+    // Atomic conditional write: the completedAt: null guard means only one of
+    // two concurrent completion requests can match the row — the loser sees
+    // count 0 and gets the same 409 as the pre-check above
+    const { count } = await prisma.coreWorkout.updateMany({
+      where: { id: coreWorkout.id, completedAt: null },
       data: { completedAt: completedAtDate },
+    })
+
+    if (count === 0) {
+      throw createError({ statusCode: 409, statusMessage: 'Core workout already completed' })
+    }
+
+    const updated = await prisma.coreWorkout.findUnique({
+      where: { id: coreWorkout.id },
       include: {
         exercises: {
           orderBy: { order: 'asc' },
@@ -72,13 +83,13 @@ export default defineEventHandler(async (event) => {
       },
     })
 
+    if (!updated) {
+      throw createError({ statusCode: 404, statusMessage: 'Core workout not found' })
+    }
+
     return updated
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    // Row deleted by a concurrent request between the lookup and the update
-    if ((error as { code?: string }).code === 'P2025') {
-      throw createError({ statusCode: 404, statusMessage: 'Core workout not found' })
-    }
     ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/workouts/:id/core-workout/complete' }, '[PATCH /api/workouts/:id/core-workout/complete] Failed to complete core workout')
     throw createError({ statusCode: 500, statusMessage: 'Failed to complete core workout' })
   }

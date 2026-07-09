@@ -6,7 +6,7 @@ const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockFindUniqueSession = (prisma as typeof prisma).workoutSession.findUnique as ReturnType<typeof vi.fn>
 const mockFindUniqueCoreWorkout = (prisma as typeof prisma).coreWorkout.findUnique as ReturnType<typeof vi.fn>
-const mockUpdateCoreWorkout = (prisma as typeof prisma).coreWorkout.update as ReturnType<typeof vi.fn>
+const mockUpdateManyCoreWorkout = (prisma as typeof prisma).coreWorkout.updateMany as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
 function makeEvent(id = 'ws001') {
@@ -54,16 +54,21 @@ describe('PATCH /api/workouts/:id/core-workout/complete', () => {
 
   test('marks the core workout completed with the current time by default', async () => {
     mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
-    mockUpdateCoreWorkout.mockResolvedValueOnce(mockCompleted)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout).mockResolvedValueOnce(mockCompleted)
+    mockUpdateManyCoreWorkout.mockResolvedValueOnce({ count: 1 })
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual(mockCompleted)
-    expect(mockUpdateCoreWorkout).toHaveBeenCalledWith({
-      where: { id: 'cw001' },
+    // Atomic conditional write: the completedAt: null guard is what prevents
+    // two concurrent completions from both succeeding
+    expect(mockUpdateManyCoreWorkout).toHaveBeenCalledWith({
+      where: { id: 'cw001', completedAt: null },
       data: { completedAt: expect.any(Date) },
+    })
+    expect(mockFindUniqueCoreWorkout).toHaveBeenLastCalledWith({
+      where: { id: 'cw001' },
       include: {
         exercises: {
           orderBy: { order: 'asc' },
@@ -76,13 +81,13 @@ describe('PATCH /api/workouts/:id/core-workout/complete', () => {
   test('accepts an explicit completedAt for backdating', async () => {
     mockReadBody.mockResolvedValueOnce({ completedAt: '2026-07-01T10:00:00.000Z' })
     mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
-    mockUpdateCoreWorkout.mockResolvedValueOnce(mockCompleted)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout).mockResolvedValueOnce(mockCompleted)
+    mockUpdateManyCoreWorkout.mockResolvedValueOnce({ count: 1 })
 
     const event = makeEvent()
     await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
-    expect(mockUpdateCoreWorkout).toHaveBeenCalledWith(
+    expect(mockUpdateManyCoreWorkout).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { completedAt: new Date('2026-07-01T10:00:00.000Z') },
       }),
@@ -91,13 +96,40 @@ describe('PATCH /api/workouts/:id/core-workout/complete', () => {
 
   test('works when the session is already completed (no status gate)', async () => {
     mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
-    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
-    mockUpdateCoreWorkout.mockResolvedValueOnce(mockCompleted)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout).mockResolvedValueOnce(mockCompleted)
+    mockUpdateManyCoreWorkout.mockResolvedValueOnce({ count: 1 })
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual(mockCompleted)
+  })
+
+  test('throws 409 when a concurrent request completes the workout first', async () => {
+    // Simulates the loser of a double-completion race: the pre-check still saw
+    // completedAt: null (stale read), but the guarded write matched no rows
+    // because the concurrent winner already flipped completedAt
+    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
+    mockUpdateManyCoreWorkout.mockResolvedValueOnce({ count: 0 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Core workout already completed' })
+    // The winner's response was already sent; the loser must not fetch/return success
+    expect(mockFindUniqueCoreWorkout).toHaveBeenCalledTimes(1)
+  })
+
+  test('throws 404 when the core workout is deleted between the write and the fetch', async () => {
+    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout).mockResolvedValueOnce(null)
+    mockUpdateManyCoreWorkout.mockResolvedValueOnce({ count: 1 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Core workout not found' })
   })
 
   test('throws 400 when session id is missing', async () => {
@@ -163,20 +195,7 @@ describe('PATCH /api/workouts/:id/core-workout/complete', () => {
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Core workout already completed' })
-    expect(mockUpdateCoreWorkout).not.toHaveBeenCalled()
-  })
-
-  test('maps a concurrent delete (P2025) to 404 instead of 500', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
-    const p2025Error = new Error('Record to update not found') as Error & { code: string }
-    p2025Error.code = 'P2025'
-    mockUpdateCoreWorkout.mockRejectedValueOnce(p2025Error)
-
-    const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Core workout not found' })
+    expect(mockUpdateManyCoreWorkout).not.toHaveBeenCalled()
   })
 
   test('throws 500 on unexpected error', async () => {
