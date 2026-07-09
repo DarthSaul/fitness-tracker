@@ -162,11 +162,13 @@ model Exercise {
   id          String  @id @default(cuid())
   name        String  @unique
   description String?
+  isCore      Boolean @default(false)
 
   programExercises  ProgramExercise[]
   userExerciseNotes UserExerciseNote[]
   originalSwaps     WorkoutExerciseSwap[] @relation("OriginalSwaps")
   replacementSwaps  WorkoutExerciseSwap[] @relation("ReplacementSwaps")
+  completedCoreSets CompletedCoreSet[]
 }
 
 model UserExerciseNote {
@@ -236,21 +238,23 @@ model UserProgram {
 }
 
 model WorkoutSession {
-  id            String        @id @default(cuid())
-  userId        String
-  userProgramId String
-  weekNumber    Int
-  dayNumber     Int
-  status        SessionStatus @default(IN_PROGRESS)
-  startedAt     DateTime      @default(now())
-  completedAt   DateTime?
-  notes         String?
+  id                 String        @id @default(cuid())
+  userId             String
+  userProgramId      String
+  weekNumber         Int
+  dayNumber          Int
+  status             SessionStatus @default(IN_PROGRESS)
+  startedAt          DateTime      @default(now())
+  completedAt        DateTime?
+  notes              String?
+  coreSectionAddedAt DateTime?
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userProgram UserProgram @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
 
   completedSets        CompletedSet[]
   workoutExerciseSwaps WorkoutExerciseSwap[]
+  completedCoreSets    CompletedCoreSet[]
 }
 
 model CompletedSet {
@@ -271,6 +275,27 @@ model CompletedSet {
 
   @@unique([workoutSessionId, exerciseSetId])
   @@index([workoutSessionId, programExerciseId])
+  // Single-column index for FK lookups by programExerciseId alone; created by
+  // migration 20260416000000 but previously undeclared here (schema drift).
+  @@index([programExerciseId])
+}
+
+// A logged entry in a session's core section. Unlike CompletedSet, entries can
+// record time (durationSeconds) and/or reps — at least one is required, which
+// is enforced at the API layer and by a raw-SQL CHECK constraint.
+model CompletedCoreSet {
+  id               String   @id @default(cuid())
+  workoutSessionId String
+  exerciseId       String
+  durationSeconds  Int?
+  reps             Int?
+  notes            String?
+  completedAt      DateTime @default(now())
+
+  workoutSession WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exercise       Exercise       @relation(fields: [exerciseId], references: [id])
+
+  @@index([workoutSessionId])
 }
 
 model WorkoutExerciseSwap {

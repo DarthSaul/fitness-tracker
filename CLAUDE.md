@@ -258,6 +258,7 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - [ ] Manual unlink flow — UI to disconnect a specific provider Identity from a User (covers the "I changed my Apple email" case). Account linking on sign-in is implemented; this is the inverse operation.
 - [ ] `GET /api/feedback` authorization gating — restrict results to the authenticated user's own feedback unless the caller has an admin role; only admins should see cross-user entries (flagged by CodeRabbit on PR #93).
 - [ ] `GET /api/feedback` pagination — add a hard server-side cap (e.g. `take: 100`) and cursor- or page-based pagination to prevent unbounded system-wide reads as the dataset grows (flagged by CodeRabbit on PR #93).
+- [ ] Achieve the 95% code coverage threshold — `vitest run --coverage` fails its configured 95% global thresholds on the current baseline (~74% lines as of 2026-07-09); backfill tests for uncovered server code (e.g. `server/routes/_schemas.ts`, `server/utils/supabase.ts`, scheduled-workouts routes) until the thresholds pass.
 
 ## Subagents
 

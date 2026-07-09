@@ -24,7 +24,7 @@ describe('GET /api/exercises', () => {
     mockGetQuery.mockReturnValue({})
   })
 
-  test('returns all exercises sorted by name when no search param', async () => {
+  test('returns all non-core exercises sorted by name when no search param', async () => {
     mockFindManyExercise.mockResolvedValueOnce(mockExercises)
 
     const event = makeEvent()
@@ -32,7 +32,7 @@ describe('GET /api/exercises', () => {
 
     expect(result).toEqual(mockExercises)
     expect(mockFindManyExercise).toHaveBeenCalledWith({
-      where: {},
+      where: { isCore: false },
       select: { id: true, name: true, description: true },
       orderBy: { name: 'asc' },
     })
@@ -47,7 +47,7 @@ describe('GET /api/exercises', () => {
 
     expect(result).toEqual([mockExercises[0]])
     expect(mockFindManyExercise).toHaveBeenCalledWith({
-      where: { name: { contains: 'press', mode: 'insensitive' } },
+      where: { isCore: false, name: { contains: 'press', mode: 'insensitive' } },
       select: { id: true, name: true, description: true },
       orderBy: { name: 'asc' },
     })
@@ -71,7 +71,7 @@ describe('GET /api/exercises', () => {
     await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(mockFindManyExercise).toHaveBeenCalledWith({
-      where: {},
+      where: { isCore: false },
       select: { id: true, name: true, description: true },
       orderBy: { name: 'asc' },
     })
@@ -86,7 +86,7 @@ describe('GET /api/exercises', () => {
 
     expect(result).toEqual(mockExercises)
     expect(mockFindManyExercise).toHaveBeenCalledWith({
-      where: {},
+      where: { isCore: false },
       select: { id: true, name: true, description: true },
       orderBy: { name: 'asc' },
     })

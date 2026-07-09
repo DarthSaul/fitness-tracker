@@ -11,6 +11,7 @@ export interface WorkoutSession {
   startedAt: string
   completedAt: string | null
   notes: string | null
+  coreSectionAddedAt: string | null
 }
 
 /** Shape of a completed set record from the API. */
@@ -25,6 +26,18 @@ export interface CompletedSetRecord {
   rpe: number | null
   notes: string | null
   completedAt: string
+}
+
+/** A logged core-section entry from the API. At least one of durationSeconds/reps is set. */
+export interface CompletedCoreSetRecord {
+  id: string
+  workoutSessionId: string
+  exerciseId: string
+  durationSeconds: number | null
+  reps: number | null
+  notes: string | null
+  completedAt: string
+  exercise: { id: string; name: string }
 }
 
 /** A grouping of ad-hoc sets by exercise name, derived from CompletedSetRecords. */
@@ -64,6 +77,7 @@ export interface ActiveWorkoutResponse {
   session: WorkoutSession & {
     completedSets: CompletedSetRecord[]
     workoutExerciseSwaps: WorkoutExerciseSwap[]
+    completedCoreSets: CompletedCoreSetRecord[]
   }
   day: ProgramDayDetail
 }
@@ -105,4 +119,19 @@ export interface StartWorkoutBody {
 /** Request body for PATCH /api/workouts/:id/complete (backdating). */
 export interface CompleteWorkoutBody {
   completedAt?: string
+}
+
+/** Request body for POST /api/workouts/:id/core-sets. */
+export interface LogCoreSetBody {
+  exerciseId: string
+  durationSeconds?: number | null
+  reps?: number | null
+  notes?: string | null
+}
+
+/** Request body for PATCH /api/workouts/:id/core-sets/:coreSetId. */
+export interface UpdateCoreSetBody {
+  durationSeconds?: number | null
+  reps?: number | null
+  notes?: string | null
 }

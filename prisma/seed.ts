@@ -5902,6 +5902,29 @@ async function main(): Promise<void> {
 	}
 	console.log(`Upserted ${exerciseNames.size} exercises\n`);
 
+	// Core exercises for the workout core section (time- and/or rep-logged).
+	// update sets isCore so re-runs flag a name even if it already exists.
+	const CORE_EXERCISES = [
+		'Plank',
+		'Side Plank',
+		'Crunches',
+		'Leg Raises',
+		'Russian Twists',
+		'Bicycle Crunches',
+		'Dead Bug',
+		'Mountain Climbers',
+		'Flutter Kicks',
+		'Hollow Body Hold',
+	];
+	for (const name of CORE_EXERCISES) {
+		await prisma.exercise.upsert({
+			where: { name },
+			update: { isCore: true },
+			create: { name, isCore: true },
+		});
+	}
+	console.log(`Upserted ${CORE_EXERCISES.length} core exercises\n`);
+
 	// Seed each program
 	console.log('Seeding Brick House...');
 	await seedProgram(
