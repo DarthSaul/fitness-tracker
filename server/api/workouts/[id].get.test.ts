@@ -30,6 +30,7 @@ const mockSession = {
   status: 'IN_PROGRESS',
   completedSets: [],
   workoutExerciseSwaps: [],
+  coreWorkout: null,
   userProgram: mockUserProgram,
 }
 
@@ -74,6 +75,14 @@ describe('GET /api/workouts/:id', () => {
         completedSets: true,
         workoutExerciseSwaps: true,
         userProgram: true,
+        coreWorkout: {
+          include: {
+            exercises: {
+              orderBy: { order: 'asc' },
+              include: { exercise: { select: { id: true, name: true } } },
+            },
+          },
+        },
       },
     })
   })

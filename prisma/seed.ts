@@ -5902,6 +5902,57 @@ async function main(): Promise<void> {
 	}
 	console.log(`Upserted ${exerciseNames.size} exercises\n`);
 
+	// Core exercise catalog for the workout core-circuit feature. This list is
+	// canonical: re-runs converge the catalog to exactly these names.
+	// update sets isCore so a name already seeded by a program gets flagged too.
+	const CORE_EXERCISES = [
+		'Plank',
+		'Hanging Leg Raise',
+		'Cable Crunch',
+		'Russian Twist',
+		'Ab Wheel Rollout',
+		'Dead Bug',
+		'Bicycle Crunch',
+		'Mountain Climber',
+	];
+	for (const name of CORE_EXERCISES) {
+		await prisma.exercise.upsert({
+			where: { name },
+			update: { isCore: true },
+			create: { name, isCore: true },
+		});
+	}
+	// Converge: exercises flagged core by earlier seed versions but no longer in
+	// the catalog are deleted when unreferenced, otherwise just unflagged.
+	const staleCore = await prisma.exercise.findMany({
+		where: { isCore: true, name: { notIn: CORE_EXERCISES } },
+		include: {
+			_count: {
+				select: {
+					programExercises: true,
+					userExerciseNotes: true,
+					originalSwaps: true,
+					replacementSwaps: true,
+					coreWorkoutExercises: true,
+				},
+			},
+		},
+	});
+	for (const stale of staleCore) {
+		const referenced = Object.values(stale._count).some((count) => count > 0);
+		if (referenced) {
+			await prisma.exercise.update({
+				where: { id: stale.id },
+				data: { isCore: false },
+			});
+		} else {
+			await prisma.exercise.delete({ where: { id: stale.id } });
+		}
+	}
+	console.log(
+		`Upserted ${CORE_EXERCISES.length} core exercises (${staleCore.length} stale removed/unflagged)\n`,
+	);
+
 	// Seed each program
 	console.log('Seeding Brick House...');
 	await seedProgram(

@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Exercises'],
     summary: 'List exercises',
-    description: 'Returns all exercises, optionally filtered by name search.',
+    description: 'Returns all non-core exercises, optionally filtered by name search. Core exercises are served by GET /api/exercises/core.',
     parameters: [
       { name: 'search', in: 'query', required: false, schema: { type: 'string' }, description: 'Case-insensitive name filter' },
     ],
@@ -20,9 +20,10 @@ export default defineEventHandler(async (event) => {
     const search = query.search
 
     const trimmed = typeof search === 'string' ? search.trim() : ''
-    const where = trimmed
-      ? { name: { contains: trimmed, mode: 'insensitive' as const } }
-      : {}
+    const where = {
+      isCore: false,
+      ...(trimmed ? { name: { contains: trimmed, mode: 'insensitive' as const } } : {}),
+    }
 
     const exercises = await prisma.exercise.findMany({
       where,

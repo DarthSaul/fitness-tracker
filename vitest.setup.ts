@@ -63,6 +63,8 @@ vi.stubGlobal('prisma', {
   exercise: { findUnique: vi.fn(), findMany: vi.fn() },
   exerciseSet: { findUnique: vi.fn() },
   completedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
+  coreWorkout: { findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
+  coreWorkoutExercise: { createMany: vi.fn(), deleteMany: vi.fn() },
   userExerciseNote: { findUnique: vi.fn(), upsert: vi.fn() },
   workoutExerciseSwap: { upsert: vi.fn() },
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },

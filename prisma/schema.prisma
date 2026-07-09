@@ -162,11 +162,13 @@ model Exercise {
   id          String  @id @default(cuid())
   name        String  @unique
   description String?
+  isCore      Boolean @default(false)
 
-  programExercises  ProgramExercise[]
-  userExerciseNotes UserExerciseNote[]
-  originalSwaps     WorkoutExerciseSwap[] @relation("OriginalSwaps")
-  replacementSwaps  WorkoutExerciseSwap[] @relation("ReplacementSwaps")
+  programExercises     ProgramExercise[]
+  userExerciseNotes    UserExerciseNote[]
+  originalSwaps        WorkoutExerciseSwap[] @relation("OriginalSwaps")
+  replacementSwaps     WorkoutExerciseSwap[] @relation("ReplacementSwaps")
+  coreWorkoutExercises CoreWorkoutExercise[]
 }
 
 model UserExerciseNote {
@@ -251,6 +253,7 @@ model WorkoutSession {
 
   completedSets        CompletedSet[]
   workoutExerciseSwaps WorkoutExerciseSwap[]
+  coreWorkout          CoreWorkout?
 }
 
 model CompletedSet {
@@ -271,6 +274,41 @@ model CompletedSet {
 
   @@unique([workoutSessionId, exerciseSetId])
   @@index([workoutSessionId, programExerciseId])
+  // Single-column index for FK lookups by programExerciseId alone; created by
+  // migration 20260416000000 but previously undeclared here (schema drift).
+  @@index([programExerciseId])
+}
+
+// A timed core circuit the user assembles inside a live workout session.
+// timeSeconds/restSeconds are global to the circuit; each entry is exactly one
+// work interval, so the number of entries is the number of "sets". The timer
+// runs client-side — the server persists only the plan and an optional
+// completion timestamp. Time bounds are also enforced by raw-SQL CHECK
+// constraints matching the API contract (timeSeconds 1..3600, restSeconds
+// 0..3600).
+model CoreWorkout {
+  id               String    @id @default(cuid())
+  workoutSessionId String    @unique
+  timeSeconds      Int
+  restSeconds      Int
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  workoutSession WorkoutSession        @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exercises      CoreWorkoutExercise[]
+}
+
+model CoreWorkoutExercise {
+  id            String @id @default(cuid())
+  coreWorkoutId String
+  exerciseId    String
+  order         Int
+
+  coreWorkout CoreWorkout @relation(fields: [coreWorkoutId], references: [id], onDelete: Cascade)
+  exercise    Exercise    @relation(fields: [exerciseId], references: [id])
+
+  @@unique([coreWorkoutId, order])
 }
 
 model WorkoutExerciseSwap {

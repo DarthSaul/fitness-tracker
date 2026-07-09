@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Get a workout session by ID',
-    description: 'Returns a specific workout session with completed sets and the full day template. Works for both in-progress and completed sessions.',
+    description: 'Returns a specific workout session with completed sets, the core workout (circuit plan) if one was saved, and the full day template. Works for both in-progress and completed sessions.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
     ],
@@ -30,8 +30,16 @@ export default defineEventHandler(async (event) => {
       where: { id },
       include: {
         completedSets: true,
-        userProgram: true,
         workoutExerciseSwaps: true,
+        userProgram: true,
+        coreWorkout: {
+          include: {
+            exercises: {
+              orderBy: { order: 'asc' },
+              include: { exercise: { select: { id: true, name: true } } },
+            },
+          },
+        },
       },
     })
 
