@@ -218,6 +218,20 @@ describe('PATCH /api/workouts/:id/core-sets/:coreSetId', () => {
     })
   })
 
+  test('maps a concurrent delete (P2025) to 404 instead of 500', async () => {
+    mockReadBody.mockResolvedValueOnce({ durationSeconds: 90 })
+    mockFindUniqueSession.mockResolvedValueOnce(mockSession)
+    mockFindFirstCoreSet.mockResolvedValueOnce(mockCoreSet)
+    const p2025Error = new Error('Record to update not found') as Error & { code: string }
+    p2025Error.code = 'P2025'
+    mockUpdateCoreSet.mockRejectedValueOnce(p2025Error)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Core set not found' })
+  })
+
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
     mockFindUniqueSession.mockRejectedValueOnce(dbError)

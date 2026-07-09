@@ -82,6 +82,10 @@ export default defineEventHandler(async (event) => {
     return updated
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    // Row deleted by a concurrent request between the lookup and the update
+    if ((error as { code?: string }).code === 'P2025') {
+      throw createError({ statusCode: 404, statusMessage: 'Core set not found' })
+    }
     ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/workouts/:id/core-sets/:coreSetId' }, '[PATCH /api/workouts/:id/core-sets/:coreSetId] Failed to update core set')
     throw createError({ statusCode: 500, statusMessage: 'Failed to update core set' })
   }

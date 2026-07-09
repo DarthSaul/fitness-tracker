@@ -53,6 +53,10 @@ export default defineEventHandler(async (event) => {
     return { deleted: true }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    // Row deleted by a concurrent request between the lookup and the delete
+    if ((error as { code?: string }).code === 'P2025') {
+      throw createError({ statusCode: 404, statusMessage: 'Core set not found' })
+    }
     ;(event.context.logger ?? logger).error({ err: error, route: 'DELETE /api/workouts/:id/core-sets/:coreSetId' }, '[DELETE /api/workouts/:id/core-sets/:coreSetId] Failed to delete core set')
     throw createError({ statusCode: 500, statusMessage: 'Failed to delete core set' })
   }
