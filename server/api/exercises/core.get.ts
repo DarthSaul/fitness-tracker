@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Exercises'],
     summary: 'List core exercises',
-    description: 'Returns all core exercises available for the workout core section, sorted by name.',
+    description: 'Returns the core exercise catalog available for building a core circuit, sorted by name.',
     responses: {
       200: { description: 'Array of core exercises', content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/Exercise' } } } } },
       401: { description: 'Unauthorized' },

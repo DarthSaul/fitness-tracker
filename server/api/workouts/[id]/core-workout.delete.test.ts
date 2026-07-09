@@ -1,21 +1,17 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-import handler from './[coreSetId].delete'
+import handler from './core-workout.delete'
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUniqueSession = (prisma as typeof prisma).workoutSession.findUnique as ReturnType<typeof vi.fn>
-const mockFindFirstCoreSet = (prisma as typeof prisma).completedCoreSet.findFirst as ReturnType<typeof vi.fn>
-const mockDeleteCoreSet = (prisma as typeof prisma).completedCoreSet.delete as ReturnType<typeof vi.fn>
+const mockFindUniqueCoreWorkout = (prisma as typeof prisma).coreWorkout.findUnique as ReturnType<typeof vi.fn>
+const mockDeleteCoreWorkout = (prisma as typeof prisma).coreWorkout.delete as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
-/**
- * getRouterParam is called twice: first for 'id', then for 'coreSetId'.
- * mockGetRouterParam is set up to return both values in call order.
- */
-function makeEvent(id = 'ws001', coreSetId = 'ccs001') {
-  mockGetRouterParam.mockReturnValueOnce(id).mockReturnValueOnce(coreSetId)
+function makeEvent(id = 'ws001') {
+  mockGetRouterParam.mockReturnValue(id)
   return {
-    path: `/api/workouts/${id}/core-sets/${coreSetId}`,
+    path: `/api/workouts/${id}/core-workout`,
     context: { userId: 'user001' },
   }
 }
@@ -25,20 +21,17 @@ const mockSession = {
   userId: 'user001',
   userProgramId: 'up001',
   status: 'IN_PROGRESS',
-  coreSectionAddedAt: new Date('2026-07-01T10:00:00Z'),
 }
 
-const mockCoreSet = {
-  id: 'ccs001',
+const mockCoreWorkout = {
+  id: 'cw001',
   workoutSessionId: 'ws001',
-  exerciseId: 'ex101',
-  durationSeconds: 60,
-  reps: null,
-  notes: null,
-  completedAt: new Date(),
+  timeSeconds: 45,
+  restSeconds: 15,
+  completedAt: null,
 }
 
-describe('DELETE /api/workouts/:id/core-sets/:coreSetId', () => {
+describe('DELETE /api/workouts/:id/core-workout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
@@ -49,39 +42,39 @@ describe('DELETE /api/workouts/:id/core-sets/:coreSetId', () => {
     })
   })
 
-  test('deletes the core set and returns { deleted: true }', async () => {
+  test('deletes the core workout and returns { deleted: true }', async () => {
     mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindFirstCoreSet.mockResolvedValueOnce(mockCoreSet)
-    mockDeleteCoreSet.mockResolvedValueOnce(mockCoreSet)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
+    mockDeleteCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual({ deleted: true })
-    expect(mockFindFirstCoreSet).toHaveBeenCalledWith({
-      where: { id: 'ccs001', workoutSessionId: 'ws001' },
+    expect(mockFindUniqueCoreWorkout).toHaveBeenCalledWith({
+      where: { workoutSessionId: 'ws001' },
     })
-    expect(mockDeleteCoreSet).toHaveBeenCalledWith({ where: { id: 'ccs001' } })
+    expect(mockDeleteCoreWorkout).toHaveBeenCalledWith({ where: { id: 'cw001' } })
+  })
+
+  test('works on a completed session (no status gate)', async () => {
+    mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
+    mockDeleteCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(result).toEqual({ deleted: true })
   })
 
   test('throws 400 when session id is missing', async () => {
-    mockGetRouterParam.mockReset()
-    mockGetRouterParam.mockReturnValueOnce(undefined).mockReturnValueOnce('ccs001')
-    const event = { path: '/api/workouts//core-sets/ccs001', context: { userId: 'user001' } }
+    const event = makeEvent(undefined as unknown as string)
+    mockGetRouterParam.mockReturnValue(undefined)
 
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing session ID' })
-  })
-
-  test('throws 400 when core set id is missing', async () => {
-    mockGetRouterParam.mockReset()
-    mockGetRouterParam.mockReturnValueOnce('ws001').mockReturnValueOnce(undefined)
-    const event = { path: '/api/workouts/ws001/core-sets/', context: { userId: 'user001' } }
-
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing core set ID' })
   })
 
   test('throws 404 when session not found', async () => {
@@ -102,28 +95,28 @@ describe('DELETE /api/workouts/:id/core-sets/:coreSetId', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Not Found' })
   })
 
-  test('throws 404 when core set does not belong to this session', async () => {
+  test('throws 404 when no core workout exists for the session', async () => {
     mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindFirstCoreSet.mockResolvedValueOnce(null)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(null)
 
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Core set not found' })
-    expect(mockDeleteCoreSet).not.toHaveBeenCalled()
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Core workout not found' })
+    expect(mockDeleteCoreWorkout).not.toHaveBeenCalled()
   })
 
   test('maps a concurrent delete (P2025) to 404 instead of 500', async () => {
     mockFindUniqueSession.mockResolvedValueOnce(mockSession)
-    mockFindFirstCoreSet.mockResolvedValueOnce(mockCoreSet)
+    mockFindUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
     const p2025Error = new Error('Record to delete does not exist') as Error & { code: string }
     p2025Error.code = 'P2025'
-    mockDeleteCoreSet.mockRejectedValueOnce(p2025Error)
+    mockDeleteCoreWorkout.mockRejectedValueOnce(p2025Error)
 
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Core set not found' })
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Core workout not found' })
   })
 
   test('throws 500 on unexpected error', async () => {
@@ -134,9 +127,9 @@ describe('DELETE /api/workouts/:id/core-sets/:coreSetId', () => {
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to delete core set' })
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to delete core workout' })
 
-    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'DELETE /api/workouts/:id/core-sets/:coreSetId' }, '[DELETE /api/workouts/:id/core-sets/:coreSetId] Failed to delete core set')
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'DELETE /api/workouts/:id/core-workout' }, '[DELETE /api/workouts/:id/core-workout] Failed to delete core workout')
     consoleSpy.mockRestore()
   })
 })

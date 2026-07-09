@@ -164,11 +164,11 @@ model Exercise {
   description String?
   isCore      Boolean @default(false)
 
-  programExercises  ProgramExercise[]
-  userExerciseNotes UserExerciseNote[]
-  originalSwaps     WorkoutExerciseSwap[] @relation("OriginalSwaps")
-  replacementSwaps  WorkoutExerciseSwap[] @relation("ReplacementSwaps")
-  completedCoreSets CompletedCoreSet[]
+  programExercises     ProgramExercise[]
+  userExerciseNotes    UserExerciseNote[]
+  originalSwaps        WorkoutExerciseSwap[] @relation("OriginalSwaps")
+  replacementSwaps     WorkoutExerciseSwap[] @relation("ReplacementSwaps")
+  coreWorkoutExercises CoreWorkoutExercise[]
 }
 
 model UserExerciseNote {
@@ -238,23 +238,22 @@ model UserProgram {
 }
 
 model WorkoutSession {
-  id                 String        @id @default(cuid())
-  userId             String
-  userProgramId      String
-  weekNumber         Int
-  dayNumber          Int
-  status             SessionStatus @default(IN_PROGRESS)
-  startedAt          DateTime      @default(now())
-  completedAt        DateTime?
-  notes              String?
-  coreSectionAddedAt DateTime?
+  id            String        @id @default(cuid())
+  userId        String
+  userProgramId String
+  weekNumber    Int
+  dayNumber     Int
+  status        SessionStatus @default(IN_PROGRESS)
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+  notes         String?
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   userProgram UserProgram @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
 
   completedSets        CompletedSet[]
   workoutExerciseSwaps WorkoutExerciseSwap[]
-  completedCoreSets    CompletedCoreSet[]
+  coreWorkout          CoreWorkout?
 }
 
 model CompletedSet {
@@ -280,22 +279,35 @@ model CompletedSet {
   @@index([programExerciseId])
 }
 
-// A logged entry in a session's core section. Unlike CompletedSet, entries can
-// record time (durationSeconds) and/or reps — at least one is required, which
-// is enforced at the API layer and by a raw-SQL CHECK constraint.
-model CompletedCoreSet {
-  id               String   @id @default(cuid())
-  workoutSessionId String
-  exerciseId       String
-  durationSeconds  Int?
-  reps             Int?
-  notes            String?
-  completedAt      DateTime @default(now())
+// A timed core circuit the user assembles inside a live workout session.
+// timeSeconds/restSeconds are global to the circuit; each entry is exactly one
+// work interval, so the number of entries is the number of "sets". The timer
+// runs client-side — the server persists only the plan and an optional
+// completion timestamp. Time bounds are also enforced by raw-SQL CHECK
+// constraints (timeSeconds > 0, restSeconds >= 0).
+model CoreWorkout {
+  id               String    @id @default(cuid())
+  workoutSessionId String    @unique
+  timeSeconds      Int
+  restSeconds      Int
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  workoutSession WorkoutSession @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
-  exercise       Exercise       @relation(fields: [exerciseId], references: [id])
+  workoutSession WorkoutSession        @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exercises      CoreWorkoutExercise[]
+}
 
-  @@index([workoutSessionId])
+model CoreWorkoutExercise {
+  id            String @id @default(cuid())
+  coreWorkoutId String
+  exerciseId    String
+  order         Int
+
+  coreWorkout CoreWorkout @relation(fields: [coreWorkoutId], references: [id], onDelete: Cascade)
+  exercise    Exercise    @relation(fields: [exerciseId], references: [id])
+
+  @@unique([coreWorkoutId, order])
 }
 
 model WorkoutExerciseSwap {

@@ -11,7 +11,6 @@ export interface WorkoutSession {
   startedAt: string
   completedAt: string | null
   notes: string | null
-  coreSectionAddedAt: string | null
 }
 
 /** Shape of a completed set record from the API. */
@@ -28,16 +27,26 @@ export interface CompletedSetRecord {
   completedAt: string
 }
 
-/** A logged core-section entry from the API. At least one of durationSeconds/reps is set. */
-export interface CompletedCoreSetRecord {
+/** One ordered work interval in a core circuit. */
+export interface CoreWorkoutExerciseRecord {
+  id: string
+  order: number
+  exercise: { id: string; name: string }
+}
+
+/**
+ * A timed core circuit attached to a workout session. timeSeconds/restSeconds
+ * apply to every interval; total duration = exercises.length × (time + rest).
+ */
+export interface CoreWorkoutRecord {
   id: string
   workoutSessionId: string
-  exerciseId: string
-  durationSeconds: number | null
-  reps: number | null
-  notes: string | null
-  completedAt: string
-  exercise: { id: string; name: string }
+  timeSeconds: number
+  restSeconds: number
+  completedAt: string | null
+  createdAt: string
+  updatedAt: string
+  exercises: CoreWorkoutExerciseRecord[]
 }
 
 /** A grouping of ad-hoc sets by exercise name, derived from CompletedSetRecords. */
@@ -77,7 +86,7 @@ export interface ActiveWorkoutResponse {
   session: WorkoutSession & {
     completedSets: CompletedSetRecord[]
     workoutExerciseSwaps: WorkoutExerciseSwap[]
-    completedCoreSets: CompletedCoreSetRecord[]
+    coreWorkout: CoreWorkoutRecord | null
   }
   day: ProgramDayDetail
 }
@@ -121,17 +130,15 @@ export interface CompleteWorkoutBody {
   completedAt?: string
 }
 
-/** Request body for POST /api/workouts/:id/core-sets. */
-export interface LogCoreSetBody {
-  exerciseId: string
-  durationSeconds?: number | null
-  reps?: number | null
-  notes?: string | null
+/** Request body for PUT /api/workouts/:id/core-workout (create or replace). */
+export interface SaveCoreWorkoutBody {
+  timeSeconds: number
+  restSeconds: number
+  /** Ordered — index in this array becomes the interval order (1-based). */
+  exerciseIds: string[]
 }
 
-/** Request body for PATCH /api/workouts/:id/core-sets/:coreSetId. */
-export interface UpdateCoreSetBody {
-  durationSeconds?: number | null
-  reps?: number | null
-  notes?: string | null
+/** Request body for PATCH /api/workouts/:id/core-workout/complete (backdating). */
+export interface CompleteCoreWorkoutBody {
+  completedAt?: string
 }

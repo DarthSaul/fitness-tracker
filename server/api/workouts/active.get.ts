@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Get active workout session',
-    description: 'Returns the user\'s in-progress workout session with the full day template, already-completed sets, and any logged core sets. Returns 404 if no active session exists.',
+    description: 'Returns the user\'s in-progress workout session with the full day template, already-completed sets, and the session\'s core workout (circuit plan) if one was saved. Returns 404 if no active session exists.',
     responses: {
       200: { description: 'Active workout session with day template and completed sets' },
       401: { description: 'Unauthorized' },
@@ -22,9 +22,13 @@ export default defineEventHandler(async (event) => {
         completedSets: true,
         workoutExerciseSwaps: true,
         userProgram: true,
-        completedCoreSets: {
-          orderBy: { completedAt: 'asc' },
-          include: { exercise: { select: { id: true, name: true } } },
+        coreWorkout: {
+          include: {
+            exercises: {
+              orderBy: { order: 'asc' },
+              include: { exercise: { select: { id: true, name: true } } },
+            },
+          },
         },
       },
     })
