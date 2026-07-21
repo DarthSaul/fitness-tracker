@@ -159,10 +159,12 @@ model ExerciseGroup {
 }
 
 model Exercise {
-  id          String  @id @default(cuid())
-  name        String  @unique
-  description String?
-  isCore      Boolean @default(false)
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  isCore       Boolean @default(false)
+  videoUrl     String? // YouTube demonstration link
+  animationUrl String? // stored gif/animation URL (iOS-rendered; null until assets exist)
 
   programExercises     ProgramExercise[]
   userExerciseNotes    UserExerciseNote[]

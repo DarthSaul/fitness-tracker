@@ -5880,6 +5880,15 @@ async function seedProgram(
 	console.log(`    ${setCount} sets`);
 }
 
+// Sparse demonstration-media map keyed by canonical exercise name. Fill entries
+// in over time as YouTube links (and later stored gif/animation URLs) are
+// gathered; missing entries leave videoUrl/animationUrl null. Spread into both
+// catalog upserts below so re-seeding is idempotent and updates existing rows.
+const EXERCISE_MEDIA: Record<string, { videoUrl?: string; animationUrl?: string }> = {
+	// 'Deadlift': { videoUrl: 'https://youtu.be/...' },
+	// 'Plank': { videoUrl: 'https://youtu.be/...' },
+};
+
 async function main(): Promise<void> {
 	console.log('Seeding programs...\n');
 
@@ -5896,8 +5905,8 @@ async function main(): Promise<void> {
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: {},
-			create: { name },
+			update: { ...(EXERCISE_MEDIA[name] ?? {}) },
+			create: { name, ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}
 	console.log(`Upserted ${exerciseNames.size} exercises\n`);
@@ -5918,8 +5927,8 @@ async function main(): Promise<void> {
 	for (const name of CORE_EXERCISES) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { isCore: true },
-			create: { name, isCore: true },
+			update: { isCore: true, ...(EXERCISE_MEDIA[name] ?? {}) },
+			create: { name, isCore: true, ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}
 	// Converge: exercises flagged core by earlier seed versions but no longer in
