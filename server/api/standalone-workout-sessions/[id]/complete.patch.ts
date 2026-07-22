@@ -69,11 +69,10 @@ export default defineEventHandler(async (event) => {
         where: { id },
         select: { userId: true },
       })
-      if (!current) {
+      // A missing row and one owned by another user return the SAME 404 so a
+      // caller cannot distinguish "does not exist" from "not yours".
+      if (!current || current.userId !== userId) {
         throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-      }
-      if (current.userId !== userId) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found' })
       }
       throw createError({ statusCode: 409, statusMessage: 'Session already completed' })
     }

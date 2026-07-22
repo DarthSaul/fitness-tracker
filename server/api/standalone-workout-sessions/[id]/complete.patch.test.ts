@@ -167,14 +167,16 @@ describe('PATCH /api/standalone-workout-sessions/:id/complete', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Session not found' })
   })
 
-  test('throws 404 when session belongs to a different user', async () => {
+  test('throws the same 404 when session belongs to a different user', async () => {
+    // Identical message to the missing-session case so callers cannot
+    // distinguish "does not exist" from "not yours".
     mockUpdateMany.mockResolvedValueOnce({ count: 0 })
     mockFindUnique.mockResolvedValueOnce({ userId: 'other-user' })
 
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Not Found' })
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Session not found' })
   })
 
   test('throws 409 when session is already completed', async () => {
