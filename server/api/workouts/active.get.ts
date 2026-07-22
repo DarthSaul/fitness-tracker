@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
       include: {
         completedSets: true,
         workoutExerciseSwaps: true,
+        workoutExerciseSkips: true,
         userProgram: true,
         coreWorkout: {
           include: {
@@ -63,6 +64,18 @@ export default defineEventHandler(async (event) => {
 
     if (!day) {
       throw createError({ statusCode: 500, statusMessage: 'Program day not found for session position' })
+    }
+
+    // Remove skipped exercises from the day structure. Skipped slots are gone
+    // before the swap overlay runs, so hidden slots never fetch replacements.
+    const skippedIds = new Set(
+      session.workoutExerciseSkips.map((s: { programExerciseId: string }) => s.programExerciseId)
+    )
+
+    if (skippedIds.size > 0) {
+      for (const group of day.exerciseGroups) {
+        group.exercises = group.exercises.filter((ex: { id: string }) => !skippedIds.has(ex.id))
+      }
     }
 
     // Apply exercise swaps to the day structure

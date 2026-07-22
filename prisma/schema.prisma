@@ -193,10 +193,11 @@ model ProgramExercise {
   exerciseId      String
   order           Int
 
-  exercise      Exercise       @relation(fields: [exerciseId], references: [id])
-  exerciseGroup ExerciseGroup  @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
-  sets          ExerciseSet[]
-  completedSets CompletedSet[]
+  exercise             Exercise              @relation(fields: [exerciseId], references: [id])
+  exerciseGroup        ExerciseGroup         @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
+  sets                 ExerciseSet[]
+  completedSets        CompletedSet[]
+  workoutExerciseSkips WorkoutExerciseSkip[]
 
   @@unique([exerciseGroupId, order])
 }
@@ -255,6 +256,7 @@ model WorkoutSession {
 
   completedSets        CompletedSet[]
   workoutExerciseSwaps WorkoutExerciseSwap[]
+  workoutExerciseSkips WorkoutExerciseSkip[]
   coreWorkout          CoreWorkout?
 }
 
@@ -326,6 +328,22 @@ model WorkoutExerciseSwap {
   replacementExercise Exercise       @relation("ReplacementSwaps", fields: [replacementExerciseId], references: [id])
 
   @@unique([workoutSessionId, programExerciseId])
+}
+
+// Marks a ProgramExercise as skipped for one session. A skip hides the slot
+// from session reads; it does not change exercise identity, so an existing
+// WorkoutExerciseSwap for the slot is preserved and re-applies on un-skip.
+model WorkoutExerciseSkip {
+  id                String   @id @default(cuid())
+  workoutSessionId  String
+  programExerciseId String
+  createdAt         DateTime @default(now())
+
+  workoutSession  WorkoutSession  @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  programExercise ProgramExercise @relation(fields: [programExerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([workoutSessionId, programExerciseId])
+  @@index([programExerciseId])
 }
 
 model ScheduledWorkout {
