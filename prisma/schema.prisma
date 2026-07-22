@@ -54,13 +54,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  identities        Identity[]
-  userPrograms      UserProgram[]
-  workoutSessions   WorkoutSession[]
-  feedback          Feedback[]
-  userExerciseNotes UserExerciseNote[]
-  refreshTokens     RefreshToken[]
-  deviceTokens      DeviceToken[]
+  identities                Identity[]
+  userPrograms              UserProgram[]
+  workoutSessions           WorkoutSession[]
+  standaloneWorkoutSessions StandaloneWorkoutSession[]
+  feedback                  Feedback[]
+  userExerciseNotes         UserExerciseNote[]
+  refreshTokens             RefreshToken[]
+  deviceTokens              DeviceToken[]
 }
 
 model Identity {
@@ -164,11 +165,12 @@ model Exercise {
   description String?
   isCore      Boolean @default(false)
 
-  programExercises     ProgramExercise[]
-  userExerciseNotes    UserExerciseNote[]
-  originalSwaps        WorkoutExerciseSwap[] @relation("OriginalSwaps")
-  replacementSwaps     WorkoutExerciseSwap[] @relation("ReplacementSwaps")
-  coreWorkoutExercises CoreWorkoutExercise[]
+  programExercises           ProgramExercise[]
+  userExerciseNotes          UserExerciseNote[]
+  originalSwaps              WorkoutExerciseSwap[]       @relation("OriginalSwaps")
+  replacementSwaps           WorkoutExerciseSwap[]       @relation("ReplacementSwaps")
+  coreWorkoutExercises       CoreWorkoutExercise[]
+  standaloneWorkoutExercises StandaloneWorkoutExercise[]
 }
 
 model UserExerciseNote {
@@ -355,4 +357,114 @@ model Feedback {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Standalone workouts (on-demand, program-independent)
+//
+// Short "on the go" workouts a user can start and finish without touching any
+// program's progress. Definitions mirror the program hierarchy
+// (StandaloneWorkout → Group → Exercise → Set) and reuse the shared Exercise
+// catalog. Sessions live in their own tables (StandaloneWorkoutSession /
+// StandaloneCompletedSet) so completing one can never advance a UserProgram.
+//
+// Note on StandaloneWorkoutSession in-progress uniqueness:
+// A partial unique index enforces at most one IN_PROGRESS session per
+// (userId, standaloneWorkoutId); it is applied via raw SQL in the migration
+// because Prisma cannot express partial indexes:
+//   CREATE UNIQUE INDEX "StandaloneWorkoutSession_in_progress_partial_idx"
+//   ON "StandaloneWorkoutSession" ("userId", "standaloneWorkoutId")
+//   WHERE "status" = 'IN_PROGRESS';
+// ---------------------------------------------------------------------------
+
+model StandaloneWorkout {
+  id          String   @id @default(cuid())
+  category    String
+  order       Int
+  name        String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  groups   StandaloneWorkoutGroup[]
+  sessions StandaloneWorkoutSession[]
+
+  @@unique([category, order])
+}
+
+model StandaloneWorkoutGroup {
+  id                  String            @id @default(cuid())
+  standaloneWorkoutId String
+  order               Int
+  type                ExerciseGroupType @default(STANDARD)
+  label               String?
+  restSeconds         Int?
+
+  standaloneWorkout StandaloneWorkout           @relation(fields: [standaloneWorkoutId], references: [id], onDelete: Cascade)
+  exercises         StandaloneWorkoutExercise[]
+
+  @@unique([standaloneWorkoutId, order])
+}
+
+model StandaloneWorkoutExercise {
+  id         String @id @default(cuid())
+  groupId    String
+  exerciseId String
+  order      Int
+
+  group    StandaloneWorkoutGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  exercise Exercise               @relation(fields: [exerciseId], references: [id])
+  sets     StandaloneWorkoutSet[]
+
+  @@unique([groupId, order])
+}
+
+model StandaloneWorkoutSet {
+  id                          String  @id @default(cuid())
+  standaloneWorkoutExerciseId String
+  setNumber                   Int
+  reps                        Int?
+  weight                      Float?
+  rpe                         Float?
+  notes                       String?
+  effortTarget                String?
+
+  standaloneWorkoutExercise StandaloneWorkoutExercise @relation(fields: [standaloneWorkoutExerciseId], references: [id], onDelete: Cascade)
+  completedSets             StandaloneCompletedSet[]
+
+  @@unique([standaloneWorkoutExerciseId, setNumber])
+}
+
+model StandaloneWorkoutSession {
+  id                  String        @id @default(cuid())
+  userId              String
+  standaloneWorkoutId String
+  status              SessionStatus @default(IN_PROGRESS)
+  startedAt           DateTime      @default(now())
+  completedAt         DateTime?
+  notes               String?
+
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  standaloneWorkout StandaloneWorkout        @relation(fields: [standaloneWorkoutId], references: [id], onDelete: Cascade)
+  completedSets     StandaloneCompletedSet[]
+
+  @@index([userId])
+  @@index([standaloneWorkoutId])
+}
+
+model StandaloneCompletedSet {
+  id                         String   @id @default(cuid())
+  standaloneWorkoutSessionId String
+  standaloneWorkoutSetId     String?
+  adhocExerciseName          String?
+  reps                       Int?
+  weight                     Float?
+  rpe                        Float?
+  notes                      String?
+  completedAt                DateTime @default(now())
+
+  session StandaloneWorkoutSession @relation(fields: [standaloneWorkoutSessionId], references: [id], onDelete: Cascade)
+  set     StandaloneWorkoutSet?    @relation(fields: [standaloneWorkoutSetId], references: [id], onDelete: Cascade)
+
+  @@unique([standaloneWorkoutSessionId, standaloneWorkoutSetId], map: "StandaloneCompletedSet_session_set_key")
+  @@index([standaloneWorkoutSessionId])
 }

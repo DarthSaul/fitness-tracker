@@ -5880,6 +5880,586 @@ async function seedProgram(
 	console.log(`    ${setCount} sets`);
 }
 
+// ===========================================================================
+// STANDALONE "STRENGTH ON THE GO" WORKOUTS
+//
+// On-demand workouts that are not part of any program. Each is a single
+// session (no weeks/days). Exercises reuse the shared Exercise catalog by name.
+// The "Cardio" section is modelled as a normal group with label = 'Cardio'.
+// ===========================================================================
+
+interface SWSetInput {
+	reps?: number | null;
+	notes?: string;
+	effortTarget?: string;
+}
+
+interface SWExerciseInput {
+	name: string;
+	sets: SWSetInput[];
+}
+
+interface SWGroupInput {
+	type: ExerciseGroupType;
+	label?: string;
+	restSeconds?: number;
+	exercises: SWExerciseInput[];
+}
+
+interface StandaloneWorkoutInput {
+	category: string;
+	order: number;
+	groups: SWGroupInput[];
+}
+
+/** Single standalone set (reps may be null for carries / AMRAP finishers) */
+const ws = (
+	reps: number | null,
+	opts?: { notes?: string; effortTarget?: string },
+): SWSetInput => ({ reps, ...(opts ?? {}) });
+
+/** N identical sets; an optional note is attached to the first set only */
+const wr = (reps: number, count: number, firstNote?: string): SWSetInput[] =>
+	Array.from({ length: count }, (_unused, i) =>
+		i === 0 && firstNote ? { reps, notes: firstNote } : { reps },
+	);
+
+/** N percentage sets with the same reps (e.g. 8 sets of 10 @ 55%) */
+const wpr = (
+	reps: number,
+	count: number,
+	effortTarget: string,
+	firstNote?: string,
+): SWSetInput[] =>
+	Array.from({ length: count }, (_unused, i) =>
+		i === 0 && firstNote
+			? { reps, effortTarget, notes: firstNote }
+			: { reps, effortTarget },
+	);
+
+/** Percentage sets, same reps, one entry per percentage */
+const wpct = (
+	reps: number,
+	percentages: number[],
+	ref: string,
+): SWSetInput[] =>
+	percentages.map((p) => ({ reps, effortTarget: `${p}% of ${ref}` }));
+
+/** Percentage sets with per-set reps: pairs of [reps, percentage] */
+const wrpct = (pairs: Array<[number, number]>, ref: string): SWSetInput[] =>
+	pairs.map(([reps, p]) => ({ reps, effortTarget: `${p}% of ${ref}` }));
+
+/** Carry / distance sets — reps null, distance captured in notes */
+const wcarry = (count: number, note: string): SWSetInput[] =>
+	Array.from({ length: count }, () => ({ reps: null, notes: note }));
+
+/** Single standalone exercise */
+const wex = (name: string, ...sets: SWSetInput[]): SWExerciseInput => ({
+	name,
+	sets,
+});
+
+/** Standard (single-exercise) group */
+const wsolo = (
+	exercise: SWExerciseInput,
+	restSeconds?: number,
+): SWGroupInput => ({
+	type: ExerciseGroupType.STANDARD,
+	restSeconds,
+	exercises: [exercise],
+});
+
+/** Superset group */
+const wss = (
+	exercises: SWExerciseInput[],
+	restSeconds?: number,
+): SWGroupInput => ({
+	type: ExerciseGroupType.SUPERSET,
+	restSeconds,
+	exercises,
+});
+
+/** Cardio group (label = 'Cardio'); accepts a single exercise or a superset */
+const cardio = (
+	exercise: SWExerciseInput | SWExerciseInput[],
+	restSeconds?: number,
+): SWGroupInput =>
+	Array.isArray(exercise)
+		? {
+				type: ExerciseGroupType.SUPERSET,
+				label: 'Cardio',
+				restSeconds,
+				exercises: exercise,
+			}
+		: {
+				type: ExerciseGroupType.STANDARD,
+				label: 'Cardio',
+				restSeconds,
+				exercises: [exercise],
+			};
+
+const CHIN_TEMPO = 'Slow, strict tempo; add weight if needed';
+
+const standaloneWorkouts: StandaloneWorkoutInput[] = [
+	// ----------------------------------------------------------------- Upper Push
+	{
+		category: 'Upper Push',
+		order: 1,
+		groups: [
+			wsolo(wex('Bench Press', ...wpct(5, [65, 70, 73, 75, 75], 'Bench 1RM')), 120),
+			wss([
+				wex('Barbell Standing Overhead Press', ...wr(5, 3)),
+				wex('DB Rear Laterals', ...wr(20, 3)),
+			], 120),
+			wsolo(wex('EZ Bar or Straight Bar Skullcrushers', ...wr(10, 10)), 60),
+			cardio(wex('DB Triceps Kickbacks', ws(10, { notes: 'AMRAP — as many sets of 10 reps as possible in 4 min' }))),
+		],
+	},
+	{
+		category: 'Upper Push',
+		order: 2,
+		groups: [
+			wsolo(wex('Bench Press', ...wrpct([[8, 65], [6, 73], [4, 80], [2, 88]], 'Bench 1RM')), 150),
+			wss([
+				wex('DB Arnold Press', ...wr(10, 3, 'Seated')),
+				wex('DB Laterals', ...wr(20, 3)),
+			], 120),
+			wsolo(wex('DB Triceps Tate Press', ...wr(10, 5, 'Google the exercise')), 90),
+			cardio(wex('Cable or Band Pushdowns', ...wr(25, 4)), 90),
+		],
+	},
+	{
+		category: 'Upper Push',
+		order: 3,
+		groups: [
+			wsolo(wex('Bench Press', ...wpr(8, 8, '50–55% of Bench 1RM')), 75),
+			wsolo(wex('DB Incline Press', ws(5), ws(5), ws(5), ws(20)), 90),
+			wss([
+				wex('EZ Bar or Straight Bar Skullcrushers', ...wr(10, 4)),
+				wex('Close Grip Pushups', ...wr(10, 4)),
+			], 120),
+			cardio(wex('DB Laterals', ...wr(20, 5)), 90),
+		],
+	},
+
+	// ----------------------------------------------------------------- Upper Pull
+	{
+		category: 'Upper Pull',
+		order: 1,
+		groups: [
+			wsolo(wex('Chin Up', ...wr(5, 4, `3–5 reps. ${CHIN_TEMPO}`)), 120),
+			wss([
+				wex('Chest Supported 2-Arm DB Rows', ws(5), ws(5), ws(10), ws(10), ws(15), ws(15)),
+				wex('DB Shrugs', ...wr(20, 6)),
+			], 75),
+			wsolo(wex('DB Zottman Curls', ...wr(10, 5, 'Google the exercise')), 75),
+			cardio(wex('Barbell Curls', ...wr(10, 3)), 90),
+		],
+	},
+	{
+		category: 'Upper Pull',
+		order: 2,
+		groups: [
+			wsolo(wex('Pull Up', ...wr(5, 4, `3–5 reps. ${CHIN_TEMPO}`)), 120),
+			wsolo(wex('1-Arm DB Row', ...wr(8, 5, 'Each arm')), 90),
+			wsolo(wex('Barbell Curls', ...wr(5, 5, 'Heavy')), 120),
+			cardio(wex('DB Concentration Curls', ...wr(15, 4)), 90),
+		],
+	},
+	{
+		category: 'Upper Pull',
+		order: 3,
+		groups: [
+			wss([
+				wex('DB Pullover', ...wr(5, 4)),
+				wex('Barbell Bent Over Rows', ...wr(5, 4)),
+			], 120),
+			wsolo(wex('Chin Up', ...wr(2, 10, `${CHIN_TEMPO}`)), 60),
+			wsolo(wex('Alt. DB Curls', ...wr(5, 4, 'Heavy, alternating')), 90),
+			cardio(wex('DB Hammer Curls', ...wr(25, 4, 'Two-arm')), 90),
+		],
+	},
+
+	// ----------------------------------------------------------------- Total Body
+	{
+		category: 'Total Body',
+		order: 1,
+		groups: [
+			wsolo(wex('Back Squat', ...wrpct([[5, 65], [5, 70], [5, 75], [10, 60]], 'Back Squat 1RM')), 120),
+			wss([
+				wex('Bench Press', ...wrpct([[5, 65], [4, 75], [3, 80], [2, 87], [1, 92]], 'Bench 1RM')),
+				wex('Snatch Grip Deadlift', ...wpr(3, 5, '50–60% of Deadlift 1RM', 'Use regular Deadlift max')),
+			], 150),
+			wss([
+				wex('Cable or Band Face Pulls', ...wr(15, 3)),
+				wex('DB Laterals', ...wr(15, 3)),
+			], 120),
+			cardio([
+				wex('Close Grip Pushups', ...wr(10, 3, 'On each')),
+				wex('Barbell Curls', ...wr(10, 3)),
+			], 90),
+		],
+	},
+	{
+		category: 'Total Body',
+		order: 2,
+		groups: [
+			wsolo(wex('Deadlift', ...wpct(4, [67, 75, 78, 80], 'Deadlift 1RM')), 120),
+			wss([
+				wex('Bench Press', ...wpct(10, [55, 60, 62], 'Bench 1RM')),
+				wex('1-Arm DB Row', ...wr(5, 4)),
+			], 150),
+			wss([
+				wex('DB Laterals', ...wr(10, 3)),
+				wex('EZ Bar or Straight Bar Skullcrushers', ...wr(10, 3)),
+				wex('DB Shrugs', ...wr(10, 3)),
+			], 90),
+			cardio(wex('Barbell 21s', ...wr(21, 3, 'Google the exercise')), 120),
+		],
+	},
+	{
+		category: 'Total Body',
+		order: 3,
+		groups: [
+			wss([
+				wex('Rear Foot Elevated DB Split Squat', ...wr(5, 4)),
+				wex('DB Incline Press', ...wr(10, 4)),
+			], 120),
+			wss([
+				wex('Barbell Standing Overhead Press', ...wr(5, 3)),
+				wex('DB Pullover', ...wr(5, 3)),
+			], 120),
+			wss([
+				wex('Cable or Band Pushdowns', ...wr(20, 4)),
+				wex('Alt. DB Curls', ...wr(5, 4, 'Each arm, heavy')),
+			], 90),
+			cardio(wex('KB Swings', ...wr(15, 5)), 60),
+		],
+	},
+
+	// ------------------------------------------------------------------- KB Only
+	{
+		category: 'KB Only',
+		order: 1,
+		groups: [
+			wss([
+				wex('KB Rear Foot Elevated Split Squat', ...wr(5, 4, 'KB each hand, front rack position')),
+				wex('KB Reverse Lunges', ...wr(5, 4)),
+			], 120),
+			wss([
+				wex('Single Arm KB Overhead Press', ...wr(5, 3, 'Each arm')),
+				wex('KB Gorilla Rows', ...wr(5, 3, 'Google the exercise')),
+			], 120),
+			wsolo(wex('Single Arm KB Waiter Carry', ...wcarry(3, '20 yds each arm')), 60),
+			cardio(wex('KB Swings', ...wr(10, 10)), 60),
+		],
+	},
+	{
+		category: 'KB Only',
+		order: 2,
+		groups: [
+			wsolo(wex('Front Foot Elevated Single Arm KB Split Squat', ...wr(5, 5, 'Elevate front foot 3–5 inches')), 90),
+			wss([
+				wex('KB Single Leg RDL', ...wr(5, 4)),
+				wex('KB Single Arm Row', ...wr(5, 4)),
+			], 120),
+			wsolo(wex('Double KB Waiter Carry', ws(null, { notes: '20 yds. Google the exercise' }), ...wcarry(3, '20 yds')), 90),
+			cardio(wex('KB Swings', ...wr(8, 8)), 60),
+		],
+	},
+	{
+		category: 'KB Only',
+		order: 3,
+		groups: [
+			wsolo(wex('KB Rear Foot Elevated Split Squat', ...wr(5, 4, 'Single arm, front rack position')), 90),
+			wss([
+				wex('Single Arm KB Overhead Press', ...wr(5, 4)),
+				wex('KB Gorilla Rows', ...wr(5, 4)),
+				wex('KB Swings', ...wr(10, 4)),
+			], 120),
+			wsolo(wex('Single Arm KB Suitcase Carry', ...wcarry(3, '20 yds each arm')), 60),
+			cardio(wex('KB Swings', ...wr(15, 6)), 75),
+		],
+	},
+
+	// ------------------------------------------------------------------ Arms Only
+	{
+		category: 'Arms Only',
+		order: 1,
+		groups: [
+			wss([
+				wex('Barbell Curls', ws(5), ws(8), ws(10), ws(12)),
+				wex('DB Skullcrushers', ws(12, { notes: '2 hands on one DB. Google the exercise' }), ws(10), ws(8), ws(5)),
+			], 90),
+			wss([
+				wex('Close Grip Bench', ...wr(10, 3)),
+				wex('Cable or Band Pushdowns', ...wr(20, 3)),
+			], 120),
+			wsolo(wex('DB Zottman Curls', ...wr(10, 4, 'Google the exercise')), 90),
+			cardio(wex('DB Triceps Tate Press', ...wr(20, 5)), 75),
+		],
+	},
+	{
+		category: 'Arms Only',
+		order: 2,
+		groups: [
+			wss([
+				wex('EZ Bar or Straight Bar Skullcrushers', ...wr(20, 4)),
+				wex('Alt. DB Curls', ...wr(5, 4, 'Heavy')),
+			], 120),
+			wss([
+				wex('Barbell 21s', ...wr(21, 3, 'Google the exercises')),
+				wex('DB Triceps Kickbacks', ...wr(15, 3)),
+			], 120),
+			wsolo(wex('Close Grip Pushups', ...wr(10, 5)), 90),
+			cardio(wex('Cable or Band Pushdowns', ...wr(20, 5)), 90),
+		],
+	},
+	{
+		category: 'Arms Only',
+		order: 3,
+		groups: [
+			wss([
+				wex('Close Grip Bench', ...wr(10, 10)),
+				wex('DB Hammer Curls', ...wr(10, 10, 'Two-arm')),
+			], 75),
+			wss([
+				wex('DB Concentration Curls', ...wr(10, 5)),
+				wex('DB Triceps Kickbacks', ...wr(10, 5)),
+			], 75),
+			wsolo(wex('Barbell Curls', ...wr(5, 4, 'Heavy')), 90),
+			cardio(wex('EZ Bar or Straight Bar Skullcrushers', ...wr(20, 5)), 90),
+		],
+	},
+
+	// ---------------------------------------------------------------- Deads/Bench
+	{
+		category: 'Deads/Bench',
+		order: 1,
+		groups: [
+			wsolo(
+				wex(
+					'Bench Press',
+					...wpr(10, 2, '55% of Bench 1RM'),
+					...wpr(7, 2, '67% of Bench 1RM'),
+					...wpr(5, 3, '75% of Bench 1RM'),
+					ws(null, { effortTarget: '80% of Bench 1RM', notes: 'AMRAP — record number of reps' }),
+				),
+				150,
+			),
+			wsolo(wex('Deadlift', ...wpct(5, [65, 70, 75, 77, 80], 'Deadlift 1RM')), 150),
+			cardio(wex('DB Shrugs', ...wr(20, 3)), 75),
+		],
+	},
+	{
+		category: 'Deads/Bench',
+		order: 2,
+		groups: [
+			wsolo(
+				wex(
+					'Deadlift',
+					...wpr(4, 2, '70% of Deadlift 1RM'),
+					...wpr(3, 2, '80% of Deadlift 1RM'),
+					...wpr(2, 2, '87% of Deadlift 1RM'),
+					...wpr(5, 1, '80% of Deadlift 1RM'),
+				),
+				120,
+			),
+			wsolo(
+				wex('Bench Press', ...wrpct(
+					[[4, 70], [3, 80], [2, 85], [1, 90], [4, 75], [3, 83], [2, 88], [1, 93]],
+					'Bench 1RM',
+				)),
+				150,
+			),
+			cardio(wex('KB Swings', ...wr(15, 3)), 75),
+		],
+	},
+	{
+		category: 'Deads/Bench',
+		order: 3,
+		groups: [
+			wsolo(wex('Bench Press', ...wpr(10, 10, '55% of Bench 1RM')), 150),
+			wsolo(wex('Deadlift', ...wpct(3, [65, 75, 80, 85, 88], 'Deadlift 1RM')), 150),
+			cardio(wex('DB Farmers Walk', ...wcarry(4, '30 yds. DB or KB')), 90),
+		],
+	},
+
+	// ----------------------------------------------------------------- Lower Body
+	{
+		category: 'Lower Body',
+		order: 1,
+		groups: [
+			wsolo(wex('Back Squat', ...wrpct([[5, 65], [5, 70], [5, 75], [5, 77], [10, 60]], 'Back Squat 1RM')), 150),
+			wsolo(wex('Barbell Reverse Lunge', ...wr(5, 3, '5 each leg, do not alternate')), 120),
+			wsolo(wex('Barbell RDLs', ...wr(5, 4)), 120),
+			cardio(wex('KB Goblet Squats', ...wr(10, 5)), 75),
+		],
+	},
+	{
+		category: 'Lower Body',
+		order: 2,
+		groups: [
+			wsolo(wex('Back Squat', ...wpr(8, 3, '60% of Back Squat 1RM')), 120),
+			wsolo(wex('Barbell Rear Foot Elevated Split Squat', ...wr(5, 4)), 120),
+			wsolo(wex('Back Squat', ...wpr(5, 5, '67% of Back Squat 1RM')), 120),
+			cardio(wex('DB RDLs', ...wr(10, 4)), 90),
+		],
+	},
+	{
+		category: 'Lower Body',
+		order: 3,
+		groups: [
+			wsolo(wex('Back Squat', ...wpr(8, 8, '60% of Back Squat 1RM')), 120),
+			wsolo(wex('Front Squat', ...wpr(5, 4, '50–55% of Back Squat 1RM', '% taken from Back Squat max')), 120),
+			wsolo(wex('Rear Foot Elevated DB Split Squat', ...wr(10, 3, '10 each leg')), 120),
+			cardio(wex('Bodyweight Walking Lunges', ...wr(20, 3, '10 each leg')), 120),
+		],
+	},
+
+	// ------------------------------------------------------------------- DB Only
+	{
+		category: 'DB Only',
+		order: 1,
+		groups: [
+			wss([
+				wex('Rear Foot Elevated DB Split Squat', ...wr(5, 4)),
+				wex('DB Incline Press', ...wr(10, 4)),
+			], 120),
+			wss([
+				wex('DB Arnold Press', ...wr(10, 4, 'Seated')),
+				wex('1-Arm DB Row', ...wr(5, 4)),
+			], 90),
+			wss([
+				wex('DB Zottman Curls', ...wr(10, 4)),
+				wex('DB Skullcrushers', ...wr(10, 4, 'Two DBs for skulls')),
+			], 90),
+			cardio([
+				wex('DB RDLs', ...wr(10, 3)),
+				wex('DB Shrugs', ...wr(10, 3)),
+			], 60),
+		],
+	},
+	{
+		category: 'DB Only',
+		order: 2,
+		groups: [
+			wsolo(wex('DB Incline Press', ...wr(8, 4)), 120),
+			wsolo(wex('Chest Supported 2-Arm DB Rows', ...wr(10, 10)), 60),
+			wss([
+				wex('DB Reverse Lunge', ...wr(5, 4)),
+				wex('DB RDLs', ...wr(10, 4)),
+			], 90),
+			cardio(wex('DB Triceps Kickbacks', ...wr(15, 4)), 90),
+		],
+	},
+	{
+		category: 'DB Only',
+		order: 3,
+		groups: [
+			wss([
+				wex('DB Goblet Squats', ...wr(10, 5)),
+				wex('DB Pullover', ...wr(5, 5)),
+			], 75),
+			wsolo(wex('DB Incline Press', ...wr(10, 10)), 75),
+			wsolo(wex('1-Arm DB Row', ...wr(5, 4)), 90),
+			cardio(wex('Alt. DB Curls', ...wr(5, 5, 'Heavy, alternating')), 75),
+		],
+	},
+];
+
+/** Collect all unique exercise names used by the standalone workouts */
+function collectStandaloneExerciseNames(
+	workouts: StandaloneWorkoutInput[],
+): Set<string> {
+	const names = new Set<string>();
+	for (const workout of workouts) {
+		for (const group of workout.groups) {
+			for (const exercise of group.exercises) {
+				names.add(canonicalizeName(exercise.name));
+			}
+		}
+	}
+	return names;
+}
+
+/**
+ * Seed the standalone "on the go" workouts. Upserts any new exercise names into
+ * the shared catalog, then creates each workout (skipping any that already
+ * exist by category + order, to preserve user sessions).
+ */
+async function seedStandaloneWorkouts(): Promise<void> {
+	const exerciseNames = collectStandaloneExerciseNames(standaloneWorkouts);
+	for (const name of exerciseNames) {
+		await prisma.exercise.upsert({
+			where: { name },
+			update: {},
+			create: { name },
+		});
+	}
+	console.log(
+		`  Upserted ${exerciseNames.size} exercise names for standalone workouts`,
+	);
+
+	let created = 0;
+	let skipped = 0;
+	for (const workout of standaloneWorkouts) {
+		const existing = await prisma.standaloneWorkout.findUnique({
+			where: {
+				category_order: {
+					category: workout.category,
+					order: workout.order,
+				},
+			},
+		});
+		if (existing) {
+			skipped++;
+			continue;
+		}
+
+		await prisma.standaloneWorkout.create({
+			data: {
+				category: workout.category,
+				order: workout.order,
+				groups: {
+					create: workout.groups.map((group, groupIdx) => ({
+						order: groupIdx + 1,
+						type: group.type,
+						label: group.label,
+						restSeconds: group.restSeconds,
+						exercises: {
+							create: group.exercises.map(
+								(exercise, exIdx) => ({
+									exercise: {
+										connect: {
+											name: canonicalizeName(exercise.name),
+										},
+									},
+									order: exIdx + 1,
+									sets: {
+										create: exercise.sets.map(
+											(set, setIdx) => ({
+												setNumber: setIdx + 1,
+												reps: set.reps ?? null,
+												notes: set.notes,
+												effortTarget: set.effortTarget,
+											}),
+										),
+									},
+								}),
+							),
+						},
+					})),
+				},
+			},
+		});
+		created++;
+	}
+	console.log(
+		`  Standalone workouts: ${created} created, ${skipped} already existed`,
+	);
+}
+
 async function main(): Promise<void> {
 	console.log('Seeding programs...\n');
 
@@ -6002,6 +6582,9 @@ async function main(): Promise<void> {
 		POOL_SEASON_2_DESCRIPTION,
 		poolSeason2Weeks,
 	);
+
+	console.log('\nSeeding standalone (on the go) workouts...');
+	await seedStandaloneWorkouts();
 }
 
 main()

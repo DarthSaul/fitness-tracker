@@ -70,6 +70,10 @@ vi.stubGlobal('prisma', {
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
   deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  standaloneWorkout: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
+  standaloneWorkoutSet: { findUnique: vi.fn() },
+  standaloneWorkoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  standaloneCompletedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
 })
 
 vi.stubGlobal('sendPush', vi.fn())
