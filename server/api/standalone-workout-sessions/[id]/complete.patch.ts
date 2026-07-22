@@ -48,26 +48,39 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    const session = await prisma.standaloneWorkoutSession.findUnique({
-      where: { id },
-      select: { id: true, userId: true, status: true },
+    // Complete the session with a single conditional update. The
+    // `status: { not: 'COMPLETED' }` + `userId` filter revalidates the row at
+    // write time, so there is no read-then-write gap: a concurrent completion
+    // or deletion matches zero rows instead of causing a lost update (an
+    // overwritten completedAt), two racing completions both succeeding, or a
+    // P2025-driven 500. (`{ not: 'COMPLETED' }` — rather than only
+    // 'IN_PROGRESS' — keeps an EDITING session completable, as before.)
+    const { count } = await prisma.standaloneWorkoutSession.updateMany({
+      where: { id, userId, status: { not: 'COMPLETED' } },
+      data: { status: 'COMPLETED', completedAt: completedAtDate },
     })
 
-    if (!session) {
-      throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-    }
-
-    if (session.userId !== userId) {
-      throw createError({ statusCode: 404, statusMessage: 'Not Found' })
-    }
-
-    if (session.status === 'COMPLETED') {
+    if (count === 0) {
+      // Nothing matched — re-read to map the reason. Since the filter excludes
+      // only COMPLETED rows, an owned row that failed to match is already
+      // completed (409); a missing row (e.g. concurrently deleted) or one owned
+      // by another user is a 404.
+      const current = await prisma.standaloneWorkoutSession.findUnique({
+        where: { id },
+        select: { userId: true },
+      })
+      if (!current) {
+        throw createError({ statusCode: 404, statusMessage: 'Session not found' })
+      }
+      if (current.userId !== userId) {
+        throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+      }
       throw createError({ statusCode: 409, statusMessage: 'Session already completed' })
     }
 
-    const updatedSession = await prisma.standaloneWorkoutSession.update({
+    // updateMany returns only a count; read the completed row for the response.
+    const updatedSession = await prisma.standaloneWorkoutSession.findUnique({
       where: { id },
-      data: { status: 'COMPLETED', completedAt: completedAtDate },
     })
 
     return { session: updatedSession }
