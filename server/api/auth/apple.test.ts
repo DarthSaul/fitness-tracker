@@ -49,6 +49,7 @@ const mockDbUser = {
   email: 'apple@example.com',
   name: 'Jane Appleseed',
   avatarUrl: null,
+  ptRoutineInWorkout: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User
