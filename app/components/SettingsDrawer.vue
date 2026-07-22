@@ -118,7 +118,7 @@ async function goToPtRoutines(): Promise<void> {
               </button>
               <div class="flex items-center justify-between py-3 px-1">
                 <span class="text-sm text-white">PT routine in workout</span>
-                <div v-if="ptStatus === 'pending'" class="h-5 w-9 animate-pulse rounded-full bg-slate-800" />
+                <div v-if="ptStatus === 'pending'" class="h-5 w-9 animate-pulse rounded-lg bg-slate-800" />
                 <USwitch
                   v-else
                   :model-value="ptEnabled"

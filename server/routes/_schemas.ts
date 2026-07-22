@@ -421,7 +421,7 @@ defineRouteMeta({
 					PtRoutineExerciseInput: {
 						type: 'object',
 						required: ['title'],
-						description: 'Exercise payload for creating/replacing a routine\'s list. Titles are limited to 100 characters. Provide exactly one of durationSeconds or reps; order is derived from the array index.',
+						description: 'Exercise payload for creating/replacing a routine\'s list. Titles are limited to 100 characters. Provide exactly one of durationSeconds or reps (the other must be null or absent); order is derived from the array index.',
 						properties: {
 							title: {
 								type: 'string',
@@ -440,6 +440,24 @@ defineRouteMeta({
 								example: 15,
 							},
 						},
+						oneOf: [
+							{
+								type: 'object',
+								required: ['durationSeconds'],
+								properties: {
+									durationSeconds: { type: 'integer' },
+									reps: { type: 'null' },
+								},
+							},
+							{
+								type: 'object',
+								required: ['reps'],
+								properties: {
+									reps: { type: 'integer' },
+									durationSeconds: { type: 'null' },
+								},
+							},
+						],
 					},
 					PtRoutine: {
 						type: 'object',

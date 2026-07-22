@@ -28,13 +28,12 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const routine = await prisma.ptRoutine.findUnique({ where: { id } })
+    // Atomic owner-scoped delete — count 0 covers both missing and other-user rows
+    const result = await prisma.ptRoutine.deleteMany({ where: { id, userId } })
 
-    if (!routine || routine.userId !== userId) {
+    if (result.count === 0) {
       throw createError({ statusCode: 404, statusMessage: 'Routine not found' })
     }
-
-    await prisma.ptRoutine.delete({ where: { id } })
 
     return { success: true }
   } catch (error) {

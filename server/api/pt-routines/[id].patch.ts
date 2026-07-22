@@ -135,8 +135,8 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, statusMessage: 'Routine not found' })
       }
 
-      // Always update the routine row — an empty data object still bumps updatedAt
-      await tx.ptRoutine.update({ where: { id }, data: name !== undefined ? { name } : {} })
+      // Always touch the routine row so updatedAt reflects exercise-only changes too
+      await tx.ptRoutine.update({ where: { id }, data: name !== undefined ? { name } : { updatedAt: new Date() } })
 
       if (exercises) {
         await tx.ptRoutineExercise.deleteMany({ where: { ptRoutineId: id } })

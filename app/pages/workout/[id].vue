@@ -41,8 +41,9 @@ const addExerciseDrawerOpen = ref(false)
 
 // PT routine drawer state — button shows only when the profile toggle is on
 // and the user has at least one routine
-const { enabled: ptEnabled } = usePtRoutineSetting()
-const { routines: ptRoutines } = usePtRoutines()
+const { enabled: ptEnabled, status: ptSettingStatus } = usePtRoutineSetting()
+const { routines: ptRoutines, status: ptRoutinesStatus } = usePtRoutines()
+const ptLoading = computed(() => ptSettingStatus.value === 'pending' || ptRoutinesStatus.value === 'pending')
 const ptDrawerOpen = ref(false)
 
 function openPtDrawer(): void {
@@ -356,8 +357,9 @@ async function handleDiscard(): Promise<void> {
       </div>
 
       <!-- PT routines quick access -->
+      <div v-if="ptLoading" class="h-7 w-28 animate-pulse rounded-lg bg-slate-800" />
       <UButton
-        v-if="ptEnabled && (ptRoutines?.length ?? 0) > 0"
+        v-else-if="ptEnabled && (ptRoutines?.length ?? 0) > 0"
         icon="i-lucide-clipboard-list"
         color="neutral"
         variant="soft"

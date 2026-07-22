@@ -89,8 +89,8 @@ describe('PATCH /api/pt-routines/:id', () => {
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual(mockUpdatedRoutine)
-    // Empty-data update still bumps the routine's updatedAt timestamp
-    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: 'rt001' }, data: {} })
+    // The routine row is still touched so updatedAt reflects the exercise change
+    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: 'rt001' }, data: { updatedAt: expect.any(Date) } })
     expect(mockDeleteMany).toHaveBeenCalledWith({ where: { ptRoutineId: 'rt001' } })
     expect(mockCreateMany).toHaveBeenCalledWith({
       data: [
