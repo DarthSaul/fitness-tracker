@@ -85,6 +85,39 @@ defineRouteMeta({
 							},
 						},
 					},
+					ExerciseInfo: {
+						type: 'object',
+						required: [
+							'id',
+							'name',
+							'videoUrl',
+							'animationUrl',
+						],
+						properties: {
+							id: {
+								type: 'string',
+								example: 'cm5abc123exr01',
+							},
+							name: {
+								type: 'string',
+								example: 'Barbell Back Squat',
+							},
+							videoUrl: {
+								type: [
+									'string',
+									'null',
+								],
+								example: 'https://youtu.be/dQw4w9WgXcQ',
+							},
+							animationUrl: {
+								type: [
+									'string',
+									'null',
+								],
+								example: null,
+							},
+						},
+					},
 					ProgramExercise: {
 						type: 'object',
 						properties: {

@@ -90,7 +90,7 @@ describe('GET /api/programs/days/:id', () => {
             exercises: {
               orderBy: { order: 'asc' },
               include: {
-                exercise: true,
+                exercise: { select: { id: true, name: true, description: true } },
                 sets: { orderBy: { setNumber: 'asc' } },
               },
             },
