@@ -47,12 +47,13 @@ enum PushEnvironment {
 // ---------------------------------------------------------------------------
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String?
+  avatarUrl          String?
+  ptRoutineInWorkout Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   identities                Identity[]
   userPrograms              UserProgram[]
@@ -62,6 +63,7 @@ model User {
   userExerciseNotes         UserExerciseNote[]
   refreshTokens             RefreshToken[]
   deviceTokens              DeviceToken[]
+  ptRoutines                PtRoutine[]
 }
 
 model Identity {
@@ -160,10 +162,12 @@ model ExerciseGroup {
 }
 
 model Exercise {
-  id          String  @id @default(cuid())
-  name        String  @unique
-  description String?
-  isCore      Boolean @default(false)
+  id           String  @id @default(cuid())
+  name         String  @unique
+  description  String?
+  isCore       Boolean @default(false)
+  videoUrl     String? // YouTube demonstration link
+  animationUrl String? // stored gif/animation URL (iOS-rendered; null until assets exist)
 
   programExercises           ProgramExercise[]
   userExerciseNotes          UserExerciseNote[]
@@ -193,10 +197,11 @@ model ProgramExercise {
   exerciseId      String
   order           Int
 
-  exercise      Exercise       @relation(fields: [exerciseId], references: [id])
-  exerciseGroup ExerciseGroup  @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
-  sets          ExerciseSet[]
-  completedSets CompletedSet[]
+  exercise             Exercise              @relation(fields: [exerciseId], references: [id])
+  exerciseGroup        ExerciseGroup         @relation(fields: [exerciseGroupId], references: [id], onDelete: Cascade)
+  sets                 ExerciseSet[]
+  completedSets        CompletedSet[]
+  workoutExerciseSkips WorkoutExerciseSkip[]
 
   @@unique([exerciseGroupId, order])
 }
@@ -255,6 +260,7 @@ model WorkoutSession {
 
   completedSets        CompletedSet[]
   workoutExerciseSwaps WorkoutExerciseSwap[]
+  workoutExerciseSkips WorkoutExerciseSkip[]
   coreWorkout          CoreWorkout?
 }
 
@@ -326,6 +332,22 @@ model WorkoutExerciseSwap {
   replacementExercise Exercise       @relation("ReplacementSwaps", fields: [replacementExerciseId], references: [id])
 
   @@unique([workoutSessionId, programExerciseId])
+}
+
+// Marks a ProgramExercise as skipped for one session. A skip hides the slot
+// from session reads; it does not change exercise identity, so an existing
+// WorkoutExerciseSwap for the slot is preserved and re-applies on un-skip.
+model WorkoutExerciseSkip {
+  id                String   @id @default(cuid())
+  workoutSessionId  String
+  programExerciseId String
+  createdAt         DateTime @default(now())
+
+  workoutSession  WorkoutSession  @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  programExercise ProgramExercise @relation(fields: [programExerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([workoutSessionId, programExerciseId])
+  @@index([programExerciseId])
 }
 
 model ScheduledWorkout {
@@ -467,4 +489,38 @@ model StandaloneCompletedSet {
 
   @@unique([standaloneWorkoutSessionId, standaloneWorkoutSetId], map: "StandaloneCompletedSet_session_set_key")
   @@index([standaloneWorkoutSessionId])
+}
+
+// ---------------------------------------------------------------------------
+// PT Routines
+// ---------------------------------------------------------------------------
+
+// User-authored physical-therapy routines: a named, ordered list of
+// presentational exercises (no tracking/completion). Each exercise carries
+// exactly one measure — durationSeconds XOR reps — enforced by raw-SQL CHECK
+// constraints alongside app-layer validation (duration 1..3600, reps 1..1000).
+model PtRoutine {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises PtRoutineExercise[]
+
+  @@index([userId])
+}
+
+model PtRoutineExercise {
+  id              String @id @default(cuid())
+  ptRoutineId     String
+  order           Int
+  title           String
+  durationSeconds Int?
+  reps            Int?
+
+  ptRoutine PtRoutine @relation(fields: [ptRoutineId], references: [id], onDelete: Cascade)
+
+  @@unique([ptRoutineId, order])
 }

@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
     summary: 'Current user profile',
-    description: 'Returns the authenticated user\'s id, email, name, and avatarUrl.',
+    description: 'Returns the authenticated user\'s id, email, name, avatarUrl, and ptRoutineInWorkout setting.',
     responses: {
       200: { description: 'Current user profile' },
       401: { description: 'Unauthorized' },
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, name: true, avatarUrl: true },
+      select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true },
     })
 
     if (!user) {

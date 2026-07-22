@@ -67,6 +67,7 @@ vi.stubGlobal('prisma', {
   coreWorkoutExercise: { createMany: vi.fn(), deleteMany: vi.fn() },
   userExerciseNote: { findUnique: vi.fn(), upsert: vi.fn() },
   workoutExerciseSwap: { upsert: vi.fn() },
+  workoutExerciseSkip: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
   deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
@@ -74,6 +75,8 @@ vi.stubGlobal('prisma', {
   standaloneWorkoutSet: { findUnique: vi.fn() },
   standaloneWorkoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   standaloneCompletedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
+  ptRoutine: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
+  ptRoutineExercise: { createMany: vi.fn(), deleteMany: vi.fn() },
 })
 
 vi.stubGlobal('sendPush', vi.fn())

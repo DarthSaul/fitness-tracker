@@ -30,6 +30,7 @@ const mockSession = {
   status: 'IN_PROGRESS',
   completedSets: [],
   workoutExerciseSwaps: [],
+  workoutExerciseSkips: [],
   coreWorkout: null,
   userProgram: mockUserProgram,
 }
@@ -74,6 +75,7 @@ describe('GET /api/workouts/:id', () => {
       include: {
         completedSets: true,
         workoutExerciseSwaps: true,
+        workoutExerciseSkips: true,
         userProgram: true,
         coreWorkout: {
           include: {
@@ -236,5 +238,69 @@ describe('GET /api/workouts/:id', () => {
     expect(returnedExercise).toEqual(mockReplacementExercise)
     expect(returnedExercise.name).toBe('Incline Dumbbell Press')
     expect(returnedExercise.id).toBe('ex-replacement')
+  })
+
+  test('filters a skipped exercise out of the day and returns the skips list', async () => {
+    const skip = { id: 'skip001', workoutSessionId: 'ws001', programExerciseId: 'pe001', createdAt: new Date() }
+    const sessionWithSkip = { ...mockSession, workoutExerciseSkips: [skip] }
+    const dayWithExercise = {
+      id: 'day001',
+      dayNumber: 2,
+      exerciseGroups: [
+        {
+          id: 'eg001',
+          programDayId: 'day001',
+          order: 1,
+          type: 'STANDARD',
+          restSeconds: 90,
+          exercises: [
+            { id: 'pe001', exerciseGroupId: 'eg001', order: 1, exercise: { id: 'ex001', name: 'Bench Press', description: null }, sets: [] },
+          ],
+        },
+      ],
+    }
+
+    mockFindUniqueSession.mockResolvedValueOnce(sessionWithSkip)
+    mockFindFirstDay.mockResolvedValueOnce(dayWithExercise)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ session: typeof sessionWithSkip; day: typeof dayWithExercise }>)(event)
+
+    expect(result.day.exerciseGroups).toHaveLength(1)
+    expect(result.day.exerciseGroups[0]!.exercises).toHaveLength(0)
+    expect(result.session.workoutExerciseSkips).toEqual([skip])
+  })
+
+  test('skipping one exercise of a SUPERSET group leaves the partner exercise in place', async () => {
+    const skip = { id: 'skip001', workoutSessionId: 'ws001', programExerciseId: 'pe001', createdAt: new Date() }
+    const sessionWithSkip = { ...mockSession, workoutExerciseSkips: [skip] }
+    const supersetDay = {
+      id: 'day001',
+      dayNumber: 2,
+      exerciseGroups: [
+        {
+          id: 'eg001',
+          programDayId: 'day001',
+          order: 1,
+          type: 'SUPERSET',
+          restSeconds: 60,
+          exercises: [
+            { id: 'pe001', exerciseGroupId: 'eg001', order: 1, exercise: { id: 'ex001', name: 'Bench Press', description: null }, sets: [] },
+            { id: 'pe002', exerciseGroupId: 'eg001', order: 2, exercise: { id: 'ex002', name: 'Bent-Over Row', description: null }, sets: [] },
+          ],
+        },
+      ],
+    }
+
+    mockFindUniqueSession.mockResolvedValueOnce(sessionWithSkip)
+    mockFindFirstDay.mockResolvedValueOnce(supersetDay)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ session: unknown; day: typeof supersetDay }>)(event)
+
+    const group = result.day.exerciseGroups[0]!
+    expect(group.type).toBe('SUPERSET')
+    expect(group.exercises).toHaveLength(1)
+    expect(group.exercises[0]!.id).toBe('pe002')
   })
 })

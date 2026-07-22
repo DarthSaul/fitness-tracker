@@ -111,7 +111,7 @@ describe('POST /api/workouts', () => {
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event) as { session: unknown; day: unknown }
 
-    expect(result.session).toEqual(lockedSession)
+    expect(result.session).toEqual({ ...lockedSession, workoutExerciseSkips: [] })
     expect(result.day).toEqual(lockedDay)
     expect(event.node.res.statusCode).toBe(201)
     expect(txMocks.findFirstSession).toHaveBeenCalledWith(

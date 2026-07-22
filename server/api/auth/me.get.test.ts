@@ -17,6 +17,7 @@ const mockUser = {
   email: 'jane@example.com',
   name: 'Jane Appleseed',
   avatarUrl: null,
+  ptRoutineInWorkout: false,
 }
 
 describe('GET /api/auth/me', () => {
@@ -39,7 +40,7 @@ describe('GET /api/auth/me', () => {
     expect(result).toEqual(mockUser)
     expect(mockFindUniqueUser).toHaveBeenCalledWith({
       where: { id: 'user001' },
-      select: { id: true, email: true, name: true, avatarUrl: true },
+      select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true },
     })
   })
 

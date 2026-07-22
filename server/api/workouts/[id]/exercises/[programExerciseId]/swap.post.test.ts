@@ -13,6 +13,7 @@ const txMocks = {
   findFirstProgramExercise: vi.fn(),
   findUniqueExercise: vi.fn(),
   findFirstExistingSwap: vi.fn(),
+  findUniqueSkip: vi.fn(),
   deleteManyTemplateSets: vi.fn(),
   deleteManyExtraSets: vi.fn(),
   upsertSwap: vi.fn(),
@@ -80,9 +81,24 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
           },
         },
         workoutExerciseSwap: { findFirst: txMocks.findFirstExistingSwap, upsert: txMocks.upsertSwap },
+        workoutExerciseSkip: { findUnique: txMocks.findUniqueSkip },
       }
       return fn(tx)
     })
+  })
+
+  test('throws 409 when the exercise is skipped for this session', async () => {
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
+    txMocks.findUniqueSkip.mockResolvedValueOnce({ id: 'skip001', workoutSessionId: 'ws001', programExerciseId: 'pe001' })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Exercise is skipped for this session' })
+
+    expect(txMocks.upsertSwap).not.toHaveBeenCalled()
+    expect(txMocks.deleteManyTemplateSets).not.toHaveBeenCalled()
   })
 
   test('swaps exercise, deletes logged sets, returns { swap, deletedSetCount }', async () => {

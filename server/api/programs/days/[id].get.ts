@@ -54,7 +54,9 @@ export default defineEventHandler(async (event) => {
             exercises: {
               orderBy: { order: 'asc' },
               include: {
-                exercise: true,
+                // Explicit select keeps demonstration media (videoUrl/animationUrl)
+                // out of this payload — media is served by GET /api/exercises/:id/info.
+                exercise: { select: { id: true, name: true, description: true } },
                 sets: { orderBy: { setNumber: 'asc' } },
               },
             },

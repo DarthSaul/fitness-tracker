@@ -66,3 +66,11 @@ export interface ExerciseSummary {
   name: string
   description: string | null
 }
+
+/** Demonstration media returned by GET /api/exercises/:exerciseId/info. */
+export interface ExerciseInfo {
+  id: string
+  name: string
+  videoUrl: string | null
+  animationUrl: string | null
+}

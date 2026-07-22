@@ -12,7 +12,7 @@ defineRouteMeta({
       400: { description: 'Missing or invalid fields' },
       401: { description: 'Unauthorized' },
       404: { description: 'Session, exercise, or replacement not found' },
-      409: { description: 'Session is not in progress' },
+      409: { description: 'Session is not in progress or exercise is skipped' },
       500: { description: 'Internal server error' },
     },
   },
@@ -70,6 +70,15 @@ export default defineEventHandler(async (event) => {
 
       if (!programExercise) {
         throw createError({ statusCode: 400, statusMessage: 'programExerciseId does not belong to this session\'s day' })
+      }
+
+      // A skipped slot can't be swapped — un-skip first, then swap
+      const existingSkip = await tx.workoutExerciseSkip.findUnique({
+        where: { workoutSessionId_programExerciseId: { workoutSessionId: id, programExerciseId } },
+      })
+
+      if (existingSkip) {
+        throw createError({ statusCode: 409, statusMessage: 'Exercise is skipped for this session' })
       }
 
       const replacement = await tx.exercise.findUnique({

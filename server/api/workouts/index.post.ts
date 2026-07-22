@@ -133,7 +133,9 @@ export default defineEventHandler(async (event) => {
     })
 
     event.node.res.statusCode = 201
-    return { session, day: currentDay }
+    // A fresh session can have no skips yet; include the empty array so the
+    // response shape matches the GET session routes.
+    return { session: { ...session, workoutExerciseSkips: [] }, day: currentDay }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     if ((error as { code?: string }).code === 'P2002') {

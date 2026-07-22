@@ -11,6 +11,7 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 const txMocks = {
   findUniqueSession: vi.fn(),
   findFirstProgramExercise: vi.fn(),
+  findUniqueSkip: vi.fn(),
   createCompletedSet: vi.fn(),
 }
 
@@ -62,10 +63,27 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/extra-sets', () =>
       const tx = {
         workoutSession: { findUnique: txMocks.findUniqueSession },
         programExercise: { findFirst: txMocks.findFirstProgramExercise },
+        workoutExerciseSkip: { findUnique: txMocks.findUniqueSkip },
         completedSet: { create: txMocks.createCompletedSet },
       }
       return fn(tx)
     })
+  })
+
+  test('throws 409 when the exercise is skipped for this session', async () => {
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findFirstProgramExercise.mockResolvedValueOnce({ id: 'pe001' })
+    txMocks.findUniqueSkip.mockResolvedValueOnce({ id: 'skip001', workoutSessionId: 'ws001', programExerciseId: 'pe001' })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Exercise is skipped for this session' })
+
+    expect(txMocks.findUniqueSkip).toHaveBeenCalledWith({
+      where: { workoutSessionId_programExerciseId: { workoutSessionId: 'ws001', programExerciseId: 'pe001' } },
+    })
+    expect(txMocks.createCompletedSet).not.toHaveBeenCalled()
   })
 
   test('creates extra set with 201 status and returns CompletedSet with exerciseSetId: null', async () => {
