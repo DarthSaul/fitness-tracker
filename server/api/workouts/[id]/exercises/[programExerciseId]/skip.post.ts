@@ -1,18 +1,18 @@
 defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
-    summary: 'Swap an exercise in a workout session',
-    description: 'Replaces an exercise with an alternative for the current session. Clears all completed sets (template and extra) for the original exercise and upserts the swap record.',
+    summary: 'Skip an exercise in a workout session',
+    description: 'Removes an exercise from the current session: deletes all its completed sets (template and extra) and records a skip so the exercise no longer appears in session reads. Skipping one exercise of a superset group leaves the other exercises untouched. An existing swap for the slot is preserved and re-applies on un-skip.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
       { name: 'programExerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'ProgramExercise CUID' },
     ],
     responses: {
-      200: { description: 'Swap recorded with count of deleted sets' },
+      201: { description: 'Skip recorded with count of deleted sets' },
       400: { description: 'Missing or invalid fields' },
       401: { description: 'Unauthorized' },
-      404: { description: 'Session, exercise, or replacement not found' },
-      409: { description: 'Session is not in progress or exercise is skipped' },
+      404: { description: 'Session not found' },
+      409: { description: 'Session is not in progress or exercise already skipped' },
       500: { description: 'Internal server error' },
     },
   },
@@ -31,13 +31,6 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const body = await readBody(event)
-    const { replacementExerciseId } = body || {}
-
-    if (typeof replacementExerciseId !== 'string' || !replacementExerciseId.trim()) {
-      throw createError({ statusCode: 400, statusMessage: 'replacementExerciseId must be a non-empty string' })
-    }
-
     const result = await prisma.$transaction(async (tx) => {
       const session = await tx.workoutSession.findUnique({
         where: { id },
@@ -65,41 +58,20 @@ export default defineEventHandler(async (event) => {
             },
           },
         },
-        include: { exercise: true, sets: true },
+        include: { sets: true },
       })
 
       if (!programExercise) {
         throw createError({ statusCode: 400, statusMessage: 'programExerciseId does not belong to this session\'s day' })
       }
 
-      // A skipped slot can't be swapped — un-skip first, then swap
       const existingSkip = await tx.workoutExerciseSkip.findUnique({
         where: { workoutSessionId_programExerciseId: { workoutSessionId: id, programExerciseId } },
       })
 
       if (existingSkip) {
-        throw createError({ statusCode: 409, statusMessage: 'Exercise is skipped for this session' })
+        throw createError({ statusCode: 409, statusMessage: 'Exercise already skipped' })
       }
-
-      const replacement = await tx.exercise.findUnique({
-        where: { id: replacementExerciseId },
-        select: { id: true },
-      })
-
-      if (!replacement) {
-        throw createError({ statusCode: 404, statusMessage: 'Replacement exercise not found' })
-      }
-
-      const existingSwap = await tx.workoutExerciseSwap.findFirst({
-        where: { workoutSessionId: id, programExerciseId },
-      })
-      const effectiveCurrentExerciseId = existingSwap?.replacementExerciseId ?? programExercise.exerciseId
-
-      if (replacementExerciseId === effectiveCurrentExerciseId) {
-        throw createError({ statusCode: 400, statusMessage: 'Replacement exercise is the same as the current exercise' })
-      }
-
-      const originalExerciseId = programExercise.exerciseId
 
       // Delete all template CompletedSets for this session + programExercise
       const exerciseSetIds = programExercise.sets.map((s: { id: string }) => s.id)
@@ -112,19 +84,21 @@ export default defineEventHandler(async (event) => {
         where: { workoutSessionId: id, exerciseSetId: null, programExerciseId },
       })
 
-      const swap = await tx.workoutExerciseSwap.upsert({
-        where: { workoutSessionId_programExerciseId: { workoutSessionId: id, programExerciseId } },
-        create: { workoutSessionId: id, programExerciseId, originalExerciseId, replacementExerciseId },
-        update: { replacementExerciseId },
+      const skip = await tx.workoutExerciseSkip.create({
+        data: { workoutSessionId: id, programExerciseId },
       })
 
-      return { swap, deletedSetCount: deleted1.count + deleted2.count }
+      return { skip, deletedSetCount: deleted1.count + deleted2.count }
     })
 
+    event.node.res.statusCode = 201
     return result
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
-    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/workouts/:id/exercises/:programExerciseId/swap' }, '[POST /api/workouts/:id/exercises/:programExerciseId/swap] Failed to swap exercise')
-    throw createError({ statusCode: 500, statusMessage: 'Failed to swap exercise' })
+    if ((error as { code?: string }).code === 'P2002') {
+      throw createError({ statusCode: 409, statusMessage: 'Exercise already skipped' })
+    }
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/workouts/:id/exercises/:programExerciseId/skip' }, '[POST /api/workouts/:id/exercises/:programExerciseId/skip] Failed to skip exercise')
+    throw createError({ statusCode: 500, statusMessage: 'Failed to skip exercise' })
   }
 })

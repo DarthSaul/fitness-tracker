@@ -1,9 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-import handler from './swap.post'
+import handler from './skip.post'
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
-const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
@@ -11,12 +10,12 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 const txMocks = {
   findUniqueSession: vi.fn(),
   findFirstProgramExercise: vi.fn(),
-  findUniqueExercise: vi.fn(),
-  findFirstExistingSwap: vi.fn(),
-  findUniqueSkip: vi.fn(),
+  findUniqueExistingSkip: vi.fn(),
+  createSkip: vi.fn(),
   deleteManyTemplateSets: vi.fn(),
   deleteManyExtraSets: vi.fn(),
-  upsertSwap: vi.fn(),
+  deleteSwap: vi.fn(),
+  deleteManySwaps: vi.fn(),
 }
 
 function makeEvent(id = 'ws001', programExerciseId = 'pe001') {
@@ -26,8 +25,9 @@ function makeEvent(id = 'ws001', programExerciseId = 'pe001') {
     return undefined
   })
   return {
-    path: `/api/workouts/${id}/exercises/${programExerciseId}/swap`,
+    path: `/api/workouts/${id}/exercises/${programExerciseId}/skip`,
     context: { userId: 'user001' },
+    node: { res: { statusCode: 200 } },
   }
 }
 
@@ -44,19 +44,16 @@ const mockProgramExercise = {
   id: 'pe001',
   exerciseId: 'ex001',
   sets: [{ id: 'es001' }, { id: 'es002' }],
-  exercise: { id: 'ex001', name: 'Bench Press' },
 }
 
-const mockSwap = {
-  id: 'swap001',
+const mockSkip = {
+  id: 'skip001',
   workoutSessionId: 'ws001',
   programExerciseId: 'pe001',
-  originalExerciseId: 'ex001',
-  replacementExerciseId: 'ex002',
   createdAt: new Date(),
 }
 
-describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
+describe('POST /api/workouts/:id/exercises/:programExerciseId/skip', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
@@ -65,13 +62,11 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
       err.statusMessage = opts.statusMessage
       return err
     })
-    mockReadBody.mockResolvedValue({ replacementExerciseId: 'ex002' })
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
       let deleteManyCallCount = 0
       const tx = {
         workoutSession: { findUnique: txMocks.findUniqueSession },
         programExercise: { findFirst: txMocks.findFirstProgramExercise },
-        exercise: { findUnique: txMocks.findUniqueExercise },
         completedSet: {
           deleteMany: (...args: unknown[]) => {
             deleteManyCallCount++
@@ -80,79 +75,71 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
               : txMocks.deleteManyExtraSets(...args)
           },
         },
-        workoutExerciseSwap: { findFirst: txMocks.findFirstExistingSwap, upsert: txMocks.upsertSwap },
-        workoutExerciseSkip: { findUnique: txMocks.findUniqueSkip },
+        workoutExerciseSkip: { findUnique: txMocks.findUniqueExistingSkip, create: txMocks.createSkip },
+        workoutExerciseSwap: { delete: txMocks.deleteSwap, deleteMany: txMocks.deleteManySwaps },
       }
       return fn(tx)
     })
   })
 
-  test('throws 409 when the exercise is skipped for this session', async () => {
+  test('skips exercise, deletes its logged sets only, returns 201 with { skip, deletedSetCount }', async () => {
     txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
     txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
-    txMocks.findUniqueSkip.mockResolvedValueOnce({ id: 'skip001', workoutSessionId: 'ws001', programExerciseId: 'pe001' })
-
-    const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Exercise is skipped for this session' })
-
-    expect(txMocks.upsertSwap).not.toHaveBeenCalled()
-    expect(txMocks.deleteManyTemplateSets).not.toHaveBeenCalled()
-  })
-
-  test('swaps exercise, deletes logged sets, returns { swap, deletedSetCount }', async () => {
-    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
-    txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
-    txMocks.findUniqueExercise.mockResolvedValueOnce({ id: 'ex002' })
-    txMocks.findFirstExistingSwap.mockResolvedValueOnce(null)
+    txMocks.findUniqueExistingSkip.mockResolvedValueOnce(null)
     txMocks.deleteManyTemplateSets.mockResolvedValueOnce({ count: 2 })
     txMocks.deleteManyExtraSets.mockResolvedValueOnce({ count: 1 })
-    txMocks.upsertSwap.mockResolvedValueOnce(mockSwap)
+    txMocks.createSkip.mockResolvedValueOnce(mockSkip)
 
     const event = makeEvent()
-    const result = await (handler as unknown as (e: typeof event) => Promise<{ swap: typeof mockSwap; deletedSetCount: number }>)(event)
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ skip: typeof mockSkip; deletedSetCount: number }>)(event)
 
-    expect(result.swap).toEqual(mockSwap)
+    expect(result.skip).toEqual(mockSkip)
     expect(result.deletedSetCount).toBe(3)
+    expect(event.node.res.statusCode).toBe(201)
+    // Deletions are scoped to the target exercise only — a superset partner's
+    // sets do not match either where-clause and survive.
+    expect(txMocks.deleteManyTemplateSets).toHaveBeenCalledWith({
+      where: { workoutSessionId: 'ws001', exerciseSetId: { in: ['es001', 'es002'] } },
+    })
+    expect(txMocks.deleteManyExtraSets).toHaveBeenCalledWith({
+      where: { workoutSessionId: 'ws001', exerciseSetId: null, programExerciseId: 'pe001' },
+    })
+    expect(txMocks.createSkip).toHaveBeenCalledWith({
+      data: { workoutSessionId: 'ws001', programExerciseId: 'pe001' },
+    })
   })
 
   test('returns deletedSetCount: 0 when no sets were logged', async () => {
     txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
     txMocks.findFirstProgramExercise.mockResolvedValueOnce({ ...mockProgramExercise, sets: [] })
-    txMocks.findUniqueExercise.mockResolvedValueOnce({ id: 'ex002' })
-    txMocks.findFirstExistingSwap.mockResolvedValueOnce(null)
+    txMocks.findUniqueExistingSkip.mockResolvedValueOnce(null)
     txMocks.deleteManyTemplateSets.mockResolvedValueOnce({ count: 0 })
     txMocks.deleteManyExtraSets.mockResolvedValueOnce({ count: 0 })
-    txMocks.upsertSwap.mockResolvedValueOnce(mockSwap)
+    txMocks.createSkip.mockResolvedValueOnce(mockSkip)
 
     const event = makeEvent()
-    const result = await (handler as unknown as (e: typeof event) => Promise<{ swap: typeof mockSwap; deletedSetCount: number }>)(event)
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ skip: typeof mockSkip; deletedSetCount: number }>)(event)
 
     expect(result.deletedSetCount).toBe(0)
   })
 
-  test('throws 400 when body is missing replacementExerciseId', async () => {
-    mockReadBody.mockResolvedValueOnce({})
+  test('does not touch an existing swap record for the slot', async () => {
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
+    txMocks.findUniqueExistingSkip.mockResolvedValueOnce(null)
+    txMocks.deleteManyTemplateSets.mockResolvedValueOnce({ count: 0 })
+    txMocks.deleteManyExtraSets.mockResolvedValueOnce({ count: 0 })
+    txMocks.createSkip.mockResolvedValueOnce(mockSkip)
 
     const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'replacementExerciseId must be a non-empty string' })
-  })
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
-  test('throws 400 when replacementExerciseId is empty string', async () => {
-    mockReadBody.mockResolvedValueOnce({ replacementExerciseId: '   ' })
-
-    const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'replacementExerciseId must be a non-empty string' })
+    expect(txMocks.deleteSwap).not.toHaveBeenCalled()
+    expect(txMocks.deleteManySwaps).not.toHaveBeenCalled()
   })
 
   test('throws 400 when session ID is missing', async () => {
     const event = makeEvent()
-    // Override after makeEvent so the handler sees undefined for 'id'
     mockGetRouterParam.mockImplementation((_event: unknown, param: string) => {
       if (param === 'id') return undefined
       if (param === 'programExerciseId') return 'pe001'
@@ -162,6 +149,19 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing session ID' })
+  })
+
+  test('throws 400 when programExerciseId is missing', async () => {
+    const event = makeEvent()
+    mockGetRouterParam.mockImplementation((_event: unknown, param: string) => {
+      if (param === 'id') return 'ws001'
+      if (param === 'programExerciseId') return undefined
+      return undefined
+    })
+
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing programExerciseId' })
   })
 
   test('throws 404 when session not found', async () => {
@@ -182,8 +182,17 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Session not found' })
   })
 
-  test('throws 409 when session is not IN_PROGRESS', async () => {
+  test('throws 409 when session is COMPLETED', async () => {
     txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session is not in progress' })
+  })
+
+  test('throws 409 when session is EDITING', async () => {
+    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'EDITING' })
 
     const event = makeEvent()
     await expect(
@@ -201,15 +210,34 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: "programExerciseId does not belong to this session's day" })
   })
 
-  test('throws 404 when replacementExerciseId not found in Exercise table', async () => {
+  test('throws 409 when exercise is already skipped', async () => {
     txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
     txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
-    txMocks.findUniqueExercise.mockResolvedValueOnce(null)
+    txMocks.findUniqueExistingSkip.mockResolvedValueOnce(mockSkip)
 
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Replacement exercise not found' })
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Exercise already skipped' })
+
+    expect(txMocks.createSkip).not.toHaveBeenCalled()
+    expect(txMocks.deleteManyTemplateSets).not.toHaveBeenCalled()
+  })
+
+  test('maps P2002 from a concurrent skip to 409', async () => {
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
+    txMocks.findUniqueExistingSkip.mockResolvedValueOnce(null)
+    txMocks.deleteManyTemplateSets.mockResolvedValueOnce({ count: 0 })
+    txMocks.deleteManyExtraSets.mockResolvedValueOnce({ count: 0 })
+    const p2002 = new Error('Unique constraint failed') as Error & { code: string }
+    p2002.code = 'P2002'
+    txMocks.createSkip.mockRejectedValueOnce(p2002)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Exercise already skipped' })
   })
 
   test('re-throws H3 errors without wrapping as 500', async () => {
@@ -230,14 +258,12 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
   test('wraps unknown errors as 500 and logs them', async () => {
     const dbError = new Error('connection reset')
     txMocks.findUniqueSession.mockRejectedValueOnce(dbError)
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to swap exercise' })
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to skip exercise' })
 
-    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/workouts/:id/exercises/:programExerciseId/swap' }, '[POST /api/workouts/:id/exercises/:programExerciseId/swap] Failed to swap exercise')
-    consoleSpy.mockRestore()
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/workouts/:id/exercises/:programExerciseId/skip' }, '[POST /api/workouts/:id/exercises/:programExerciseId/skip] Failed to skip exercise')
   })
 })
