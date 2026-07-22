@@ -39,6 +39,16 @@ const swapConfirming = ref(false)
 // Add exercise group drawer state
 const addExerciseDrawerOpen = ref(false)
 
+// PT routine drawer state — button shows only when the profile toggle is on
+// and the user has at least one routine
+const { enabled: ptEnabled } = usePtRoutineSetting()
+const { routines: ptRoutines } = usePtRoutines()
+const ptDrawerOpen = ref(false)
+
+function openPtDrawer(): void {
+  ptDrawerOpen.value = true
+}
+
 // Workout notes panel state
 const workoutNotesOpen = ref(false)
 
@@ -345,6 +355,18 @@ async function handleDiscard(): Promise<void> {
         </h2>
       </div>
 
+      <!-- PT routines quick access -->
+      <UButton
+        v-if="ptEnabled && (ptRoutines?.length ?? 0) > 0"
+        icon="i-lucide-clipboard-list"
+        color="neutral"
+        variant="soft"
+        size="xs"
+        @click="openPtDrawer"
+      >
+        PT Routines
+      </UButton>
+
       <!-- Progress bar -->
       <div class="space-y-1">
         <div class="flex items-center justify-between text-xs text-slate-400">
@@ -466,6 +488,12 @@ async function handleDiscard(): Promise<void> {
         </UButton>
       </div>
     </template>
+
+    <!-- PT routine drawer (read-only) -->
+    <PtRoutineDrawer
+      v-model:open="ptDrawerOpen"
+      :routines="ptRoutines ?? []"
+    />
 
     <!-- Set log drawer -->
     <WorkoutSetLogDrawer

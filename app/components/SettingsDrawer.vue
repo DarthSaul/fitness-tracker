@@ -10,11 +10,26 @@ const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
 const { user, signOut } = useAuth()
 
+const { enabled: ptEnabled, saving: ptSaving, status: ptStatus, setEnabled: setPtEnabled } = usePtRoutineSetting()
+
 const userInitial = computed(() => user.value?.name?.charAt(0).toUpperCase() ?? '?')
 
 async function handleSignOut(): Promise<void> {
   emit('update:open', false)
   await signOut()
+}
+
+async function handlePtToggle(value: boolean): Promise<void> {
+  try {
+    await setPtEnabled(value)
+  } catch {
+    // The switch is bound to the fetched profile, so a failed save reverts visually
+  }
+}
+
+async function goToPtRoutines(): Promise<void> {
+  emit('update:open', false)
+  await navigateTo('/pt-routines')
 }
 </script>
 
@@ -100,6 +115,21 @@ async function handleSignOut(): Promise<void> {
                 <span class="flex items-center gap-1 text-sm text-slate-400">
                   Dark <UIcon name="i-lucide-chevron-right" class="size-4 text-slate-500" />
                 </span>
+              </button>
+              <div class="flex items-center justify-between py-3 px-1">
+                <span class="text-sm text-white">PT routine in workout</span>
+                <div v-if="ptStatus === 'pending'" class="h-5 w-9 animate-pulse rounded-full bg-slate-800" />
+                <USwitch
+                  v-else
+                  :model-value="ptEnabled"
+                  :disabled="ptSaving"
+                  aria-label="PT routine in workout"
+                  @update:model-value="handlePtToggle"
+                />
+              </div>
+              <button class="flex w-full items-center justify-between py-3 px-1 text-left" @click="goToPtRoutines">
+                <span class="text-sm text-white">Manage PT Routines</span>
+                <UIcon name="i-lucide-chevron-right" class="size-4 text-slate-500" />
               </button>
             </div>
           </div>

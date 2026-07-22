@@ -388,6 +388,93 @@ defineRouteMeta({
 							},
 						},
 					},
+					PtRoutineExercise: {
+						type: 'object',
+						required: ['id', 'ptRoutineId', 'order', 'title', 'durationSeconds', 'reps'],
+						properties: {
+							id: {
+								type: 'string',
+								example: 'cm5abc123ptex01',
+							},
+							ptRoutineId: {
+								type: 'string',
+								example: 'cm5abc123ptrt01',
+							},
+							order: {
+								type: 'integer',
+								example: 1,
+							},
+							title: {
+								type: 'string',
+								example: 'Clamshells',
+							},
+							durationSeconds: {
+								type: ['integer', 'null'],
+								example: null,
+							},
+							reps: {
+								type: ['integer', 'null'],
+								example: 15,
+							},
+						},
+					},
+					PtRoutineExerciseInput: {
+						type: 'object',
+						required: ['title'],
+						description: 'Exercise payload for creating/replacing a routine\'s list. Titles are limited to 100 characters. Provide exactly one of durationSeconds or reps; order is derived from the array index.',
+						properties: {
+							title: {
+								type: 'string',
+								example: 'Clamshells',
+							},
+							durationSeconds: {
+								type: ['integer', 'null'],
+								minimum: 1,
+								maximum: 3600,
+								example: null,
+							},
+							reps: {
+								type: ['integer', 'null'],
+								minimum: 1,
+								maximum: 1000,
+								example: 15,
+							},
+						},
+					},
+					PtRoutine: {
+						type: 'object',
+						required: ['id', 'userId', 'name', 'createdAt', 'updatedAt', 'exercises'],
+						properties: {
+							id: {
+								type: 'string',
+								example: 'cm5abc123ptrt01',
+							},
+							userId: {
+								type: 'string',
+								example: 'cm5abc123user01',
+							},
+							name: {
+								type: 'string',
+								example: 'Knee Rehab',
+							},
+							createdAt: {
+								type: 'string',
+								format: 'date-time',
+								example: '2026-01-15T12:00:00.000Z',
+							},
+							updatedAt: {
+								type: 'string',
+								format: 'date-time',
+								example: '2026-03-01T08:30:00.000Z',
+							},
+							exercises: {
+								type: 'array',
+								items: {
+									$ref: '#/components/schemas/PtRoutineExercise',
+								},
+							},
+						},
+					},
 				},
 			},
 		},

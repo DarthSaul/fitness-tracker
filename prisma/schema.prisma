@@ -47,12 +47,13 @@ enum PushEnvironment {
 // ---------------------------------------------------------------------------
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatarUrl String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String?
+  avatarUrl          String?
+  ptRoutineInWorkout Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   identities        Identity[]
   userPrograms      UserProgram[]
@@ -61,6 +62,7 @@ model User {
   userExerciseNotes UserExerciseNote[]
   refreshTokens     RefreshToken[]
   deviceTokens      DeviceToken[]
+  ptRoutines        PtRoutine[]
 }
 
 model Identity {
@@ -357,4 +359,38 @@ model Feedback {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// PT Routines
+// ---------------------------------------------------------------------------
+
+// User-authored physical-therapy routines: a named, ordered list of
+// presentational exercises (no tracking/completion). Each exercise carries
+// exactly one measure — durationSeconds XOR reps — enforced by raw-SQL CHECK
+// constraints alongside app-layer validation (duration 1..3600, reps 1..1000).
+model PtRoutine {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises PtRoutineExercise[]
+
+  @@index([userId])
+}
+
+model PtRoutineExercise {
+  id              String @id @default(cuid())
+  ptRoutineId     String
+  order           Int
+  title           String
+  durationSeconds Int?
+  reps            Int?
+
+  ptRoutine PtRoutine @relation(fields: [ptRoutineId], references: [id], onDelete: Cascade)
+
+  @@unique([ptRoutineId, order])
 }
