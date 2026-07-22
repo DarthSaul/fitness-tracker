@@ -4,8 +4,11 @@ import handler from './skip.delete'
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
-const mockFindUniqueSession = (prisma as typeof prisma).workoutSession.findUnique as ReturnType<typeof vi.fn>
-const mockDeleteManySkips = (prisma as typeof prisma).workoutExerciseSkip.deleteMany as ReturnType<typeof vi.fn>
+const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
+
+// Transaction-scoped mocks
+const mockFindUniqueSession = vi.fn()
+const mockDeleteManySkips = vi.fn()
 
 function makeEvent(id = 'ws001', programExerciseId = 'pe001') {
   mockGetRouterParam.mockImplementation((_event: unknown, param: string) => {
@@ -35,6 +38,14 @@ describe('DELETE /api/workouts/:id/exercises/:programExerciseId/skip', () => {
       err.statusCode = opts.statusCode
       err.statusMessage = opts.statusMessage
       return err
+    })
+    // Interactive transaction: execute the callback with a tx object containing our mocks
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        workoutSession: { findUnique: mockFindUniqueSession },
+        workoutExerciseSkip: { deleteMany: mockDeleteManySkips },
+      }
+      return fn(tx)
     })
   })
 
