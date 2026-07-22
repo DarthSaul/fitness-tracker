@@ -43,6 +43,11 @@ export default defineEventHandler(async (event) => {
     return { success: true }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    // Concurrent delete (e.g. a client retry) removes the row between the
+    // ownership check and delete -> Prisma P2025. Treat as already-gone.
+    if ((error as { code?: string }).code === 'P2025') {
+      throw createError({ statusCode: 404, statusMessage: 'Session not found' })
+    }
     ;(event.context.logger ?? logger).error({ err: error, route: 'DELETE /api/standalone-workout-sessions/:id' }, '[DELETE /api/standalone-workout-sessions/:id] Failed to delete session')
     throw createError({ statusCode: 500, statusMessage: 'Failed to delete standalone workout session' })
   }

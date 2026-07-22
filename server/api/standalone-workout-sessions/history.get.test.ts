@@ -11,6 +11,7 @@
  *  - Cursor: composite (completedAt, id) cursor applied when before+beforeId
  *    are both provided
  *  - Error propagation: 500 when findMany rejects, logs via logger.error
+ *  - Auth guard: 401 when event.context.userId is unset (findMany not called)
  *  - H3 error pass-through: re-throws an H3 error without wrapping it as 500
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest'
@@ -46,6 +47,15 @@ describe('GET /api/standalone-workout-sessions/history', () => {
       err.statusMessage = opts.statusMessage
       return err
     })
+  })
+
+  test('throws 401 when userId is not set on the context (no leak)', async () => {
+    const event = { path: '/api/standalone-workout-sessions/history', context: {} }
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+
+    expect(mockFindMany).not.toHaveBeenCalled()
   })
 
   test('returns sessions with default limit and no cursor', async () => {

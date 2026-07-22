@@ -4,7 +4,8 @@
  * Coverage strategy:
  *  - Happy path: no body -> completedAt defaults to now
  *  - Happy path: explicit past completedAt is honored
- *  - Happy path: explicit completedAt: null clears the timestamp
+ *  - Validation: explicit completedAt: null is rejected with 400
+ *  - Validation: a primitive JSON body is treated as "no completedAt" (now)
  *  - Validation: 400 missing id, 400 invalid completedAt, 400 future
  *    completedAt
  *  - Not found: 404 when findUnique returns null
@@ -82,17 +83,34 @@ describe('PATCH /api/standalone-workout-sessions/:id/complete', () => {
     })
   })
 
-  test('clears completedAt when explicitly set to null', async () => {
+  test('rejects completing with an explicit null completedAt (400)', async () => {
     mockReadBody.mockResolvedValueOnce({ completedAt: null })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      statusMessage: 'completedAt cannot be null when completing a session',
+    })
+
+    expect(mockFindUnique).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  test('treats a primitive JSON body as no completedAt (defaults to now)', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-20T12:00:00Z'))
+    mockReadBody.mockResolvedValueOnce('just a string')
     mockFindUnique.mockResolvedValueOnce(mockSession)
-    mockUpdate.mockResolvedValueOnce({ ...mockUpdatedSession, completedAt: null })
+    mockUpdate.mockResolvedValueOnce(mockUpdatedSession)
 
     const event = makeEvent()
     await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'sws001' },
-      data: { status: 'COMPLETED', completedAt: null },
+      data: { status: 'COMPLETED', completedAt: new Date('2026-07-20T12:00:00Z') },
     })
   })
 

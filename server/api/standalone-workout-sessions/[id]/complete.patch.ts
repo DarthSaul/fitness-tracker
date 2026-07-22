@@ -27,13 +27,17 @@ export default defineEventHandler(async (event) => {
 
   try {
     const body = await readBody(event)
-    const hasExplicitDate = body !== undefined && body !== null && 'completedAt' in body
-    let completedAtDate: Date | null
+    // `in` requires an object operand — guard against primitive JSON bodies so
+    // malformed input is a 400, not a thrown TypeError surfaced as 500.
+    const hasExplicitDate = typeof body === 'object' && body !== null && 'completedAt' in body
+    let completedAtDate: Date
 
     if (!hasExplicitDate) {
       completedAtDate = new Date()
     } else if (body.completedAt === null) {
-      completedAtDate = null
+      // A COMPLETED session must have a completedAt, or history.get.ts (which
+      // filters `completedAt: { not: null }`) would never surface it.
+      throw createError({ statusCode: 400, statusMessage: 'completedAt cannot be null when completing a session' })
     } else {
       completedAtDate = new Date(body.completedAt)
       if (isNaN(completedAtDate.getTime())) {

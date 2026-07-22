@@ -8,6 +8,7 @@
  *  - Ownership: 404 when session belongs to a different user (delete not
  *    called)
  *  - Error propagation: 500 when findUnique rejects, logs via logger.error
+ *  - Idempotent race: 404 when delete throws Prisma P2025 (row already gone)
  *  - H3 error pass-through: re-throws an H3 error without wrapping it as 500
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest'
@@ -107,6 +108,20 @@ describe('DELETE /api/standalone-workout-sessions/:id', () => {
       '[DELETE /api/standalone-workout-sessions/:id] Failed to delete session',
     )
     consoleSpy.mockRestore()
+  })
+
+  test('maps a concurrent-delete P2025 error to 404, not 500', async () => {
+    mockFindUnique.mockResolvedValueOnce(mockSession)
+    const notFound = Object.assign(new Error('Record to delete does not exist.'), { code: 'P2025' })
+    mockDelete.mockRejectedValueOnce(notFound)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Session not found' })
+
+    // P2025 is handled before the generic branch, so it is not logged as a 500.
+    expect(logger.error).not.toHaveBeenCalled()
   })
 
   test('re-throws an H3 error without wrapping it as 500', async () => {

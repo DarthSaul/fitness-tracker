@@ -13,6 +13,11 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
+  // Defence in depth: Prisma drops undefined `where` keys, so an unset userId
+  // would return every user's sessions. Fail closed instead.
+  if (!userId) {
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  }
 
   try {
     const sessions = await prisma.standaloneWorkoutSession.findMany({

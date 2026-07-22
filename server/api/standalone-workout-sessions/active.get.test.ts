@@ -6,6 +6,7 @@
  *    workout summary and completed-set count
  *  - Empty state: returns { sessions: [] } when user has no in-progress
  *    sessions
+ *  - Auth guard: 401 when event.context.userId is unset (findMany not called)
  *  - Error propagation: throws 500 when findMany rejects, logs via
  *    logger.error
  *  - H3 error pass-through: re-throws an H3 error without wrapping it as 500
@@ -71,6 +72,15 @@ describe('GET /api/standalone-workout-sessions/active', () => {
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual({ sessions: [] })
+  })
+
+  test('throws 401 when userId is not set on the context (no leak)', async () => {
+    const event = { path: '/api/standalone-workout-sessions/active', context: {} }
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Unauthorized' })
+
+    expect(mockFindMany).not.toHaveBeenCalled()
   })
 
   test('throws 500 and logs when findMany rejects', async () => {
