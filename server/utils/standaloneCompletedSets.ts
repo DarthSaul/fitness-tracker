@@ -59,6 +59,8 @@ export function throwStandaloneCompletedSetMutationError(
   if ((error as { code?: string }).code === 'P2025') {
     throw createError({ statusCode: 404, statusMessage: 'Completed set not found' })
   }
-  ;(event.context.logger ?? logger).error({ err: error, route }, `[${route}] ${failureMessage}`)
+  // Stable message; route/failureMessage go in structured fields (never
+  // string-interpolate, per the observability conventions).
+  ;(event.context.logger ?? logger).error({ err: error, route, failureMessage }, 'Standalone completed-set mutation failed')
   throw createError({ statusCode: 500, statusMessage: failureMessage })
 }

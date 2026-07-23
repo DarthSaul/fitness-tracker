@@ -268,8 +268,8 @@ describe('PATCH /api/standalone-workout-sessions/:id/sets/:setId', () => {
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to update completed set' })
 
     expect(logger.error).toHaveBeenCalledWith(
-      { err: dbError, route: 'PATCH /api/standalone-workout-sessions/:id/sets/:setId' },
-      '[PATCH /api/standalone-workout-sessions/:id/sets/:setId] Failed to update completed set',
+      { err: dbError, route: 'PATCH /api/standalone-workout-sessions/:id/sets/:setId', failureMessage: 'Failed to update completed set' },
+      'Standalone completed-set mutation failed',
     )
   })
 

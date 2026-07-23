@@ -178,8 +178,8 @@ describe('DELETE /api/standalone-workout-sessions/:id/sets/:setId', () => {
     ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to delete completed set' })
 
     expect(logger.error).toHaveBeenCalledWith(
-      { err: dbError, route: 'DELETE /api/standalone-workout-sessions/:id/sets/:setId' },
-      '[DELETE /api/standalone-workout-sessions/:id/sets/:setId] Failed to delete completed set',
+      { err: dbError, route: 'DELETE /api/standalone-workout-sessions/:id/sets/:setId', failureMessage: 'Failed to delete completed set' },
+      'Standalone completed-set mutation failed',
     )
   })
 
