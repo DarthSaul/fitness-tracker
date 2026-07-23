@@ -7122,6 +7122,893 @@ const ptotWeeks: WeekInput[] = [
 	},
 ];
 
+// ===========================================================================
+// FILLING OUT THAT HOODIE PROGRAM
+// ===========================================================================
+
+const FOTH_NAME = 'Filling Out That Hoodie';
+const FOTH_DESCRIPTION =
+	'A 4-week, 4-day upper-body hypertrophy program from Pen and Paper Strength App. ' +
+	'Each day runs a "Torso Thickening" block (percentage pressing and pulling) into a ' +
+	'"Make the Sleeves Fit Tight" arm block, finished with a high-rep cardio circuit. ' +
+	'Rest periods are prescribed per lift.';
+
+// Snatch-grip deadlift percentage is written as a range off the deadlift max.
+const FOTH_DL_RANGE = '50-60% of Deadlift 1RM';
+
+const fothWeeks: WeekInput[] = [
+	// ===========================================================================
+	// WEEK 1
+	// ===========================================================================
+	{
+		weekNumber: 1,
+		days: [
+			// Week 1, Day 1 (Monday)
+			{
+				dayNumber: 1,
+				warmUp:
+					'2-3 rounds SS: Empty Bar Bench Press x20 / Arm Swings / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Bench Press', ...pct(8, [60, 70, 75, 72, 70], 'Bench 1RM')),
+							ex('Cable or Band Face Pulls', ...r(10, 5)),
+						],
+						180,
+					),
+					solo(ex('DB Arnold Press', ...r(10, 4)), 180),
+					solo(
+						ex('EZ Bar or Straight Bar Skullcrushers', s(10), s(10), s(10), s(25)),
+						120,
+					),
+					solo(ex('Cable or Band Pushdowns', ...r(25, 4)), 120),
+					// cardio
+					ss([
+						ex('Band Pull Aparts', ...r(25, 4)),
+						ex('DB Shrugs', ...r(25, 4)),
+					]),
+				],
+			},
+			// Week 1, Day 2 (Tuesday)
+			{
+				dayNumber: 2,
+				warmUp: '3 rounds SS: Empty Bar Bent Over Row x10 / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+							ex('DB Pullover', ...r(8, 4)),
+						],
+						120,
+					),
+					solo(ex('1-Arm DB Row', ...r(8, 4)), 120),
+					solo(ex('Barbell Curls', s(10), s(10), s(10), s(10), s(25)), 90),
+					solo(
+						ex(
+							'DB Concentration Curls',
+							...Array.from({ length: 4 }, () => s(10, '10 each arm')),
+						),
+						90,
+					),
+					// cardio
+					solo(
+						ex(
+							'DB Rear Laterals',
+							...Array.from({ length: 4 }, () => s(20, 'light & strict')),
+						),
+					),
+				],
+			},
+			// Week 1, Day 3 (Thursday)
+			{
+				dayNumber: 3,
+				warmUp:
+					'3-4 rounds SS: DB or KB Goblet Squat x5 / Empty Bar Overhead Press x5',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Back Squat', ...pct(5, [60, 65, 70], 'Back Squat 1RM')),
+							ex('Cable or Band Face Pulls', ...r(20, 3)),
+						],
+						180,
+					),
+					solo(
+						ex(
+							'Bench Press',
+							...pct(5, [60, 70], 'Bench 1RM'),
+							...pct(3, [80, 80, 80, 80, 80], 'Bench 1RM'),
+						),
+						180,
+					),
+					solo(ex('Barbell Upright Rows', ...r(15, 4)), 120),
+					ss(
+						[
+							ex('Cable or Band Overhead Triceps Extensions', ...r(25, 4)),
+							ex('Close Grip Bench', ...r(10, 4)),
+						],
+						120,
+					),
+					// cardio
+					solo(ex('Barbell Shrugs', ...r(10, 5))),
+				],
+			},
+			// Week 1, Day 4 (Friday)
+			{
+				dayNumber: 4,
+				warmUp: '3 rounds SS: Band or Cable Face Pulls x10 / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Pull Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+							ex('Chest Supported 2-Arm DB Rows', ...r(10, 4)),
+						],
+						180,
+					),
+					solo(
+						ex('Snatch Grip Deadlift', ...pct(10, [45, 45, 45], 'Deadlift 1RM')),
+						180,
+					),
+					solo(
+						ex('Alt. DB Curls', ...Array.from({ length: 5 }, () => s(5, 'heavy'))),
+						90,
+					),
+					solo(
+						ex(
+							'Barbell 21s',
+							...Array.from({ length: 3 }, () => s(21, TWENTYONE_NOTE)),
+						),
+						90,
+					),
+					// cardio
+					solo(ex('Barbell Reverse Curls', ...r(25, 4))),
+				],
+			},
+		],
+	},
+	// ===========================================================================
+	// WEEK 2
+	// ===========================================================================
+	{
+		weekNumber: 2,
+		days: [
+			// Week 2, Day 1 (Monday)
+			{
+				dayNumber: 1,
+				warmUp: '2-3 rounds SS: Empty Bar Bench Press x20 / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Bench Press', ...pct(9, [60, 70, 73, 70, 65], 'Bench 1RM')),
+							ex(
+								'Cable or Band Face Pulls',
+								s(10),
+								s(10),
+								s(10),
+								s(10),
+								s(25),
+							),
+						],
+						180,
+					),
+					solo(
+						ex(
+							'Barbell Standing Overhead Press',
+							...Array.from({ length: 3 }, () => s(10, 'feet flat, no legs')),
+						),
+						180,
+					),
+					solo(
+						ex(
+							'Dips or Bench Dips',
+							...Array.from({ length: 4 }, () => s(10, 'add weight if able')),
+						),
+						120,
+					),
+					solo(
+						ex(
+							'DB Skullcrushers',
+							s(5, 'one DB held with two hands'),
+							s(5),
+							s(5),
+							s(5),
+							s(25),
+						),
+						120,
+					),
+					// cardio
+					ss([
+						ex('Band Pull Aparts', ...r(25, 4)),
+						ex('DB Shrugs', ...r(25, 4)),
+					]),
+				],
+			},
+			// Week 2, Day 2 (Tuesday)
+			{
+				dayNumber: 2,
+				warmUp:
+					'3 rounds SS: KB or DB Goblet Squats x5 / Empty Bar Overhead Press x10',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Back Squat', ...pct(5, [65, 70, 75], 'Back Squat 1RM')),
+							ex('DB Upright Rows', ...r(15, 3)),
+						],
+						150,
+					),
+					solo(
+						ex('Barbell Bent Over Rows', s(5), s(5), s(5), s(10), s(10), s(20)),
+						150,
+					),
+					solo(ex('Barbell Curls', ...r(10, 5)), 90),
+					solo(ex('DB Hammer Curls', ...r(25, 4)), 90),
+					// cardio
+					solo(ex('Barbell Reverse Curls', ...r(25, 3))),
+				],
+			},
+			// Week 2, Day 3 (Thursday)
+			{
+				dayNumber: 3,
+				warmUp:
+					'3-4 rounds SS: Empty Bar Bench Press x20 / Empty Bar Bent Over Rows x20',
+				exerciseGroups: [
+					ss(
+						[
+							ex(
+								'Bench Press',
+								...pct(6, [60, 70], 'Bench 1RM'),
+								...pct(4, [80, 80, 80, 80, 80], 'Bench 1RM'),
+							),
+							ex('Cable or Band Face Pulls', ...r(10, 7)),
+						],
+						180,
+					),
+					solo(ex('DB Arnold Press', ...r(8, 4)), 180),
+					solo(ex('EZ Bar or Straight Bar Skullcrushers', ...r(10, 4)), 120),
+					solo(
+						ex(
+							'DB Triceps Kickbacks',
+							...Array.from({ length: 4 }, () => s(15, '15 each arm')),
+						),
+						120,
+					),
+					// cardio
+					solo(
+						ex(
+							'DB Rear Laterals',
+							...Array.from({ length: 4 }, () => s(20, 'light & strict')),
+						),
+					),
+				],
+			},
+			// Week 2, Day 4 (Friday)
+			{
+				dayNumber: 4,
+				warmUp: '3 rounds SS: Super Light 1-Arm DB Rows x5 / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+							ex(
+								'Snatch Grip Deadlift',
+								...Array.from({ length: 4 }, () => se(5, FOTH_DL_RANGE)),
+							),
+						],
+						180,
+					),
+					solo(
+						ex('DB Pullover', s(5), s(5), s(5), s(10), s(10), s(10)),
+						180,
+					),
+					solo(
+						ex('Alt. DB Curls', ...Array.from({ length: 4 }, () => s(5, 'heavy'))),
+						120,
+					),
+					solo(ex('Barbell Curls', ...r(5, 3)), 120),
+					// cardio
+					solo(ex('Barbell Reverse Curls', ...r(20, 4))),
+				],
+			},
+		],
+	},
+	// ===========================================================================
+	// WEEK 3
+	// ===========================================================================
+	{
+		weekNumber: 3,
+		days: [
+			// Week 3, Day 1 (Monday)
+			{
+				dayNumber: 1,
+				warmUp:
+					'3 rounds SS: DB or KB Goblet Squats x5 / Empty Bar Overhead Press x10',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Back Squat', ...pct(4, [60, 65, 70, 75], 'Back Squat 1RM')),
+							ex('Cable or Band Face Pulls', ...r(10, 4)),
+						],
+						195,
+					),
+					solo(
+						ex('Bench Press', ...pct(10, [60, 65, 70, 65, 60], 'Bench 1RM')),
+						195,
+					),
+					solo(ex('DB Laterals', s(10), s(10), s(20), s(20)), 120),
+					ss(
+						[
+							ex('Dips or Bench Dips', ...r(10, 4)),
+							ex(
+								'EZ Bar or Straight Bar Skullcrushers',
+								s(10),
+								s(10),
+								s(10),
+								s(20),
+							),
+						],
+						120,
+					),
+					// cardio
+					solo(ex('Cable or Band Pushdowns', ...r(25, 5))),
+				],
+			},
+			// Week 3, Day 2 (Tuesday)
+			{
+				dayNumber: 2,
+				warmUp: '3 rounds SS: Empty Bar Bent Over Row x10 / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Pull Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+							ex('DB Rear Laterals', ...r(10, 4)),
+						],
+						150,
+					),
+					solo(
+						ex('Reverse Grip Barbell Bent Over Rows', s(10), s(10), s(10), s(20)),
+						150,
+					),
+					solo(
+						ex(
+							'Barbell 21s',
+							...Array.from({ length: 3 }, () => s(21, TWENTYONE_NOTE)),
+						),
+						120,
+					),
+					ss(
+						[
+							ex('Alt. DB Curls', ...r(10, 3)),
+							ex('DB Concentration Curls', ...r(10, 3)),
+						],
+						120,
+					),
+					// cardio (new exercise)
+					solo(ex('Reverse Grip DB Curls', ...r(20, 4))),
+				],
+			},
+			// Week 3, Day 3 (Thursday)
+			{
+				dayNumber: 3,
+				warmUp:
+					'3 rounds SS: Empty Bar Bench Press x20 / Empty Bar Bent Over Rows x10',
+				exerciseGroups: [
+					ss(
+						[
+							ex(
+								'Bench Press',
+								...pct(5, [65, 75], 'Bench 1RM'),
+								...pct(3, [85, 85, 85], 'Bench 1RM'),
+							),
+							ex('Cable or Band Face Pulls', ...r(10, 5)),
+						],
+						180,
+					),
+					solo(
+						ex(
+							'Barbell Standing Overhead Press',
+							...Array.from({ length: 5 }, () => s(5, 'strict, no legs')),
+						),
+						180,
+					),
+					// mechanical dropset: skullcrusher straight into close-grip press, 5 rounds
+					ss(
+						[
+							ex(
+								'EZ Bar or Straight Bar Skullcrushers',
+								...Array.from({ length: 5 }, () =>
+									s(10, 'mechanical dropset: 5 rounds, never release the bar, straight into close grip press'),
+								),
+							),
+							ex('Close Grip Bench', ...r(15, 5)),
+						],
+						150,
+					),
+					// cardio
+					solo(ex('DB Shrugs', ...r(10, 4))),
+				],
+			},
+			// Week 3, Day 4 (Friday)
+			{
+				dayNumber: 4,
+				warmUp:
+					'3 rounds SS: KB or DB Goblet Squats x5 / Empty Bar Overhead Press x10',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Back Squat', ...pct(4, [65, 70, 75, 80], 'Back Squat 1RM')),
+							ex('DB Pullover', ...r(5, 4)),
+						],
+						180,
+					),
+					solo(
+						ex(
+							'Chest Supported 2-Arm DB Rows',
+							s(10),
+							s(10),
+							s(10),
+							s(10),
+							s(25),
+						),
+						180,
+					),
+					solo(ex('Barbell Reverse Curls', ...r(10, 4)), 120),
+					solo(ex('DB Concentration Curls', ...r(10, 4)), 120),
+					// cardio
+					solo(ex('Band Pull Aparts', ...r(25, 4))),
+				],
+			},
+		],
+	},
+	// ===========================================================================
+	// WEEK 4
+	// ===========================================================================
+	{
+		weekNumber: 4,
+		days: [
+			// Week 4, Day 1 (Monday)
+			{
+				dayNumber: 1,
+				warmUp: '3 rounds SS: Empty Bar Bench Press x20 / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Bench Press', ...pct(11, [60, 65, 70, 65, 60], 'Bench 1RM')),
+							ex('Cable or Band Face Pulls', ...r(10, 5)),
+						],
+						210,
+					),
+					solo(ex('DB Arnold Press', ...r(8, 4)), 150),
+					solo(ex('Cable or Band Overhead Triceps Extensions', ...r(20, 4)), 90),
+					solo(ex('DB Triceps Kickbacks', ...r(10, 4)), 90),
+					// cardio
+					solo(ex('Barbell Shrugs', ...r(10, 5))),
+				],
+			},
+			// Week 4, Day 2 (Tuesday)
+			{
+				dayNumber: 2,
+				warmUp:
+					"3 rounds SS: Empty Bar RDLs x5 / Empty Bar Bent Over Rows x10",
+				exerciseGroups: [
+					ss(
+						[
+							ex(
+								'Snatch Grip Deadlift',
+								...Array.from({ length: 4 }, () => se(5, FOTH_DL_RANGE)),
+							),
+							ex('DB Rear Laterals', ...r(10, 4)),
+						],
+						150,
+					),
+					solo(ex('1-Arm DB Row', ...r(5, 4)), 150),
+					solo(ex('DB Hammer Curls', ...r(20, 4)), 120),
+					solo(
+						ex(
+							'Barbell 21s',
+							...Array.from({ length: 3 }, () => s(21, TWENTYONE_NOTE)),
+						),
+						120,
+					),
+					// cardio
+					solo(ex('Barbell Reverse Curls', ...r(20, 4))),
+				],
+			},
+			// Week 4, Day 3 (Thursday)
+			{
+				dayNumber: 3,
+				warmUp:
+					'3 rounds SS: KB or DB Goblet Squats x5 / Empty Bar Overhead Press x10',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Back Squat', ...pct(5, [60, 65, 70], 'Back Squat 1RM')),
+							ex('Cable or Band Face Pulls', ...r(10, 3)),
+						],
+						180,
+					),
+					solo(
+						ex(
+							'Bench Press',
+							...pct(5, [65, 75], 'Bench 1RM'),
+							...pct(3, [80, 85], 'Bench 1RM'),
+							...pct(2, [90, 90], 'Bench 1RM'),
+						),
+						180,
+					),
+					ss(
+						[
+							ex('DB Upright Rows', ...r(15, 3)),
+							ex('Dips or Bench Dips', ...r(10, 3)),
+						],
+						120,
+					),
+					solo(ex('Cable or Band Pushdowns', ...r(25, 5)), 120),
+					// cardio
+					solo(ex('Band Pull Aparts', ...r(25, 5))),
+				],
+			},
+			// Week 4, Day 4 (Friday)
+			{
+				dayNumber: 4,
+				warmUp: '3 rounds SS: Light 1-Arm DB Rows x5 / Lat Stretches',
+				exerciseGroups: [
+					ss(
+						[
+							ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+							ex('DB Pullover', ...r(10, 4)),
+						],
+						150,
+					),
+					solo(ex('Barbell Bent Over Rows', ...r(10, 4)), 150),
+					solo(
+						ex('Alt. DB Curls', ...Array.from({ length: 5 }, () => s(5, 'heavy'))),
+						150,
+					),
+					solo(ex('Barbell Reverse Curls', ...r(20, 4)), 150),
+					// cardio
+					solo(ex('Barbell Shrugs', ...r(20, 4))),
+				],
+			},
+		],
+	},
+];
+
+// ===========================================================================
+// SQUATOBER THE PREQUEL PROGRAM
+// ===========================================================================
+
+const SQUATOBER_NAME = 'Squatober The Prequel';
+const SQUATOBER_DESCRIPTION =
+	'A 4-week squat-focused strength program from Pen and Paper Strength App. ' +
+	'Daily Back Squat percentage work (undulating 50-90% of max) paired with ' +
+	'upper-body accessories and a cardio finisher. Weeks run 3/4/4/3 days.';
+
+const squatoberWeeks: WeekInput[] = [
+	// ===========================================================================
+	// WEEK 1 (3 days)
+	// ===========================================================================
+	{
+		weekNumber: 1,
+		days: [
+			{
+				dayNumber: 1,
+				warmUp: 'Light KB Goblet Squats 2x10 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(3, [65, 65, 65, 65, 65], 'Back Squat 1RM')),
+						165,
+					),
+					solo(ex('1-Arm DB Row', ...r(5, 4)), 165),
+					solo(ex('Barbell Standing Overhead Press', ...r(8, 4)), 165),
+					solo(
+						ex('Barbell Curls', ...Array.from({ length: 4 }, () => s(5, 'heavy'))),
+						165,
+					),
+					// cardio
+					solo(ex('DB RDLs', ...r(10, 3))),
+				],
+			},
+			{
+				dayNumber: 2,
+				warmUp:
+					'Empty Bar RDLs 3x5 / Empty Bar Overhead Press 3x10 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex(
+							'Back Squat',
+							se(3, '75% of Back Squat 1RM', 'work up to 75% of max'),
+							...pct(3, [75, 75, 75, 75, 75], 'Back Squat 1RM'),
+						),
+						165,
+					),
+					solo(
+						ex('Bench Press', ...pct(5, [75, 75, 75, 75, 75], 'Bench 1RM')),
+						165,
+					),
+					solo(
+						ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+						165,
+					),
+					// cardio
+					solo(ex('Weighted Pushups', ...r(10, 4))),
+				],
+			},
+			{
+				dayNumber: 3,
+				warmUp:
+					'Light KB Squats 2x10 / Empty Bar RDLs 3x5 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(10, [50, 50, 50], 'Back Squat 1RM')),
+						180,
+					),
+					solo(ex('Barbell Bent Over Rows', ...r(10, 4)), 180),
+					solo(ex('DB Incline Press', ...r(5, 4)), 180),
+					solo(
+						ex('Alt. DB Curls', ...Array.from({ length: 4 }, () => s(5, 'heavy'))),
+						180,
+					),
+					// cardio
+					ss([
+						ex('DB Rear Laterals', ...r(10, 3)),
+						ex('DB Shrugs', ...r(20, 3)),
+					]),
+				],
+			},
+		],
+	},
+	// ===========================================================================
+	// WEEK 2 (4 days)
+	// ===========================================================================
+	{
+		weekNumber: 2,
+		days: [
+			{
+				dayNumber: 1,
+				warmUp: 'Empty Bar RDLs 3x5 / Empty Bar Overhead Press 3x10',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(5, [70, 70, 70, 70, 70], 'Back Squat 1RM')),
+						180,
+					),
+					solo(ex('1-Arm DB Row', ...r(8, 4)), 180),
+					solo(
+						ex('Bench Press', ...pct(3, [80, 80, 80, 80, 80, 80], 'Bench 1RM')),
+						180,
+					),
+					solo(ex('Dips or Bench Dips', ...r(10, 4)), 180),
+					// cardio
+					solo(ex('DB Shrugs', ...r(20, 3))),
+				],
+			},
+			{
+				dayNumber: 2,
+				warmUp: 'Light KB Goblet Squats 3x10 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex(
+							'Back Squat',
+							se(3, '80% of Back Squat 1RM', 'work up to 80% of max'),
+							...pct(3, [80, 80, 80], 'Back Squat 1RM'),
+						),
+						180,
+					),
+					solo(
+						ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+						180,
+					),
+					solo(ex('Barbell Standing Overhead Press', ...r(5, 4)), 180),
+					solo(
+						ex('Barbell Curls', ...Array.from({ length: 3 }, () => s(5, 'heavy'))),
+						180,
+					),
+					// cardio
+					solo(ex('DB Rear Laterals', ...r(20, 4))),
+				],
+			},
+			{
+				dayNumber: 3,
+				warmUp: 'Empty Bar RDLs 3x5 / Empty Bar Bent Over Rows 3x10',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(10, [50, 50, 50, 50], 'Back Squat 1RM')),
+						180,
+					),
+					solo(ex('DB Incline Press', ...r(10, 3)), 180),
+					solo(ex('Barbell Bent Over Rows', ...r(10, 3)), 180),
+					solo(ex('Dips or Bench Dips', ...r(10, 3)), 180),
+					// cardio
+					solo(ex('Barbell Shrugs', ...r(20, 3))),
+				],
+			},
+			{
+				dayNumber: 4,
+				warmUp: 'Light KB Goblet Squats 3x10 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(5, [60, 60, 60], 'Back Squat 1RM')),
+						180,
+					),
+					solo(
+						ex('Bench Press', ...pct(10, [62.5, 62.5, 62.5, 62.5], 'Bench 1RM')),
+						180,
+					),
+					solo(ex('1-Arm DB Row', ...r(5, 3)), 180),
+					solo(
+						ex(
+							'Barbell 21s',
+							...Array.from({ length: 3 }, () => s(21, TWENTYONE_NOTE)),
+						),
+						180,
+					),
+					// cardio
+					solo(ex('DB Rear Laterals', ...r(20, 4))),
+				],
+			},
+		],
+	},
+	// ===========================================================================
+	// WEEK 3 (4 days)
+	// ===========================================================================
+	{
+		weekNumber: 3,
+		days: [
+			{
+				dayNumber: 1,
+				warmUp: 'Empty Bar RDLs 3x5 / Empty Bar Overhead Press 3x10',
+				exerciseGroups: [
+					solo(
+						ex(
+							'Back Squat',
+							se(3, '85% of Back Squat 1RM', 'work up to 85% of max'),
+							...pct(3, [85, 85], 'Back Squat 1RM'),
+						),
+						165,
+					),
+					solo(ex('Barbell Standing Overhead Press', ...r(5, 4)), 165),
+					solo(
+						ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+						165,
+					),
+					solo(ex('Close Grip Pushups', ...r(10, 3)), 165),
+					// cardio
+					solo(ex('DB Shrugs', ...r(20, 4))),
+				],
+			},
+			{
+				dayNumber: 2,
+				warmUp: 'Light KB Goblet Squats 3x10 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(10, [52.5, 52.5, 52.5], 'Back Squat 1RM')),
+						180,
+					),
+					solo(ex('1-Arm DB Row', ...r(5, 4)), 180),
+					solo(ex('DB Incline Press', ...r(5, 4)), 180),
+					solo(
+						ex('Alt. DB Curls', ...Array.from({ length: 4 }, () => s(5, 'heavy'))),
+						180,
+					),
+					// cardio
+					solo(ex('DB Upright Rows', ...r(10, 4))),
+				],
+			},
+			{
+				dayNumber: 3,
+				warmUp: 'Empty Bar RDLs 3x5 / Empty Bar Bent Over Rows 3x10',
+				exerciseGroups: [
+					solo(
+						ex(
+							'Back Squat',
+							se(4, '75% of Back Squat 1RM', 'work up to 75% of max'),
+							...pct(4, [75, 75, 75, 75], 'Back Squat 1RM'),
+						),
+						180,
+					),
+					solo(ex('Barbell Bent Over Rows', ...r(10, 3)), 180),
+					solo(
+						ex('Bench Press', ...pct(3, [80, 80, 80, 80, 80], 'Bench 1RM')),
+						180,
+					),
+					// cardio
+					solo(
+						ex('EZ Bar or Straight Bar Skullcrushers', s(10), s(10), s(15), s(20)),
+					),
+				],
+			},
+			{
+				dayNumber: 4,
+				warmUp: 'Light KB Goblet Squats 3x10 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(5, [65, 65, 65, 65], 'Back Squat 1RM')),
+						165,
+					),
+					solo(
+						ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+						165,
+					),
+					solo(ex('Barbell Standing Overhead Press', ...r(10, 3)), 165),
+					solo(ex('DB Hammer Curls', ...r(10, 3)), 165),
+					// cardio
+					solo(ex('DB Rear Laterals', ...r(20, 3))),
+				],
+			},
+		],
+	},
+	// ===========================================================================
+	// WEEK 4 (3 days)
+	// ===========================================================================
+	{
+		weekNumber: 4,
+		days: [
+			{
+				dayNumber: 1,
+				warmUp: 'Empty Bar RDLs 3x5 / Empty Bar Overhead Press 3x10',
+				exerciseGroups: [
+					solo(
+						ex(
+							'Back Squat',
+							se(1, '90% of Back Squat 1RM', 'work up to 90% of max'),
+							se(1, '90% of Back Squat 1RM'),
+							se(2, '90% of Back Squat 1RM'),
+							se(2, '90% of Back Squat 1RM'),
+						),
+						165,
+					),
+					solo(ex('DB Incline Press', ...r(10, 4)), 165),
+					solo(ex('1-Arm DB Row', ...r(5, 4)), 165),
+					// cardio
+					solo(ex('Cable or Band Pushdowns', ...r(25, 4))),
+				],
+			},
+			{
+				dayNumber: 2,
+				warmUp: 'Light KB Goblet Squats 3x10 / Arm Swings & Lat Stretches',
+				exerciseGroups: [
+					solo(
+						ex('Back Squat', ...pct(5, [60, 60, 60], 'Back Squat 1RM')),
+						180,
+					),
+					solo(
+						ex(
+							'Bench Press',
+							...pct(10, [62.5, 62.5, 62.5, 62.5, 62.5], 'Bench 1RM'),
+						),
+						180,
+					),
+					solo(ex('Barbell Bent Over Rows', ...r(10, 4)), 180),
+					// cardio
+					ss([
+						ex('DB Hammer Curls', ...r(20, 4)),
+						ex('Barbell Shrugs', ...r(20, 4)),
+					]),
+				],
+			},
+			{
+				dayNumber: 3,
+				warmUp: 'Empty Bar RDLs 3x5 / Empty Bar Bent Over Rows 3x10',
+				exerciseGroups: [
+					solo(
+						ex(
+							'Back Squat',
+							se(4, '75% of Back Squat 1RM', 'work up to 75% of max'),
+							...pct(4, [75, 75, 75], 'Back Squat 1RM'),
+						),
+						165,
+					),
+					solo(
+						ex('Chin Up', ...Array.from({ length: 4 }, () => s(3, 'weighted'))),
+						165,
+					),
+					solo(ex('Barbell Standing Overhead Press', ...r(5, 4)), 165),
+					// cardio
+					solo(ex('Close Grip Pushups', ...r(10, 5))),
+				],
+			},
+		],
+	},
+];
+
 // ---------------------------------------------------------------------------
 // Seed function (reusable for multiple programs)
 // ---------------------------------------------------------------------------
@@ -7877,6 +8764,8 @@ async function main(): Promise<void> {
 		poolSeason2Weeks,
 		oakTreeWeeks,
 		ptotWeeks,
+		fothWeeks,
+		squatoberWeeks,
 	);
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
@@ -7993,6 +8882,12 @@ async function main(): Promise<void> {
 
 	console.log('\nSeeding Periodic Table of Thickness...');
 	await seedProgram(PTOT_NAME, PTOT_DESCRIPTION, ptotWeeks);
+
+	console.log('\nSeeding Filling Out That Hoodie...');
+	await seedProgram(FOTH_NAME, FOTH_DESCRIPTION, fothWeeks);
+
+	console.log('\nSeeding Squatober The Prequel...');
+	await seedProgram(SQUATOBER_NAME, SQUATOBER_DESCRIPTION, squatoberWeeks);
 
 	console.log('\nSeeding standalone (on the go) workouts...');
 	await seedStandaloneWorkouts();
