@@ -74,7 +74,7 @@ vi.stubGlobal('prisma', {
   standaloneWorkout: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
   standaloneWorkoutSet: { findUnique: vi.fn() },
   standaloneWorkoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
-  standaloneCompletedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
+  standaloneCompletedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   ptRoutine: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   ptRoutineExercise: { createMany: vi.fn(), deleteMany: vi.fn() },
 })
