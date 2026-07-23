@@ -1,3 +1,8 @@
+import {
+  findOwnedStandaloneCompletedSet,
+  throwStandaloneCompletedSetMutationError,
+} from '../../../../utils/standaloneCompletedSets'
+
 defineRouteMeta({
   openAPI: {
     tags: ['Standalone Workout Sessions'],
@@ -31,37 +36,12 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const session = await prisma.standaloneWorkoutSession.findUnique({
-      where: { id },
-    })
-
-    if (!session) {
-      throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-    }
-
-    if (session.userId !== userId) {
-      throw createError({ statusCode: 404, statusMessage: 'Not Found' })
-    }
-
-    const completedSet = await prisma.standaloneCompletedSet.findFirst({
-      where: { id: setId, standaloneWorkoutSessionId: id },
-    })
-
-    if (!completedSet) {
-      throw createError({ statusCode: 404, statusMessage: 'Completed set not found' })
-    }
+    await findOwnedStandaloneCompletedSet(id, setId, userId)
 
     await prisma.standaloneCompletedSet.delete({ where: { id: setId } })
 
     return { deleted: true }
   } catch (error) {
-    if ((error as { statusCode?: number }).statusCode) throw error
-    // Concurrent delete (e.g. a client retry) removes the row between the
-    // scoped lookup and delete -> Prisma P2025. Treat as already-gone.
-    if ((error as { code?: string }).code === 'P2025') {
-      throw createError({ statusCode: 404, statusMessage: 'Completed set not found' })
-    }
-    ;(event.context.logger ?? logger).error({ err: error, route: 'DELETE /api/standalone-workout-sessions/:id/sets/:setId' }, '[DELETE /api/standalone-workout-sessions/:id/sets/:setId] Failed to delete completed set')
-    throw createError({ statusCode: 500, statusMessage: 'Failed to delete completed set' })
+    throwStandaloneCompletedSetMutationError(event, error, 'DELETE /api/standalone-workout-sessions/:id/sets/:setId', 'Failed to delete completed set')
   }
 })

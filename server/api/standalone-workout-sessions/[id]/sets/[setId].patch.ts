@@ -1,3 +1,9 @@
+import type { Prisma } from '@prisma/client'
+import {
+  findOwnedStandaloneCompletedSet,
+  throwStandaloneCompletedSetMutationError,
+} from '../../../../utils/standaloneCompletedSets'
+
 defineRouteMeta({
   openAPI: {
     tags: ['Standalone Workout Sessions'],
@@ -17,6 +23,13 @@ defineRouteMeta({
   },
 })
 
+// Editable scalar fields on a completed set. Derived from the Prisma create
+// input (plain scalars) rather than the update input, whose field-operation
+// unions would not fit the inline validation below.
+type CompletedSetUpdateBody = Partial<
+  Pick<Prisma.StandaloneCompletedSetUncheckedCreateInput, 'reps' | 'weight' | 'rpe' | 'notes'>
+>
+
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
   const id = getRouterParam(event, 'id')
@@ -31,8 +44,8 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const body = await readBody(event)
-    const { reps, weight, rpe, notes } = body || {}
+    const body: CompletedSetUpdateBody = (await readBody<CompletedSetUpdateBody | null>(event)) ?? {}
+    const { reps, weight, rpe, notes } = body
 
     if (reps !== undefined && reps !== null && (!Number.isFinite(reps) || reps < 0)) {
       throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
@@ -47,25 +60,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'notes must be a string of 500 characters or less' })
     }
 
-    const session = await prisma.standaloneWorkoutSession.findUnique({
-      where: { id },
-    })
-
-    if (!session) {
-      throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-    }
-
-    if (session.userId !== userId) {
-      throw createError({ statusCode: 404, statusMessage: 'Not Found' })
-    }
-
-    const completedSet = await prisma.standaloneCompletedSet.findFirst({
-      where: { id: setId, standaloneWorkoutSessionId: id },
-    })
-
-    if (!completedSet) {
-      throw createError({ statusCode: 404, statusMessage: 'Completed set not found' })
-    }
+    await findOwnedStandaloneCompletedSet(id, setId, userId)
 
     const updated = await prisma.standaloneCompletedSet.update({
       where: { id: setId },
@@ -79,13 +74,6 @@ export default defineEventHandler(async (event) => {
 
     return updated
   } catch (error) {
-    if ((error as { statusCode?: number }).statusCode) throw error
-    // Concurrent delete removes the row between the scoped lookup and the
-    // update -> Prisma P2025. Treat as already-gone.
-    if ((error as { code?: string }).code === 'P2025') {
-      throw createError({ statusCode: 404, statusMessage: 'Completed set not found' })
-    }
-    ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/standalone-workout-sessions/:id/sets/:setId' }, '[PATCH /api/standalone-workout-sessions/:id/sets/:setId] Failed to update completed set')
-    throw createError({ statusCode: 500, statusMessage: 'Failed to update completed set' })
+    throwStandaloneCompletedSetMutationError(event, error, 'PATCH /api/standalone-workout-sessions/:id/sets/:setId', 'Failed to update completed set')
   }
 })
