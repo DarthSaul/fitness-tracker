@@ -1,11 +1,8 @@
 {
 	"permissions": {
 		"allow": [
-			"Read",
-			"Edit",
-			"Write",
-			"Glob",
-			"Grep",
+			"Read(**)",
+			"Edit(**)",
 			"Bash(find:*)",
 			"Bash(grep:*)",
 			"Bash(cat:*)",
