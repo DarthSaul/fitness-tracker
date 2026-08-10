@@ -22,12 +22,14 @@ defineRouteMeta({
     responses: {
       200: { description: 'Account created. confirmationRequired is true when email confirmation is needed before session is active.', content: { 'application/json': { schema: { type: 'object', required: ['confirmationRequired'], properties: { confirmationRequired: { type: 'boolean', example: false } } } } } },
       400: { description: 'Validation error or sign-up failed' },
-      403: { description: 'Forbidden — email not invited' },
+      429: { description: 'Too many requests' },
     },
   },
 })
 
 export default defineEventHandler(async (event) => {
+  await rateLimitByIp(event)
+
   const body = await readBody<{ email?: string, password?: string, name?: string }>(event)
 
   if (!body.email || !body.password) {
@@ -36,10 +38,6 @@ export default defineEventHandler(async (event) => {
 
   if (body.password.length < 8) {
     throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters.' })
-  }
-
-  if (!isEmailAllowed(body.email)) {
-    throw createError({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
   }
 
   const { data, error } = await supabase.auth.signUp({

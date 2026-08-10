@@ -31,11 +31,6 @@ export default defineOAuthAppleEventHandler({
       return sendRedirect(event, '/login?error=apple_no_email')
     }
 
-    if (!isEmailAllowed(email)) {
-      console.warn('Apple OAuth blocked — email not on allow-list')
-      return sendRedirect(event, '/login?error=not_invited')
-    }
-
     const firstName = user.name?.firstName
     const lastName = user.name?.lastName
     const name = [firstName, lastName].filter(Boolean).join(' ') || null

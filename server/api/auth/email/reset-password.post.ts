@@ -20,11 +20,14 @@ defineRouteMeta({
     responses: {
       200: { description: 'Reset email sent (if account exists)', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       400: { description: 'Email is required' },
+      429: { description: 'Too many requests' },
     },
   },
 })
 
 export default defineEventHandler(async (event) => {
+  await rateLimitByIp(event)
+
   const body = await readBody<{ email?: string }>(event)
 
   if (!body.email) {

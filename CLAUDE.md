@@ -1,6 +1,6 @@
 # Workout Tracker
 
-A mobile-first PWA for tracking structured workout programs. Also consumed by a native iOS client. Private use (invite-only).
+A mobile-first PWA for tracking structured workout programs. Also consumed by a native iOS client. Registration is open — anyone can sign up with Google, Apple, or email.
 
 ## Tech Stack
 
@@ -37,8 +37,7 @@ workout-tracker/
 │       ├── jwt.ts             # Sign/verify HS256 access + refresh tokens
 │       ├── jwks.ts            # Apple/Google JWKS verification for native sign-in
 │       ├── apns.ts            # APNs push notification utility
-│       ├── rate-limit.ts      # Upstash rate limiting (no-op when KV not configured)
-│       └── allowList.ts       # Email allow-list helper
+│       └── rate-limit.ts      # Upstash rate limiting (no-op when KV not configured)
 ├── app/
 │   ├── pages/                 # File-based routing (Vue pages)
 │   ├── components/            # Reusable Vue components
@@ -94,7 +93,8 @@ The API supports two authentication paths that share a single `server/middleware
 ## API Security
 
 - **CORS:** Restricted to `NUXT_PUBLIC_APP_URL` origin (never `*`). Native iOS apps don't send `Origin` headers so CORS doesn't apply to them. OPTIONS preflights are handled without auth.
-- **Rate limiting:** Auth endpoints (`/api/auth/native/*`, `/api/auth/refresh`) use Upstash sliding window (10 req/min per IP). No-ops when `UPSTASH_REDIS_REST_URL` is absent (dev mode).
+- **Registration is open:** any Google, Apple, or email account can sign up. There is no allow-list or invite gate — do not reintroduce one.
+- **Rate limiting:** Auth endpoints (`/api/auth/native/*`, `/api/auth/refresh`, `/api/auth/email/{signup,signin,reset-password}`) use Upstash sliding window (10 req/min per IP). No-ops when `UPSTASH_REDIS_REST_URL` is absent (dev mode). Every unauthenticated auth route must call `rateLimitByIp(event)` as its first statement — before `readBody` — since open registration makes them internet-facing.
 - **Error responses:** All routes return generic error messages — no stack traces or Prisma error details exposed.
 - **Input validation:** Manual inline validation on all routes (same pattern as existing API); Zod is not used.
 

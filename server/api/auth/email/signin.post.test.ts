@@ -40,24 +40,16 @@ describe('POST /api/auth/email/signin', () => {
     await expect(handler(makeEvent())).rejects.toThrow('Email and password are required.')
   })
 
-  describe('allow-list gate', () => {
-    afterEach(() => {
-      (isEmailAllowed as ReturnType<typeof vi.fn>).mockRestore()
-    })
+  // Registration is open, so this endpoint is internet-facing and is the
+  // natural target for credential stuffing.
+  describe('rate limiting', () => {
+    test('rate limits by IP before reading the body', async () => {
+      const mockRateLimit = rateLimitByIp as ReturnType<typeof vi.fn>
+      mockRateLimit.mockRejectedValueOnce(createError({ statusCode: 429, statusMessage: 'Too many requests' }))
 
-    test('throws 403 when email is not on allow-list', async () => {
-      (isEmailAllowed as ReturnType<typeof vi.fn>).mockReturnValueOnce(false)
-      mockReadBody.mockResolvedValueOnce({ email: 'blocked@example.com', password: 'testpass123' })
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 429 })
 
-      await expect(handler(makeEvent())).rejects.toThrow('You are not invited to use this app.')
-    })
-
-    test('does not call supabase when email is blocked', async () => {
-      (isEmailAllowed as ReturnType<typeof vi.fn>).mockReturnValueOnce(false)
-      mockReadBody.mockResolvedValueOnce({ email: 'blocked@example.com', password: 'testpass123' })
-
-      await expect(handler(makeEvent())).rejects.toThrow('You are not invited to use this app.')
-
+      expect(mockReadBody).not.toHaveBeenCalled()
       expect(mockSupabaseSignIn).not.toHaveBeenCalled()
     })
   })

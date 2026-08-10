@@ -28,6 +28,20 @@ describe('POST /api/auth/email/signup', () => {
     mockSetUserSession.mockResolvedValue(undefined)
   })
 
+  // Registration is open, so this endpoint is internet-facing and triggers
+  // Supabase transactional email on every successful call.
+  describe('rate limiting', () => {
+    test('rate limits by IP before reading the body', async () => {
+      const mockRateLimit = rateLimitByIp as ReturnType<typeof vi.fn>
+      mockRateLimit.mockRejectedValueOnce(createError({ statusCode: 429, statusMessage: 'Too many requests' }))
+
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 429 })
+
+      expect(mockReadBody).not.toHaveBeenCalled()
+      expect(mockSupabaseSignUp).not.toHaveBeenCalled()
+    })
+  })
+
   test('throws 400 when email is missing', async () => {
     mockReadBody.mockResolvedValueOnce({ password: 'testpass123' })
 

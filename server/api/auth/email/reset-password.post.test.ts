@@ -17,6 +17,20 @@ describe('POST /api/auth/email/reset-password', () => {
     mockSupabaseResetPassword.mockResolvedValue({ data: {}, error: null })
   })
 
+  // Registration is open, so this endpoint is internet-facing and sends a
+  // Supabase email for any address a caller supplies.
+  describe('rate limiting', () => {
+    test('rate limits by IP before reading the body', async () => {
+      const mockRateLimit = rateLimitByIp as ReturnType<typeof vi.fn>
+      mockRateLimit.mockRejectedValueOnce(createError({ statusCode: 429, statusMessage: 'Too many requests' }))
+
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 429 })
+
+      expect(mockReadBody).not.toHaveBeenCalled()
+      expect(mockSupabaseResetPassword).not.toHaveBeenCalled()
+    })
+  })
+
   test('throws 400 when email is missing', async () => {
     mockReadBody.mockResolvedValueOnce({})
 

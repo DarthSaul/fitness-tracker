@@ -28,7 +28,6 @@ defineRouteMeta({
       200: { description: 'JWT access and refresh tokens', content: { 'application/json': { schema: { $ref: '#/components/schemas/TokenResponse' } } } },
       400: { description: 'Missing identityToken' },
       401: { description: 'Invalid Apple identity token' },
-      403: { description: 'Email not on allow-list' },
       500: { description: 'Internal server error' },
     },
   },
@@ -65,10 +64,6 @@ export default defineEventHandler(async (event) => {
   const { sub, email } = applePayload
   if (!email) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
-  }
-
-  if (!isEmailAllowed(email)) {
-    throw createError({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
   }
 
   // Build display name — Apple only provides it on first sign-in.
