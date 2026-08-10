@@ -72,14 +72,31 @@ function extrasFor(exerciseId: string): DetailLoggedSet[] {
   return props.logged.filter(entry => !entry.setId && entry.exerciseId === exerciseId)
 }
 
-/** Sets logged against an exercise that was never part of the template. */
+const templateExerciseIds = computed(() => {
+  const ids = new Set<string>()
+  for (const group of props.groups) {
+    for (const exercise of group.exercises) ids.add(exercise.id)
+  }
+  return ids
+})
+
+/**
+ * Everything logged that the exercise loop above will not render: genuine
+ * ad-hoc exercises, plus sets attached to an exercise no longer in the
+ * template — a program day that has since been edited, say. Those have an
+ * `exerciseId` but no matching card, so without this they would vanish from
+ * the session entirely.
+ */
 const adHocGroups = computed(() => {
   const groups = new Map<string, DetailLoggedSet[]>()
   for (const entry of props.logged) {
-    if (entry.setId || entry.exerciseId || !entry.exerciseName) continue
-    const existing = groups.get(entry.exerciseName)
+    if (entry.setId) continue
+    if (entry.exerciseId && templateExerciseIds.value.has(entry.exerciseId)) continue
+
+    const name = entry.exerciseName ?? 'Unlisted exercise'
+    const existing = groups.get(name)
     if (existing) existing.push(entry)
-    else groups.set(entry.exerciseName, [entry])
+    else groups.set(name, [entry])
   }
   return [...groups.entries()].map(([name, sets]) => ({ name, sets }))
 })

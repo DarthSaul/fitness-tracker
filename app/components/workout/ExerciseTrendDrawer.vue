@@ -76,7 +76,7 @@ const displayHistory = computed(() => {
 
         <!-- Loading -->
         <div v-if="status === 'pending'" class="flex flex-col items-center gap-3 py-10">
-          <div class="size-6 animate-spin rounded-full border-2 border-separator border-t-violet-400" />
+          <div class="size-6 animate-spin rounded-full border-2 border-separator border-t-tint" />
           <p class="text-sm text-label-secondary">
             Retrieving your trends for <strong class="text-label">{{ exerciseName }}</strong>
           </p>
@@ -100,7 +100,7 @@ const displayHistory = computed(() => {
           <!-- e1RM sparkline chart -->
           <div
             v-if="sparklinePoints.length > 0"
-            class="mb-3 rounded-tile border border-separator bg-surface px-4 py-3"
+            class="mb-3 rounded-tile bg-surface px-4 py-3"
           >
             <div class="mb-2 flex items-center gap-1.5">
               <p class="text-xs text-label-secondary">
@@ -125,7 +125,7 @@ const displayHistory = computed(() => {
                 >
                   <div
                     v-if="e1rmInfoOpen"
-                    class="absolute left-0 top-5 z-50 w-56 origin-top-left rounded-tile border border-separator bg-fill p-3 shadow-xl"
+                    class="absolute left-0 top-5 z-50 w-56 origin-top-left rounded-tile bg-fill p-3 shadow-chip"
                   >
                     <p class="text-xs leading-relaxed text-label">
                       Estimated 1-Rep Max (e1RM) is a way to estimate the maximum weight you could lift for a single rep, based on any set you actually performed.
@@ -180,7 +180,7 @@ const displayHistory = computed(() => {
             <div
               v-for="session in displayHistory"
               :key="session.sessionId"
-              class="rounded-tile border border-separator bg-surface px-4 py-3"
+              class="rounded-tile bg-surface px-4 py-3"
             >
               <div class="flex items-start justify-between gap-2">
                 <p class="text-sm font-medium text-label">

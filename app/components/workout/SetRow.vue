@@ -23,6 +23,16 @@ function startEditing(): void {
   emit('edit')
 }
 
+/**
+ * Read-only rows (retroactive logging, completed sessions) must not advertise
+ * a tap target they don't have.
+ */
+const interactiveClass = computed(() =>
+  props.editable
+    ? 'cursor-pointer hover:bg-label-secondary/10 active:bg-label-secondary/20'
+    : '',
+)
+
 function formatWeight(w: number | null | undefined): string {
   if (w == null) return '—'
   return `${w}`
@@ -40,9 +50,13 @@ function formatEffort(effortTarget: string | null | undefined): string {
   <div
     v-if="completedSet"
     data-testid="set-row"
-    class="grid cursor-pointer grid-cols-5 select-none items-center py-2 text-subheadline tnum transition-colors hover:bg-label-secondary/10 active:bg-label-secondary/20"
-    :class="{ 'opacity-50': loading }"
+    class="grid grid-cols-5 select-none items-center py-2 text-subheadline tnum transition-colors"
+    :class="[interactiveClass, { 'opacity-50': loading }]"
+    :role="editable ? 'button' : undefined"
+    :tabindex="editable ? 0 : undefined"
     @click="startEditing"
+    @keydown.enter="startEditing"
+    @keydown.space.prevent="startEditing"
     @contextmenu.prevent
   >
     <span class="text-center text-caption font-medium text-ios-green">{{ set.setNumber }}</span>
@@ -58,9 +72,13 @@ function formatEffort(effortTarget: string | null | undefined): string {
   <div
     v-else
     data-testid="set-row"
-    class="grid cursor-pointer grid-cols-5 items-center py-2 text-subheadline tnum transition-colors hover:bg-label-secondary/10 active:bg-label-secondary/20"
-    :class="{ 'opacity-50': loading }"
+    class="grid grid-cols-5 items-center py-2 text-subheadline tnum transition-colors"
+    :class="[interactiveClass, { 'opacity-50': loading }]"
+    :role="editable ? 'button' : undefined"
+    :tabindex="editable ? 0 : undefined"
     @click="startEditing"
+    @keydown.enter="startEditing"
+    @keydown.space.prevent="startEditing"
   >
     <span class="text-center text-caption font-medium text-label-secondary">{{ set.setNumber }}</span>
     <span class="text-center text-label">{{ isSwapped ? '—' : formatWeight(set.weight) }}</span>

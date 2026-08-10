@@ -38,6 +38,15 @@ const TINT_CLASSES: Record<Tint, string> = {
   red: 'text-ios-red bg-ios-red/15',
 }
 
+/**
+ * `pointer-events-none` alone still leaves a link keyboard-reachable, so a
+ * disabled pill is also taken out of the tab order, announced as disabled, and
+ * has its navigation cancelled outright.
+ */
+function onLinkClick(event: MouseEvent): void {
+  if (props.disabled || props.loading) event.preventDefault()
+}
+
 const classes = computed(() => [
   'flex w-full items-center justify-between gap-2 rounded-chip px-2.5 py-1.5 text-subheadline font-medium transition-opacity',
   TINT_CLASSES[props.tint],
@@ -46,7 +55,14 @@ const classes = computed(() => [
 </script>
 
 <template>
-  <NuxtLink v-if="to" :to="to" :class="classes">
+  <NuxtLink
+    v-if="to"
+    :to="to"
+    :class="classes"
+    :aria-disabled="disabled || loading ? 'true' : undefined"
+    :tabindex="disabled || loading ? -1 : undefined"
+    @click="onLinkClick"
+  >
     <span>{{ label }}</span>
     <UIcon v-if="icon" :name="icon" class="size-4 shrink-0" />
   </NuxtLink>

@@ -24,11 +24,17 @@ const {
 const userInitial = computed(() => user.value?.name?.charAt(0).toUpperCase() ?? '?')
 
 const signingOut = ref(false)
+const signOutError = ref<string | null>(null)
 
 async function handleSignOut(): Promise<void> {
   signingOut.value = true
+  signOutError.value = null
   try {
     await signOut()
+  } catch {
+    // Otherwise the button just stops spinning and the user is still signed in
+    // with no explanation.
+    signOutError.value = 'Could not sign out. Please try again.'
   } finally {
     signingOut.value = false
   }
@@ -115,14 +121,23 @@ async function handlePtToggle(value: boolean): Promise<void> {
       </div>
     </section>
 
-    <UButton
-      block
-      color="error"
-      variant="soft"
-      size="lg"
-      :loading="signingOut"
-      :label="signingOut ? 'Signing out…' : 'Sign Out'"
-      @click="handleSignOut"
-    />
+    <div class="space-y-2">
+      <UAlert
+        v-if="signOutError"
+        color="error"
+        variant="subtle"
+        :title="signOutError"
+        icon="i-lucide-alert-circle"
+      />
+      <UButton
+        block
+        color="error"
+        variant="soft"
+        size="lg"
+        :loading="signingOut"
+        :label="signingOut ? 'Signing out…' : 'Sign Out'"
+        @click="handleSignOut"
+      />
+    </div>
   </div>
 </template>

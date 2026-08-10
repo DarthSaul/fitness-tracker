@@ -51,4 +51,36 @@ describe('AppActionPill', () => {
     await wrapper.find('button').trigger('click')
     expect(wrapper.emitted('click')).toBeFalsy()
   })
+
+  // A link has no `disabled` attribute, and `pointer-events-none` still leaves
+  // it reachable by keyboard — so it has to be blocked explicitly.
+  describe.each([['disabled'], ['loading']])('link with %s set', (flag) => {
+    const props = { label: 'x', to: '/workout/1', [flag]: true }
+
+    test('cancels navigation on click', async () => {
+      const wrapper = mount(ActionPill, { props, global })
+      const link = wrapper.find('a')
+
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+      link.element.dispatchEvent(event)
+
+      expect(event.defaultPrevented).toBe(true)
+    })
+
+    test('is removed from the tab order and announced as disabled', () => {
+      const wrapper = mount(ActionPill, { props, global })
+      const link = wrapper.find('a')
+
+      expect(link.attributes('tabindex')).toBe('-1')
+      expect(link.attributes('aria-disabled')).toBe('true')
+    })
+  })
+
+  test('an enabled link navigates normally', () => {
+    const wrapper = mount(ActionPill, { props: { label: 'x', to: '/workout/1' }, global })
+    const link = wrapper.find('a')
+
+    expect(link.attributes('tabindex')).toBeUndefined()
+    expect(link.attributes('aria-disabled')).toBeUndefined()
+  })
 })

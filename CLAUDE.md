@@ -126,7 +126,10 @@ UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
 ### Loading Skeletons
 
 - Every UI area that fetches data from an API must display a loading skeleton while the request is pending.
-- Use `<AppSkeleton :height="96" />` (`app/components/ios/Skeleton.vue`) — do not hand-roll `animate-pulse` divs.
+- Use `<AppSkeleton>` (`app/components/ios/Skeleton.vue`) — do not hand-roll `animate-pulse` divs.
+- Size each one to approximate the content it stands in for (`:height="64"` for a
+  list row, `:height="128"` for a card) rather than a fixed value; a placeholder
+  that reflows on load is worse than none.
 - For lists, pass `:count="3"` rather than wrapping it in a `v-for`.
 - Guard skeletons with the `useFetch` status: `v-if="status === 'pending'"`.
 

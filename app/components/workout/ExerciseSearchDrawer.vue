@@ -74,7 +74,7 @@ const filteredExercises = computed(() => {
         >
 
         <div v-if="exercisesLoading" class="space-y-2">
-          <div v-for="n in 5" :key="n" class="h-10 animate-pulse rounded-tile bg-label-secondary/12" />
+          <AppSkeleton :height="40" :count="5" />
         </div>
         <div v-else-if="exercisesError" class="py-8 text-center text-sm text-ios-red">
           Failed to load exercises. Please close and try again.

@@ -72,14 +72,26 @@ async function removeLog(): Promise<void> {
   await deleteSet(set.id)
 }
 
+// Both keep the modal open on failure: navigating away would strand the user
+// on another screen believing the session was finished when it wasn't.
 async function confirmComplete(): Promise<void> {
-  await completeSession()
+  try {
+    await completeSession()
+  } catch {
+    error.value = 'Could not complete this workout. Please try again.'
+    return
+  }
   completeOpen.value = false
   await router.push('/history')
 }
 
 async function confirmAbandon(): Promise<void> {
-  await abandonSession()
+  try {
+    await abandonSession()
+  } catch {
+    error.value = 'Could not discard this workout. Please try again.'
+    return
+  }
   abandonOpen.value = false
   await router.push('/standalone-workouts')
 }

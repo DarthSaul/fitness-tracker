@@ -188,7 +188,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
     ref="supersetRootEl"
     class="relative rounded-card border border-tint/30 p-1.5 pt-2"
   >
-    <span class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-tint/50 bg-canvas text-[8px] font-semibold text-tint">SS</span>
+    <span class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-tint/50 bg-canvas text-caption2 font-semibold text-tint">SS</span>
     <div class="space-y-1.5">
       <div
         v-for="(ex, exIdx) in group.exercises"
@@ -213,7 +213,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                 role="button"
                 tabindex="0"
                 aria-label="Toggle notes"
-                class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-separator text-[9px] text-label-secondary"
+                class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-separator text-caption2 text-label-secondary"
                 @click="toggleNotes(ex.id, $event)"
                 @keydown.enter="toggleNotes(ex.id, $event)"
               >i</span>
@@ -221,7 +221,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               <button
                 type="button"
                 :aria-label="userNotesOpen === ex.id ? 'Close personal notes' : 'Open personal notes'"
-                class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+                class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-footnote leading-none transition-all"
                 :class="userNotesContent[ex.exercise.id] ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
                 @click.stop="toggleUserNotes(ex.exercise.id, ex.id)"
               >📝</button>
@@ -230,7 +230,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                 v-if="editable && !disableExerciseSwaps"
                 type="button"
                 :aria-label="hasSwap(ex.id) ? 'Change swapped exercise' : 'Swap exercise'"
-                class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+                class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-footnote leading-none transition-all"
                 :class="hasSwap(ex.id) ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
                 @click.stop="emit('swap', ex.id)"
               >🔁</button>
@@ -239,13 +239,13 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <div class="mt-1.5 flex items-center gap-1.5">
               <span
                 v-if="exIdx === group.exercises.length - 1"
-                class="inline-flex shrink-0 items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary"
+                class="inline-flex shrink-0 items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-caption2 text-label-secondary"
               >
                 <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
               </span>
               <span
                 role="button"
-                class="inline-flex cursor-pointer items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary transition-colors hover:bg-label-secondary/20 hover:text-label"
+                class="inline-flex cursor-pointer items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-caption2 text-label-secondary transition-colors hover:bg-label-secondary/20 hover:text-label"
                 @click.stop="openTrend(ex.exercise.id, ex.exercise.name)"
               >
                 <span>📈</span><span>Trend</span>
@@ -276,7 +276,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <div class="border-t border-separator px-3 pb-3 pt-2">
               <!-- Inline personal notes -->
               <div v-if="userNotesOpen === ex.id" class="mx-1 mb-2 mt-1">
-                <div v-if="userNotesLoading.has(ex.exercise.id)" class="h-16 animate-pulse rounded-tile bg-label-secondary/12" />
+                <AppSkeleton v-if="userNotesLoading.has(ex.exercise.id)" :height="64" />
                 <template v-else>
                   <textarea
                     :value="userNotesContent[ex.exercise.id] ?? ''"
@@ -376,7 +376,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               role="button"
               tabindex="0"
               aria-label="Toggle notes"
-              class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-separator text-[9px] text-label-secondary"
+              class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-separator text-caption2 text-label-secondary"
               @click="toggleNotes(group.exercises[0].id, $event)"
               @keydown.enter="toggleNotes(group.exercises[0].id, $event)"
             >i</span>
@@ -384,7 +384,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <button
               type="button"
               :aria-label="userNotesOpen === group.exercises[0].id ? 'Close personal notes' : 'Open personal notes'"
-              class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+              class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-footnote leading-none transition-all"
               :class="userNotesContent[group.exercises[0].exercise.id] ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
               @click.stop="toggleUserNotes(group.exercises[0].exercise.id, group.exercises[0].id)"
             >📝</button>
@@ -393,19 +393,19 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               v-if="editable && !disableExerciseSwaps"
               type="button"
               :aria-label="hasSwap(group.exercises[0].id) ? 'Change swapped exercise' : 'Swap exercise'"
-              class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[13px] leading-none transition-all"
+              class="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-footnote leading-none transition-all"
               :class="hasSwap(group.exercises[0].id) ? 'opacity-100' : 'opacity-50 hover:opacity-100'"
               @click.stop="emit('swap', group.exercises[0].id)"
             >🔁</button>
           </div>
           <!-- Row 2: chips -->
           <div class="mt-1.5 flex items-center gap-1.5">
-            <span class="inline-flex shrink-0 items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary">
+            <span class="inline-flex shrink-0 items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-caption2 text-label-secondary">
               <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
             </span>
             <span
               role="button"
-              class="inline-flex cursor-pointer items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary transition-colors hover:bg-label-secondary/20 hover:text-label"
+              class="inline-flex cursor-pointer items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-caption2 text-label-secondary transition-colors hover:bg-label-secondary/20 hover:text-label"
               @click.stop="openTrend(group.exercises[0].exercise.id, group.exercises[0].exercise.name)"
             >
               <span>📈</span><span>Trend</span>
@@ -436,7 +436,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           <div class="border-t border-separator px-3 pb-3 pt-2">
             <!-- Inline personal notes -->
             <div v-if="userNotesOpen === group.exercises[0].id" class="mx-1 mb-2 mt-1">
-              <div v-if="userNotesLoading.has(group.exercises[0].exercise.id)" class="h-16 animate-pulse rounded-tile bg-label-secondary/12" />
+              <AppSkeleton v-if="userNotesLoading.has(group.exercises[0].exercise.id)" :height="64" />
               <template v-else>
                 <textarea
                   :value="userNotesContent[group.exercises[0].exercise.id] ?? ''"

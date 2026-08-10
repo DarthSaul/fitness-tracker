@@ -47,7 +47,14 @@ const categories = computed(() => {
       Quick 30–45 minute workouts you can do anywhere, with no program required.
     </p>
 
-    <AppSkeleton v-if="status === 'pending'" :height="72" :count="5" />
+    <AppSkeleton v-if="status === 'pending' || status === 'idle'" :height="72" :count="5" />
+
+    <!-- A failed request must not read as "there are none" -->
+    <div v-else-if="status === 'error'" class="flex flex-col items-center gap-3 py-16 text-center">
+      <UIcon name="i-lucide-triangle-alert" class="size-8 text-label-tertiary" />
+      <p class="text-headline">Couldn't load workouts</p>
+      <p class="text-subheadline text-label-secondary">Something went wrong. Please try again.</p>
+    </div>
 
     <div v-else-if="categories.length === 0" class="flex flex-col items-center gap-3 py-16 text-center">
       <UIcon name="i-lucide-dumbbell" class="size-8 text-label-tertiary" />

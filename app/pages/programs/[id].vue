@@ -117,8 +117,8 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
 
     <!-- Loading state -->
     <div v-if="status === 'pending'" class="space-y-4">
-      <div class="h-20 animate-pulse rounded-tile bg-label-secondary/12" />
-      <div class="h-32 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton :height="80" />
+      <AppSkeleton :height="128" />
     </div>
 
     <!-- Error state -->
@@ -181,7 +181,7 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
       <template #body>
         <!-- Loading days -->
         <div v-if="loadingDays" class="space-y-4">
-          <div v-for="n in (selectedWeek?.days.length ?? 2)" :key="n" class="h-24 animate-pulse rounded-tile bg-label-secondary/12" />
+          <AppSkeleton :height="96" :count="(selectedWeek?.days.length ?? 2)" />
         </div>
 
         <!-- Day details -->
@@ -223,7 +223,7 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
                   >
                     <span
                       v-if="group.type === 'SUPERSET'"
-                      class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-tint/50 bg-canvas text-[8px] font-semibold text-tint"
+                      class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-tint/50 bg-canvas text-caption2 font-semibold text-tint"
                     >SS</span>
 
                     <!-- Exercises in group -->

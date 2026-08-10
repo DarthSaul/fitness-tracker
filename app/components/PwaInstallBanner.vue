@@ -33,7 +33,7 @@ function dismissIOSPrompt(): void {
   <!-- Android / Desktop: native install prompt -->
   <div
     v-if="$pwa?.showInstallPrompt"
-    class="fixed right-4 bottom-24 left-4 z-20 mx-auto flex max-w-lg items-center gap-3 rounded-card bg-fill p-4 shadow-lg ring-1 ring-separator"
+    class="fixed right-4 bottom-24 left-4 z-20 mx-auto flex max-w-lg items-center gap-3 rounded-card bg-fill p-4 shadow-chip"
     style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem)"
   >
     <div class="flex-1">
@@ -57,7 +57,7 @@ function dismissIOSPrompt(): void {
   <!-- iOS: manual instructions -->
   <div
     v-else-if="showIOSPrompt"
-    class="fixed right-4 bottom-24 left-4 z-20 mx-auto flex max-w-lg items-center gap-3 rounded-card bg-fill p-4 shadow-lg ring-1 ring-separator"
+    class="fixed right-4 bottom-24 left-4 z-20 mx-auto flex max-w-lg items-center gap-3 rounded-card bg-fill p-4 shadow-chip"
     style="padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem)"
   >
     <div class="flex-1">

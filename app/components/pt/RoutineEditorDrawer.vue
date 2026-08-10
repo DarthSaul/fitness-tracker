@@ -134,7 +134,7 @@ function handleSave(): void {
           <div
             v-for="(draft, index) in drafts"
             :key="index"
-            class="rounded-tile bg-surface p-3 ring-1 ring-separator"
+            class="rounded-tile bg-surface p-3"
           >
             <div class="mb-2 flex items-center gap-1.5">
               <span class="text-sm font-semibold text-tint">{{ index + 1 }}.</span>

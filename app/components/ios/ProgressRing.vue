@@ -11,7 +11,11 @@ const props = withDefaults(defineProps<{
   /** Outer diameter in px. */
   size?: number
   strokeWidth?: number
-  /** Hide the centred label when the ring is used purely decoratively. */
+  /**
+   * Hide the centred label when the ring is used purely decoratively. Doing so
+   * also drops the image role and label: announcing a reading with no visible
+   * counterpart is noise, so the ring is hidden from assistive tech instead.
+   */
   showLabel?: boolean
 }>(), {
   size: 64,
@@ -35,8 +39,9 @@ const dashOffset = computed(() => circumference.value * (1 - fraction.value))
   <div
     class="relative shrink-0"
     :style="{ width: `${size}px`, height: `${size}px` }"
-    role="img"
-    :aria-label="`${value} of ${total} days complete`"
+    :role="showLabel ? 'img' : undefined"
+    :aria-label="showLabel ? `${value} of ${total} days complete` : undefined"
+    :aria-hidden="showLabel ? undefined : 'true'"
   >
     <svg
       :width="size"

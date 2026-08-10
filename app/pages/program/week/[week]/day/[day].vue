@@ -182,9 +182,9 @@ async function confirmDiscard(): Promise<void> {
 
     <!-- Loading -->
     <template v-if="pageLoading">
-      <div class="h-10 animate-pulse rounded-tile bg-label-secondary/12" />
-      <div class="h-4 w-full animate-pulse rounded-tile bg-label-secondary/12" />
-      <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton :height="40" />
+      <AppSkeleton :height="16" width="100%" />
+      <AppSkeleton :height="128" :count="3" />
     </template>
 
     <!-- Error -->
@@ -213,12 +213,13 @@ async function confirmDiscard(): Promise<void> {
       <!-- Date picker -->
       <div class="flex items-center gap-3 rounded-tile bg-surface px-3 py-2.5">
         <UIcon name="i-lucide-calendar" class="size-4 text-label-secondary" />
-        <label class="text-sm text-label-secondary">Date <span class="text-label-secondary">(optional)</span></label>
+        <label for="workout-date" class="text-sm text-label-secondary">Date <span class="text-label-secondary">(optional)</span></label>
         <input
+          id="workout-date"
           v-model="workoutDate"
           type="date"
           :max="todayLocal"
-          class="flex-1 bg-transparent text-sm text-label outline-none"
+          class="flex-1 bg-transparent text-sm tnum text-label outline-none"
         >
       </div>
 
@@ -244,7 +245,7 @@ async function confirmDiscard(): Promise<void> {
 
       <!-- Warm-up -->
       <div v-if="day.warmUp" class="rounded-tile bg-ios-orange/15 px-3 py-2.5">
-        <p class="text-[10px] font-medium text-ios-orange/70">Warm-up</p>
+        <p class="text-caption2 font-medium text-ios-orange/70">Warm-up</p>
         <p class="mt-0.5 text-sm text-ios-orange">{{ day.warmUp }}</p>
       </div>
 

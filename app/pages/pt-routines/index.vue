@@ -93,7 +93,7 @@ async function confirmDelete(): Promise<void> {
 
     <!-- Loading skeletons -->
     <div v-if="status === 'pending'" class="space-y-3">
-      <div v-for="i in 3" :key="i" class="h-20 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton :height="80" :count="3" />
     </div>
 
     <!-- Empty state -->
@@ -111,7 +111,7 @@ async function confirmDelete(): Promise<void> {
       <div
         v-for="routine in routines"
         :key="routine.id"
-        class="flex items-center gap-3 rounded-tile bg-surface px-4 py-3.5 ring-1 ring-separator"
+        class="flex items-center gap-3 rounded-tile bg-surface px-4 py-3.5"
       >
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm font-semibold text-label">{{ routine.name }}</p>

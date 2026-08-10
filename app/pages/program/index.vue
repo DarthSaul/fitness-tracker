@@ -60,9 +60,9 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
   <div class="space-y-4">
     <!-- Loading skeleton -->
     <template v-if="isLoading">
-      <div class="h-6 w-40 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton :height="24" :width="160" />
       <div v-for="i in 3" :key="i" class="space-y-2">
-        <div class="h-12 animate-pulse rounded-tile bg-label-secondary/12" />
+        <AppSkeleton :height="48" />
       </div>
     </template>
 

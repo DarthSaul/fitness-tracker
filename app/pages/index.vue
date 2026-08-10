@@ -338,12 +338,12 @@ async function handleUnschedule(): Promise<void> {
 		<!-- ===== TODAY VIEW ===== -->
 		<template v-if="isViewingToday">
 			<!-- Workout card skeleton -->
-			<div
+			<AppSkeleton
 				v-if="
 					activeWorkoutStatus === 'pending' ||
 					activeProgramStatus === 'pending'
 				"
-				class="h-[220px] animate-pulse rounded-tile bg-label-secondary/12"
+				:height="220"
 			/>
 
 			<!-- Resume workout with progress bar -->
@@ -673,12 +673,8 @@ async function handleUnschedule(): Promise<void> {
 			"
 			class="grid grid-cols-[1fr_3fr] gap-3"
 		>
-			<div
-				class="h-28 animate-pulse rounded-tile bg-label-secondary/12"
-			/>
-			<div
-				class="h-28 animate-pulse rounded-tile bg-label-secondary/12"
-			/>
+			<AppSkeleton :height="112" />
+			<AppSkeleton :height="112" />
 		</div>
 
 		<!-- Fetch error (non-404) -->
@@ -829,6 +825,13 @@ async function handleUnschedule(): Promise<void> {
 			>
 				<HistoryRow v-for="entry in recentHistory" :key="entry.id" :entry="entry" />
 			</div>
+			<!-- A failed fetch must not claim the user has never trained -->
+			<p
+				v-else-if="recentHistoryStatus === 'error'"
+				class="rounded-card bg-surface px-4 py-6 text-center text-subheadline text-label-secondary"
+			>
+				Couldn't load recent workouts.
+			</p>
 			<p v-else class="rounded-card bg-surface px-4 py-6 text-center text-subheadline text-label-secondary">
 				Finish a workout and it will show up here.
 			</p>

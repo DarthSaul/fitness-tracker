@@ -86,6 +86,16 @@ onMounted(() => {
   mainEl.value?.addEventListener('scroll', onScroll, { passive: true })
 })
 
+/**
+ * `<main>` is the scroll container and it persists across navigations, so
+ * without this a new screen opens at the previous screen's scroll offset with
+ * the previous screen's title still floating in the chip.
+ */
+watch(() => route.fullPath, () => {
+  if (mainEl.value) mainEl.value.scrollTop = 0
+  scrolled.value = false
+})
+
 onUnmounted(() => {
   mainEl.value?.removeEventListener('scroll', onScroll)
 })

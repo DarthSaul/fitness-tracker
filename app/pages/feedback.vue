@@ -169,7 +169,7 @@ function formatDate(iso: string) {
 
     <!-- Feedback list -->
     <div v-if="status === 'pending'" class="space-y-3">
-      <div v-for="i in 3" :key="i" class="h-16 animate-pulse rounded-card bg-label-secondary/12" />
+      <AppSkeleton :height="64" :count="3" radius="card" />
     </div>
 
     <div v-else-if="filtered.length === 0" class="py-4 text-center text-sm text-label-secondary">

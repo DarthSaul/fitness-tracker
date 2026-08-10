@@ -28,11 +28,7 @@ const emptyMessage = computed(() => {
   <div class="space-y-6">
     <!-- Loading state -->
     <div v-if="status === 'pending'" class="space-y-4">
-      <div
-        v-for="i in 3"
-        :key="i"
-        class="h-28 animate-pulse rounded-tile bg-label-secondary/12"
-      />
+      <AppSkeleton :height="112" :count="3" />
     </div>
 
     <!-- Error state -->

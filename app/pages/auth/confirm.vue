@@ -45,7 +45,7 @@ onMounted(async () => {
   <div class="flex min-h-dvh items-center justify-center px-4">
     <div class="w-full max-w-sm space-y-6 text-center">
       <template v-if="status === 'verifying'">
-        <div class="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-separator border-t-primary-400" />
+        <div class="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-separator border-t-tint" />
         <p class="text-label-secondary">
           Verifying your email...
         </p>

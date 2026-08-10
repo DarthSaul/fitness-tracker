@@ -159,7 +159,7 @@ function confirmSwap(): void {
 
         <!-- Swap in progress -->
         <div v-else-if="confirmLoading" class="space-y-2">
-          <div v-for="n in 3" :key="n" class="h-10 animate-pulse rounded-tile bg-label-secondary/12" />
+          <AppSkeleton :height="40" :count="3" />
         </div>
 
         <!-- Search + exercise list -->
@@ -175,7 +175,7 @@ function confirmSwap(): void {
 
           <!-- Exercise list -->
           <div v-if="exercisesLoading" class="space-y-2">
-            <div v-for="n in 5" :key="n" class="h-10 animate-pulse rounded-tile bg-label-secondary/12" />
+            <AppSkeleton :height="40" :count="5" />
           </div>
           <div v-else-if="exercisesError" class="py-8 text-center text-sm text-ios-red">
             Failed to load exercises. Please close and try again.

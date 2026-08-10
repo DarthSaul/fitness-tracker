@@ -40,10 +40,20 @@ export default defineNuxtConfig({
     public: {
       // Surfaced on the Settings screen; single source of truth is package.json.
       appVersion: version,
-      // Web Sign in with Apple needs a Services ID + key that the native iOS
-      // flow doesn't use. Hide the button until those are configured rather
-      // than offering a provider that will fail.
-      appleAuthEnabled: Boolean(process.env.NUXT_OAUTH_APPLE_CLIENT_ID),
+      // Web Sign in with Apple needs a Services ID *and* the signing key the
+      // native iOS flow doesn't use. All four are required to mint the client
+      // secret, so a partial configuration fails just as hard as none at all —
+      // hide the button unless every one is present.
+      //
+      // Empty string rather than `false`: this is overridable at runtime via
+      // NUXT_PUBLIC_APPLE_AUTH_ENABLED, so the deployment can flip it without
+      // a rebuild. The default is computed from the build environment.
+      appleAuthEnabled: Boolean(
+        process.env.NUXT_OAUTH_APPLE_CLIENT_ID
+        && process.env.NUXT_OAUTH_APPLE_TEAM_ID
+        && process.env.NUXT_OAUTH_APPLE_KEY_ID
+        && process.env.NUXT_OAUTH_APPLE_PRIVATE_KEY,
+      ),
     },
   },
   components: [

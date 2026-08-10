@@ -57,15 +57,19 @@ function handleExerciseClear() {
 <template>
   <div class="space-y-6">
     <!-- Section 1: Dashboard stats -->
+    <!--
+      One skeleton per grid cell: a single `:count="3"` would stack vertically
+      inside one column instead of standing in for the three stat tiles.
+    -->
     <div v-if="dashboardStatus === 'pending'" class="grid grid-cols-3 gap-3">
-      <div v-for="i in 3" :key="i" class="h-16 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton v-for="i in 3" :key="i" :height="64" />
     </div>
 
     <div v-else-if="dashboard" class="grid grid-cols-3 gap-3">
       <!-- Total Sessions -->
-      <div class="rounded-tile bg-surface border border-separator px-3 py-2.5">
+      <div class="rounded-tile bg-surface px-3 py-2.5">
         <UIcon name="i-lucide-calendar-check" class="size-4 text-tint mb-1" />
-        <p class="text-lg font-semibold text-label leading-none">
+        <p class="text-lg font-semibold tnum text-label leading-none">
           {{ dashboard.totalSessions }}
         </p>
         <p class="text-xs text-label-secondary mt-0.5">
@@ -74,9 +78,9 @@ function handleExerciseClear() {
       </div>
 
       <!-- Sessions This Week -->
-      <div class="rounded-tile bg-surface border border-separator px-3 py-2.5">
+      <div class="rounded-tile bg-surface px-3 py-2.5">
         <UIcon name="i-lucide-calendar-days" class="size-4 text-tint mb-1" />
-        <p class="text-lg font-semibold text-label leading-none">
+        <p class="text-lg font-semibold tnum text-label leading-none">
           {{ dashboard.sessionsThisWeek }}
         </p>
         <p class="text-xs text-label-secondary mt-0.5">
@@ -85,9 +89,9 @@ function handleExerciseClear() {
       </div>
 
       <!-- Total Volume -->
-      <div class="rounded-tile bg-surface border border-separator px-3 py-2.5">
+      <div class="rounded-tile bg-surface px-3 py-2.5">
         <UIcon name="i-lucide-weight" class="size-4 text-tint mb-1" />
-        <p class="text-lg font-semibold text-label leading-none">
+        <p class="text-lg font-semibold tnum text-label leading-none">
           {{ formatVolume(dashboard.totalVolumeLbs) }}
         </p>
         <p class="text-xs text-label-secondary mt-0.5">
@@ -97,7 +101,7 @@ function handleExerciseClear() {
     </div>
 
     <!-- Section 2: e1RM explainer card -->
-    <div class="rounded-tile bg-surface border border-separator overflow-hidden">
+    <div class="rounded-tile bg-surface overflow-hidden">
       <!-- Collapsible header -->
       <button
         class="w-full flex items-center gap-3 px-4 py-3 text-left border-l-2 border-tint"
@@ -139,7 +143,7 @@ function handleExerciseClear() {
       </h3>
 
       <!-- Loading skeleton -->
-      <div v-if="exercisesStatus === 'pending'" class="h-10 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton v-if="exercisesStatus === 'pending'" :height="40" />
 
       <!-- Error -->
       <UCard v-else-if="exercisesStatus === 'error'">
@@ -193,13 +197,13 @@ function handleExerciseClear() {
     >
       <!-- Ghost placeholder when no exercise is selected (only when exercises exist) -->
       <div v-if="!selectedExerciseId && exercises && exercises.length > 0" class="space-y-3">
-        <div class="rounded-tile border border-separator bg-surface px-4 py-3">
+        <div class="rounded-tile bg-surface px-4 py-3">
           <p class="mb-2 text-xs text-label-secondary">
             e1RM Trend
           </p>
           <div class="h-20 rounded bg-label-secondary/15" />
         </div>
-        <div v-for="i in 3" :key="i" class="rounded-tile border border-separator bg-surface px-4 py-3">
+        <div v-for="i in 3" :key="i" class="rounded-tile bg-surface px-4 py-3">
           <div class="h-2.5 w-28 rounded-full bg-label-secondary/15" />
           <div class="mt-2.5 h-2.5 w-20 rounded-full bg-label-secondary/15" />
         </div>
@@ -208,7 +212,7 @@ function handleExerciseClear() {
       <div v-else class="space-y-3">
         <!-- Loading -->
         <div v-if="historyStatus === 'pending'" class="space-y-2">
-          <div v-for="i in 3" :key="i" class="h-12 animate-pulse rounded-tile bg-label-secondary/12" />
+          <AppSkeleton :height="48" :count="3" />
         </div>
 
         <template v-else-if="exerciseHistory">
@@ -220,7 +224,7 @@ function handleExerciseClear() {
           <!-- Empty history -->
           <div
             v-if="exerciseHistory.history.length === 0"
-            class="rounded-tile bg-surface border border-separator px-4 py-6 text-center"
+            class="rounded-tile bg-surface px-4 py-6 text-center"
           >
             <p class="text-sm text-label-secondary">
               No completed sessions found for this exercise
@@ -231,7 +235,7 @@ function handleExerciseClear() {
             <!-- e1RM sparkline chart -->
             <div
               v-if="sparklinePoints.length > 0"
-              class="rounded-tile bg-surface border border-separator px-4 py-3"
+              class="rounded-tile bg-surface px-4 py-3"
             >
               <p class="text-xs text-label-secondary mb-2">
                 e1RM Trend
@@ -309,7 +313,7 @@ function handleExerciseClear() {
               <div
                 v-for="session in displayHistory"
                 :key="session.sessionId"
-                class="rounded-tile bg-surface border border-separator px-4 py-3"
+                class="rounded-tile bg-surface px-4 py-3"
               >
                 <div class="flex items-start justify-between gap-2">
                   <p class="text-sm font-medium text-label">

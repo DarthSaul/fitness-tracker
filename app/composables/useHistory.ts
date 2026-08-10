@@ -16,6 +16,8 @@ export function useHistory(pageSize: number = PAGE_SIZE) {
   const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle')
   const loadingMore = ref(false)
   const hasMore = ref(true)
+  /** A failed page, as distinct from having reached the end of the list. */
+  const pageError = ref(false)
 
   /**
    * A short page means the server ran out of rows. Requesting exactly
@@ -49,6 +51,7 @@ export function useHistory(pageSize: number = PAGE_SIZE) {
 
     const cursor = sessions.value[sessions.value.length - 1]!
     loadingMore.value = true
+    pageError.value = false
     try {
       const result = await $fetch<HistoryResponse>('/api/history', {
         query: {
@@ -60,13 +63,14 @@ export function useHistory(pageSize: number = PAGE_SIZE) {
       sessions.value = [...sessions.value, ...result.sessions]
       applyPage(result.sessions)
     } catch {
-      // Leave the rows already on screen alone and let the user retry by
-      // scrolling again rather than blanking the list.
-      hasMore.value = false
+      // Leave the rows already on screen alone, and leave `hasMore` set so a
+      // retry is still possible — a failed page is not the end of the list,
+      // and conflating the two silently truncates someone's history.
+      pageError.value = true
     } finally {
       loadingMore.value = false
     }
   }
 
-  return { sessions, status, loadingMore, hasMore, load, loadMore }
+  return { sessions, status, loadingMore, hasMore, pageError, load, loadMore }
 }

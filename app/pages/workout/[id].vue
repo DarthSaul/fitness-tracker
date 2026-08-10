@@ -316,9 +316,9 @@ async function handleDiscard(): Promise<void> {
   <div class="space-y-4">
     <!-- Loading -->
     <div v-if="pageLoading" class="space-y-4">
-      <div class="h-8 w-48 animate-pulse rounded-tile bg-label-secondary/12" />
-      <div class="h-4 w-full animate-pulse rounded-tile bg-label-secondary/12" />
-      <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton :height="32" :width="192" />
+      <AppSkeleton :height="16" width="100%" />
+      <AppSkeleton :height="128" :count="3" />
     </div>
 
     <!-- Error -->
@@ -366,7 +366,7 @@ async function handleDiscard(): Promise<void> {
       </div>
 
       <!-- PT routines quick access -->
-      <div v-if="ptLoading" class="h-7 w-28 animate-pulse rounded-tile bg-label-secondary/12" />
+      <AppSkeleton v-if="ptLoading" :height="28" :width="112" />
       <UButton
         v-else-if="ptEnabled && (ptRoutines?.length ?? 0) > 0"
         icon="i-lucide-clipboard-list"
@@ -394,7 +394,7 @@ async function handleDiscard(): Promise<void> {
 
       <!-- Warm-up -->
       <div v-if="day.warmUp" class="rounded-tile bg-ios-orange/15 px-3 py-2.5">
-        <p class="text-[10px] font-medium text-ios-orange/70">Warm-up</p>
+        <p class="text-caption2 font-medium text-ios-orange/70">Warm-up</p>
         <p class="mt-0.5 text-sm text-ios-orange">{{ day.warmUp }}</p>
       </div>
 

@@ -122,17 +122,34 @@ describe('useHistory', () => {
     await first
   })
 
-  // A failed page must leave the rows already on screen intact.
-  test('keeps loaded rows when a subsequent page fails', async () => {
+  // A failed page must leave the rows already on screen intact, and must not
+  // masquerade as the end of the list — that would silently truncate history.
+  test('keeps loaded rows and stays retryable when a page fails', async () => {
     mockFetch.mockResolvedValueOnce({ sessions: fullPage(2) })
     mockFetch.mockRejectedValueOnce(new Error('network error'))
 
-    const { sessions, hasMore, loadingMore, load, loadMore } = useHistory(2)
+    const { sessions, hasMore, pageError, loadingMore, load, loadMore } = useHistory(2)
     await load()
     await loadMore()
 
     expect(sessions.value).toHaveLength(2)
-    expect(hasMore.value).toBe(false)
+    expect(hasMore.value).toBe(true)
+    expect(pageError.value).toBe(true)
     expect(loadingMore.value).toBe(false)
+  })
+
+  test('clears the page error once a retry succeeds', async () => {
+    mockFetch.mockResolvedValueOnce({ sessions: fullPage(2) })
+    mockFetch.mockRejectedValueOnce(new Error('network error'))
+
+    const { sessions, pageError, load, loadMore } = useHistory(2)
+    await load()
+    await loadMore()
+
+    mockFetch.mockResolvedValueOnce({ sessions: [entry('later')] })
+    await loadMore()
+
+    expect(pageError.value).toBe(false)
+    expect(sessions.value).toHaveLength(3)
   })
 })

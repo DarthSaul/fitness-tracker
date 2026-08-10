@@ -8,7 +8,7 @@ definePageMeta({
   header: { title: 'History', emoji: '🕒', subtitle: 'Completed workouts' },
 })
 
-const { sessions, status, loadingMore, hasMore, load, loadMore } = useHistory()
+const { sessions, status, loadingMore, hasMore, pageError, load, loadMore } = useHistory()
 
 const sentinel = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
@@ -64,6 +64,11 @@ onUnmounted(() => {
 
       <div v-if="loadingMore" class="py-4">
         <AppSkeleton :height="64" :count="2" />
+      </div>
+      <!-- A failed page is retryable; only a genuinely exhausted list is final -->
+      <div v-else-if="pageError" class="flex flex-col items-center gap-2 py-6">
+        <p class="text-caption text-label-secondary">Couldn't load more workouts.</p>
+        <UButton size="xs" variant="soft" label="Try again" @click="loadMore()" />
       </div>
       <p v-else-if="!hasMore" class="py-6 text-center text-caption text-label-tertiary">
         That's everything.

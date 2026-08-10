@@ -101,10 +101,10 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
     <!-- Loading skeleton -->
     <template v-if="loading || weekDays.length === 0">
       <div class="mb-3 flex items-center justify-between">
-        <div class="h-5 w-32 animate-pulse rounded-tile bg-label-secondary/12" />
+        <AppSkeleton :height="20" :width="128" />
         <div class="flex gap-1">
-          <div class="h-8 w-8 animate-pulse rounded-tile bg-label-secondary/12" />
-          <div class="h-8 w-8 animate-pulse rounded-tile bg-label-secondary/12" />
+          <AppSkeleton :height="32" :width="32" />
+          <AppSkeleton :height="32" :width="32" />
         </div>
       </div>
       <div class="flex justify-between">
@@ -113,8 +113,8 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
           :key="i"
           class="flex flex-col items-center gap-1"
         >
-          <div class="h-4 w-8 animate-pulse rounded-tile bg-label-secondary/12" />
-          <div class="h-10 w-10 animate-pulse rounded-tile bg-label-secondary/12" />
+          <AppSkeleton :height="16" :width="32" />
+          <AppSkeleton :height="40" :width="40" />
         </div>
       </div>
     </template>
@@ -169,7 +169,7 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
             {{ day.dayName }}
           </span>
           <div
-            class="flex h-10 w-10 items-center justify-center rounded-tile text-sm font-medium transition-colors"
+            class="flex h-10 w-10 items-center justify-center rounded-tile text-sm font-medium tnum transition-colors"
             :class="[
               day.isSelected && day.isToday
                 ? 'bg-tint text-white'
