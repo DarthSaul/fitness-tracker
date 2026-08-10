@@ -5,6 +5,7 @@ and schedule new ones. */
 definePageMeta({ layout: 'app', header: { title: 'Home', emoji: '💪' } });
 
 import type { ActiveWorkoutResponse } from '~/types/workout';
+import type { HistoryResponse } from '~/types/history';
 
 const router = useRouter();
 
@@ -100,6 +101,13 @@ const {
 	unscheduleWorkout,
 	fetchScheduledWorkouts,
 } = useScheduledWorkouts(userProgramId);
+
+// Recent history strip — the five most recent sessions of either kind.
+const { data: recentHistoryData, status: recentHistoryStatus } = useFetch<HistoryResponse>(
+	'/api/history',
+	{ query: { limit: 5 }, server: false },
+);
+const recentHistory = computed(() => recentHistoryData.value?.sessions ?? []);
 
 const programTotalDays = computed(() => {
 	if (!activeProgram.value) return 0;
@@ -790,30 +798,44 @@ async function handleUnschedule(): Promise<void> {
 			</div>
 		</UCard>
 
-		<!-- My Fitness section -->
-		<h3
-			class="text-sm font-semibold uppercase tracking-wide text-label-secondary"
-		>
-			My Fitness
-		</h3>
+		<!-- Strength on the Go -->
+		<NuxtLink v-wave to="/standalone-workouts" class="block">
+			<AppCard>
+				<div class="flex items-center gap-3">
+					<span class="flex size-10 shrink-0 items-center justify-center rounded-tile bg-gradient-to-b from-ios-purple to-ios-pink">
+						<UIcon name="i-lucide-zap" class="size-5 text-white" />
+					</span>
+					<span class="min-w-0 flex-1">
+						<span class="block text-headline">Strength on the Go</span>
+						<span class="block text-caption text-label-secondary">Quick 30–45 minute workouts, any time</span>
+					</span>
+					<span class="flex shrink-0 items-center gap-0.5 rounded-full bg-tint/15 px-2.5 py-1 text-caption font-semibold text-tint">
+						Browse
+						<UIcon name="i-lucide-chevron-right" class="size-3" />
+					</span>
+				</div>
+			</AppCard>
+		</NuxtLink>
 
-		<!-- Quick actions -->
-		<div class="grid grid-cols-2 gap-4">
-			<NuxtLink to="/analytics">
-				<UCard v-wave class="overflow-hidden py-5">
-					<div class="text-center text-label-secondary">
-						Analytics
-					</div>
-				</UCard>
+		<!-- Recent history -->
+		<section class="space-y-2">
+			<p class="px-1 text-caption font-semibold uppercase text-label-secondary">
+				History
+			</p>
+			<AppSkeleton v-if="recentHistoryStatus === 'pending'" :height="64" :count="3" />
+			<div
+				v-else-if="recentHistory.length > 0"
+				class="divide-y divide-separator overflow-hidden rounded-card bg-surface"
+			>
+				<HistoryRow v-for="entry in recentHistory" :key="entry.id" :entry="entry" />
+			</div>
+			<p v-else class="rounded-card bg-surface px-4 py-6 text-center text-subheadline text-label-secondary">
+				Finish a workout and it will show up here.
+			</p>
+			<NuxtLink to="/history" class="block px-1 pt-1 text-subheadline font-medium text-tint">
+				View all history →
 			</NuxtLink>
-			<NuxtLink to="/programs">
-				<UCard v-wave class="overflow-hidden py-5">
-					<div class="text-center text-label-secondary">
-						Browse Programs
-					</div>
-				</UCard>
-			</NuxtLink>
-		</div>
+		</section>
 
 		<!-- Schedule workout modal -->
 		<ScheduleWorkoutModal

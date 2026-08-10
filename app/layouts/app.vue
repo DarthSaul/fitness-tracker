@@ -7,6 +7,7 @@
  */
 <script setup lang="ts">
 import type { ActiveWorkoutResponse } from '~/types/workout'
+import type { ActiveStandaloneSession } from '~/types/standalone'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,21 +18,44 @@ const { data: activeWorkout } = useFetch<ActiveWorkoutResponse>('/api/workouts/a
   server: false,
 })
 
+const { data: activeStandalone } = useFetch<{ sessions: ActiveStandaloneSession[] }>(
+  '/api/standalone-workout-sessions/active',
+  { server: false },
+)
+
 // Pages whose title depends on fetched data publish an override; everything
 // else declares a static header in definePageMeta.
 const headerOverride = usePageHeaderOverride()
 const header = computed(() => headerOverride.value ?? route.meta.header)
 const isInlineHeader = computed(() => header.value?.style === 'inline')
 
-const isOnWorkoutPage = computed(() => route.path.startsWith('/workout/'))
-const showResumeBanner = computed(() => !!activeWorkout.value?.session && !isOnWorkoutPage.value)
+const isOnWorkoutPage = computed(() =>
+  route.path.startsWith('/workout/') || route.path.startsWith('/standalone-workouts/session/'),
+)
 
-/** Identifies which workout is running, the way the iOS banner does. */
-const resumeSubtitle = computed(() => {
-  const session = activeWorkout.value?.session
-  if (!session) return ''
-  return `Week ${session.weekNumber} · Day ${session.dayNumber}`
+/**
+ * Either kind of session can be in flight. A program workout wins if both
+ * exist — it's the one tied to the user's schedule.
+ */
+const resumeTarget = computed(() => {
+  const program = activeWorkout.value?.session
+  if (program) {
+    return {
+      to: `/workout/${program.id}`,
+      subtitle: `Week ${program.weekNumber} · Day ${program.dayNumber}`,
+    }
+  }
+  const standalone = activeStandalone.value?.sessions?.[0]
+  if (standalone) {
+    return {
+      to: `/standalone-workouts/session/${standalone.id}`,
+      subtitle: standalone.standaloneWorkout.name,
+    }
+  }
+  return null
 })
+
+const showResumeBanner = computed(() => !!resumeTarget.value && !isOnWorkoutPage.value)
 
 const navItems = [
   { label: 'Home', icon: 'i-lucide-house', to: '/' },
@@ -135,10 +159,10 @@ onUnmounted(() => {
     <div class="relative shrink-0">
       <!-- Floating resume pill, inset so it reads as one piece with the tab bar -->
       <NuxtLink
-        v-if="showResumeBanner && activeWorkout?.session"
-        :to="`/workout/${activeWorkout.session.id}`"
+        v-if="showResumeBanner && resumeTarget"
+        :to="resumeTarget.to"
         class="absolute inset-x-0 bottom-full mx-[22px] mb-1.5 flex items-center gap-3 rounded-full bg-material px-4 py-2.5 shadow-chip backdrop-blur-2xl backdrop-saturate-150"
-        :aria-label="`Resume workout, ${resumeSubtitle}`"
+        :aria-label="`Resume workout, ${resumeTarget.subtitle}`"
       >
         <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-tint">
           <!-- Always white: the circle behind it is the tint in both schemes -->
@@ -146,7 +170,7 @@ onUnmounted(() => {
         </span>
         <span class="min-w-0 flex-1">
           <span class="block text-subheadline font-semibold">Workout in progress</span>
-          <span class="block truncate text-caption text-label-secondary">{{ resumeSubtitle }}</span>
+          <span class="block truncate text-caption text-label-secondary">{{ resumeTarget.subtitle }}</span>
         </span>
         <span class="text-subheadline font-semibold text-tint">Resume</span>
       </NuxtLink>
