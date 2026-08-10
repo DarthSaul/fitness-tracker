@@ -1,12 +1,25 @@
+/**
+ * Sign-in screen — full-bleed hero art with the auth stack docked at the
+ * bottom, mirroring `AuthView.swift`.
+ *
+ * iOS offers only Sign in with Apple and Google; the web additionally keeps
+ * email/password, tucked behind "Continue with email" so it doesn't cover the
+ * artwork until asked for.
+ */
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
 
 const route = useRoute()
-const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword } = useAuth()
+const config = useRuntimeConfig()
+const { signInWithGoogle, signInWithApple, signInWithEmail, signUpWithEmail, resetPassword } = useAuth()
 
 type AuthMode = 'signin' | 'signup' | 'reset'
 const mode = ref<AuthMode>('signin')
 
+/** Web Sign in with Apple needs a Services ID and key that may not be set. */
+const appleEnabled = computed(() => config.public.appleAuthEnabled)
+
+const emailOpen = ref(false)
 const email = ref('')
 const password = ref('')
 const name = ref('')
@@ -38,10 +51,21 @@ if (route.query.confirmed === 'true') {
   successMessage.value = 'Email confirmed! You can now sign in.'
 }
 
+const submitLabel = computed(() => {
+  if (mode.value === 'signup') return 'Create Account'
+  if (mode.value === 'reset') return 'Send Reset Link'
+  return 'Sign In'
+})
+
 function switchMode(newMode: AuthMode) {
   mode.value = newMode
   formError.value = null
   successMessage.value = null
+}
+
+function closeEmail() {
+  emailOpen.value = false
+  switchMode('signin')
 }
 
 async function handleEmailSubmit() {
@@ -80,17 +104,27 @@ async function handleEmailSubmit() {
 </script>
 
 <template>
-  <div class="flex min-h-dvh flex-col items-center justify-start px-4 pt-24">
-    <div class="w-full max-w-md space-y-10">
-      <div>
-        <h1 class="text-4xl font-bold tracking-tight text-white">
-          💪 Fitness Tracker
-        </h1>
-        <p class="mt-2 text-base text-slate-400">
-          Track your structured workout programs
-        </p>
-      </div>
+  <div class="relative flex min-h-dvh flex-col justify-end overflow-hidden bg-black">
+    <!--
+      The art is framed slightly left of centre, matching the -45pt offset the
+      iOS screen applies so the two figures sit under the button stack.
+    -->
+    <img
+      src="/img/login-hero.jpg"
+      srcset="/img/login-hero.jpg 640w, /img/login-hero@2x.jpg 940w"
+      sizes="100vw"
+      alt=""
+      aria-hidden="true"
+      class="absolute inset-0 size-full object-cover"
+      style="object-position: 42% center"
+    >
 
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[360px] bg-gradient-to-t from-black/90 via-black/65 to-transparent" />
+
+    <div
+      class="relative z-10 mx-auto w-full max-w-md space-y-4 px-8"
+      style="padding-bottom: calc(env(safe-area-inset-bottom) + 2rem)"
+    >
       <UAlert
         v-if="errorMessage"
         color="error"
@@ -107,128 +141,120 @@ async function handleEmailSubmit() {
         icon="i-lucide-check-circle"
       />
 
-      <div class="space-y-5">
-        <!-- Email/Password Form -->
-        <form @submit.prevent="handleEmailSubmit" class="space-y-4">
-          <div v-if="mode === 'signup'">
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Name (optional)</label>
-            <UInput
-              v-model="name"
-              class="w-full"
-              size="xl"
-              icon="i-lucide-user"
-              autocomplete="name"
-              :ui="{ base: 'px-4 py-3.5', leading: 'ps-4', trailing: 'pe-4' }"
-            />
-          </div>
+      <!-- Provider buttons — solid black with a hairline white edge, per iOS -->
+      <template v-if="!emailOpen">
+        <button
+          v-if="appleEnabled"
+          type="button"
+          class="flex h-[50px] w-full items-center justify-center gap-2 rounded-chip border border-white bg-black text-[19px] font-medium text-white transition-opacity active:opacity-80"
+          @click="signInWithApple"
+        >
+          <svg class="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M17.05 12.54c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.79-.41 6.92 1.16 9.19.77 1.11 1.68 2.35 2.88 2.31 1.16-.05 1.6-.75 3-.75s1.79.75 3.01.72c1.24-.02 2.03-1.13 2.79-2.24.88-1.28 1.24-2.53 1.26-2.59-.03-.01-2.42-.93-2.44-3.69zM14.79 5.4c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.02.08 2.07-.52 2.71-1.28z" />
+          </svg>
+          Sign in with Apple
+        </button>
 
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Email</label>
-            <UInput
-              v-model="email"
-              class="w-full"
-              type="email"
-              size="xl"
-              icon="i-lucide-mail"
-              required
-              autocomplete="email"
-              :ui="{ base: 'px-4 py-3.5', leading: 'ps-4', trailing: 'pe-4' }"
-            />
-          </div>
+        <button
+          type="button"
+          class="flex h-[50px] w-full items-center justify-center gap-2 rounded-chip border border-white bg-black text-[19px] font-medium text-white transition-opacity active:opacity-80"
+          @click="signInWithGoogle"
+        >
+          <span class="text-[18px] font-bold">G</span>
+          Sign in with Google
+        </button>
 
-          <div v-if="mode !== 'reset'">
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Password</label>
-            <UInput
-              v-model="password"
-              class="w-full"
-              type="password"
-              size="xl"
-              icon="i-lucide-lock"
-              required
-              :minlength="mode === 'signup' ? 8 : undefined"
-              :autocomplete="mode === 'signup' ? 'new-password' : 'current-password'"
-              :ui="{ base: 'px-4 py-3.5', leading: 'ps-4', trailing: 'pe-4' }"
-            />
-          </div>
+        <button
+          type="button"
+          class="w-full py-1 text-subheadline font-medium text-white/70 transition-colors hover:text-white"
+          @click="emailOpen = true"
+        >
+          Continue with email
+        </button>
+      </template>
 
-          <div v-if="mode === 'signin'" class="-mt-2 text-right">
-            <button
-              type="button"
-              class="text-sm text-slate-400 hover:text-white transition-colors"
-              @click="switchMode('reset')"
-            >
-              Forgot password?
-            </button>
-          </div>
+      <!-- Email / password, on the same dark treatment as the buttons -->
+      <template v-else>
+        <form class="space-y-3" @submit.prevent="handleEmailSubmit">
+          <UInput
+            v-if="mode === 'signup'"
+            v-model="name"
+            class="w-full"
+            size="xl"
+            placeholder="Name (optional)"
+            icon="i-lucide-user"
+            autocomplete="name"
+          />
+
+          <UInput
+            v-model="email"
+            class="w-full"
+            type="email"
+            size="xl"
+            placeholder="Email"
+            icon="i-lucide-mail"
+            required
+            autocomplete="email"
+          />
+
+          <UInput
+            v-if="mode !== 'reset'"
+            v-model="password"
+            class="w-full"
+            type="password"
+            size="xl"
+            placeholder="Password"
+            icon="i-lucide-lock"
+            required
+            :minlength="mode === 'signup' ? 8 : undefined"
+            :autocomplete="mode === 'signup' ? 'new-password' : 'current-password'"
+          />
+
+          <button
+            v-if="mode === 'signin'"
+            type="button"
+            class="block w-full text-right text-footnote text-white/70 transition-colors hover:text-white"
+            @click="switchMode('reset')"
+          >
+            Forgot password?
+          </button>
 
           <UButton
-            class="mt-4"
             type="submit"
             block
             size="xl"
             color="primary"
             :loading="loading"
-            :label="mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'"
-            :ui="{ base: 'rounded-full py-3' }"
+            :label="submitLabel"
           />
         </form>
 
-        <!-- Divider -->
-        <div class="flex items-center gap-3">
-          <div class="h-px flex-1 bg-slate-700" />
-          <span class="text-xs text-slate-500">or</span>
-          <div class="h-px flex-1 bg-slate-700" />
+        <div class="flex items-center justify-between text-footnote">
+          <button
+            type="button"
+            class="text-white/70 transition-colors hover:text-white"
+            @click="closeEmail"
+          >
+            ← Back
+          </button>
+          <button
+            v-if="mode === 'signin'"
+            type="button"
+            class="text-tint"
+            @click="switchMode('signup')"
+          >
+            Create an account
+          </button>
+          <button
+            v-else
+            type="button"
+            class="text-tint"
+            @click="switchMode('signin')"
+          >
+            Sign in instead
+          </button>
         </div>
-
-        <!-- Google OAuth -->
-        <UButton
-          block
-          size="xl"
-          color="neutral"
-          variant="solid"
-          label="Continue with Google"
-          :ui="{ base: 'rounded-full py-3' }"
-          @click="signInWithGoogle"
-        >
-          <template #leading>
-            <svg class="size-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-            </svg>
-          </template>
-        </UButton>
-
-        <!-- Mode Toggle Links -->
-        <div class="text-center text-sm pt-2">
-          <template v-if="mode === 'signin'">
-            <p class="text-slate-500">
-              Don't have an account?
-              <button
-                type="button"
-                class="text-primary-400 hover:text-primary-300 transition-colors"
-                @click="switchMode('signup')"
-              >
-                Sign up
-              </button>
-            </p>
-          </template>
-
-          <template v-else>
-            <p class="text-slate-500">
-              Already have an account?
-              <button
-                type="button"
-                class="text-primary-400 hover:text-primary-300 transition-colors"
-                @click="switchMode('signin')"
-              >
-                Sign in
-              </button>
-            </p>
-          </template>
-        </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>

@@ -1,4 +1,4 @@
-# Workout Tracker
+# DR. DUMBBELL
 
 A mobile-first PWA for tracking structured workout programs. Also consumed by a native iOS client. Registration is open — anyone can sign up with Google, Apple, or email.
 

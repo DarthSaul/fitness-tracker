@@ -1,4 +1,4 @@
-# Fitness Tracker
+# DR. DUMBBELL
 
 A mobile-first workout tracker for structured training programs. The project ships as two clients backed by a single Nuxt 4 / Nitro server:
 

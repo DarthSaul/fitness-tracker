@@ -40,6 +40,10 @@ export default defineNuxtConfig({
     public: {
       // Surfaced on the Settings screen; single source of truth is package.json.
       appVersion: version,
+      // Web Sign in with Apple needs a Services ID + key that the native iOS
+      // flow doesn't use. Hide the button until those are configured rather
+      // than offering a provider that will fail.
+      appleAuthEnabled: Boolean(process.env.NUXT_OAUTH_APPLE_CLIENT_ID),
     },
   },
   components: [
@@ -69,8 +73,8 @@ export default defineNuxtConfig({
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
-        { name: 'apple-mobile-web-app-title', content: 'Workout' },
-        { name: 'theme-color', content: '#0f0a1e' },
+        { name: 'apple-mobile-web-app-title', content: 'Dr. Dumbbell' },
+        { name: 'theme-color', content: '#000000' },
       ],
       link: [
         { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon-180.png' },
@@ -83,15 +87,17 @@ export default defineNuxtConfig({
       installPrompt: true,
     },
     manifest: {
-      name: 'Workout Tracker',
-      short_name: 'Workout',
+      name: 'DR. DUMBBELL',
+      short_name: 'Dr. Dumbbell',
       start_url: '/',
       scope: '/',
       id: '/',
       display: 'standalone',
       orientation: 'portrait',
-      theme_color: '#0f0a1e',
-      background_color: '#0f0a1e',
+      // Matches the dark systemBackground. The manifest colours are static per
+      // spec, so the light-scheme splash intentionally doesn't track them.
+      theme_color: '#000000',
+      background_color: '#000000',
       categories: ['fitness', 'health'],
       icons: [
         {
@@ -106,14 +112,16 @@ export default defineNuxtConfig({
           type: 'image/png',
           purpose: 'any',
         },
+        // Separate art for maskable: the OS crops to the centre 80%, which
+        // would otherwise cut the wordmark off the full-bleed icon.
         {
-          src: '/icons/icon-192.png',
+          src: '/icons/icon-192-maskable.png',
           sizes: '192x192',
           type: 'image/png',
           purpose: 'maskable',
         },
         {
-          src: '/icons/icon-512.png',
+          src: '/icons/icon-512-maskable.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'maskable',
@@ -145,7 +153,7 @@ export default defineNuxtConfig({
     openAPI: {
       route: '/_openapi.json',
       meta: {
-        title: 'Workout Tracker API',
+        title: 'DR. DUMBBELL API',
         description: 'REST API for tracking structured workout programs',
         version: '0.2.0',
       },
