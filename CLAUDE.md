@@ -223,7 +223,7 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 
 ## Roadmap
 
-**Current phase: Phase 3.5 — Native iOS Client**
+**Current phase: Phase 6 — Web client parity with the iOS app**
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
@@ -264,7 +264,8 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - [x] CORS config (restricted to known web origin)
 - [x] Upstash rate limiting on auth endpoints
 - [ ] Wire up push notification triggers (e.g., workout reminders)
-- [ ] Apple web OAuth configuration (backlog — web frontend not yet built)
+- [ ] Apple web OAuth configuration — Services ID + key. The login screen
+      hides the Apple button until `NUXT_OAUTH_APPLE_CLIENT_ID` is set.
 
 ### Phase 4 — Observability
 - [x] pino structured logging middleware
@@ -273,11 +274,34 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - [x] `/api/health` endpoint
 
 ### Phase 5 — Polish & Iteration
-- [ ] Workout history views
+- [x] Workout history views
 - [ ] Additional programs seeded
 - [ ] Offline support (service worker caching)
-- [ ] Invite system
+- [x] ~~Invite system~~ — dropped; registration is open
 - [ ] Accessibility review (aria-labels, aria-pressed, keyboard nav, screen reader testing)
+
+### Phase 6 — Web client parity with the iOS app
+- [x] Open registration (email allow-list removed, rate limiting extended)
+- [x] iOS semantic token layer (`app/assets/css/main.css`) + light/dark/system
+- [x] Design-system primitives (`app/components/ios/`)
+- [x] Five-tab shell with per-page headers, scroll title chip, resume banner
+- [x] DR. DUMBBELL branding, login hero, app icons
+- [x] History tab + session detail screens
+- [x] Real Settings screen (replaces the drawer and the stub page)
+- [x] Strength on the Go (library, detail, live session)
+- [x] Between-sets rest timer
+- [ ] **Exercise skip UI** — `POST|DELETE /api/workouts/:id/exercises/:peId/skip`
+      exist and are tested server-side, but nothing calls them from the web
+      client. Needs `useWorkoutSession` actions plus a control on
+      `WorkoutExerciseCard`, and skipped exercises must drop out of the
+      progress denominator.
+- [ ] **Core workouts (Beta)** — `GET /api/exercises/core`,
+      `PUT|DELETE /api/workouts/:id/core-workout`,
+      `PATCH …/core-workout/complete`. Needs the setup form and the
+      full-screen interval timer (84px countdown, green/blue phase wash).
+      Largest remaining surface; still flagged Beta on iOS.
+- [ ] Home "today" card polish — the resume/start/no-program cards still
+      predate `AppCard`; they work but hand-roll their chrome.
 
 ### Backlog
 - [ ] Configure Apple OAuth (web redirect flow — needed only when web frontend is built)
