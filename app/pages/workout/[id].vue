@@ -315,9 +315,9 @@ async function handleDiscard(): Promise<void> {
   <div class="space-y-4">
     <!-- Loading -->
     <div v-if="pageLoading" class="space-y-4">
-      <div class="h-8 w-48 animate-pulse rounded bg-slate-800" />
-      <div class="h-4 w-full animate-pulse rounded bg-slate-800" />
-      <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-lg bg-slate-800" />
+      <div class="h-8 w-48 animate-pulse rounded-tile bg-label-secondary/12" />
+      <div class="h-4 w-full animate-pulse rounded-tile bg-label-secondary/12" />
+      <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-tile bg-label-secondary/12" />
     </div>
 
     <!-- Error -->
@@ -328,10 +328,10 @@ async function handleDiscard(): Promise<void> {
       <div class="text-6xl">
         🎉
       </div>
-      <h2 class="text-2xl font-bold text-white">
+      <h2 class="text-2xl font-bold text-label">
         Program Complete!
       </h2>
-      <p class="text-slate-400">
+      <p class="text-label-secondary">
         Congratulations! You've finished every workout in this program.
       </p>
       <UButton color="primary" size="lg" @click="router.push('/')">
@@ -351,13 +351,13 @@ async function handleDiscard(): Promise<void> {
             size="sm"
           />
         </NuxtLink>
-        <h2 class="text-lg font-semibold text-white">
+        <h2 class="text-lg font-semibold text-label">
           Week {{ session.weekNumber }}, Day {{ session.dayNumber }}
         </h2>
       </div>
 
       <!-- PT routines quick access -->
-      <div v-if="ptLoading" class="h-7 w-28 animate-pulse rounded-lg bg-slate-800" />
+      <div v-if="ptLoading" class="h-7 w-28 animate-pulse rounded-tile bg-label-secondary/12" />
       <UButton
         v-else-if="ptEnabled && (ptRoutines?.length ?? 0) > 0"
         icon="i-lucide-clipboard-list"
@@ -371,22 +371,22 @@ async function handleDiscard(): Promise<void> {
 
       <!-- Progress bar -->
       <div class="space-y-1">
-        <div class="flex items-center justify-between text-xs text-slate-400">
+        <div class="flex items-center justify-between text-xs text-label-secondary">
           <span>Progress</span>
           <span>{{ completedSetCount }} / {{ totalSets }} sets</span>
         </div>
-        <div class="h-3 overflow-hidden rounded-full bg-slate-800">
+        <div class="h-3 overflow-hidden rounded-full bg-fill">
           <div
-            class="h-full rounded-full bg-violet-600 transition-all duration-300"
+            class="h-full rounded-full bg-tint transition-all duration-300"
             :style="{ width: `${progressPercent}%` }"
           />
         </div>
       </div>
 
       <!-- Warm-up -->
-      <div v-if="day.warmUp" class="rounded-lg bg-amber-500/10 px-3 py-2.5">
-        <p class="text-[10px] font-medium text-amber-500/70">Warm-up</p>
-        <p class="mt-0.5 text-sm text-amber-400">{{ day.warmUp }}</p>
+      <div v-if="day.warmUp" class="rounded-tile bg-ios-orange/15 px-3 py-2.5">
+        <p class="text-[10px] font-medium text-ios-orange/70">Warm-up</p>
+        <p class="mt-0.5 text-sm text-ios-orange">{{ day.warmUp }}</p>
       </div>
 
       <!-- Exercise groups -->
@@ -430,19 +430,19 @@ async function handleDiscard(): Promise<void> {
       </UButton>
 
       <!-- Workout Notes -->
-      <div class="rounded-lg bg-slate-800/50">
+      <div class="rounded-tile bg-surface">
         <div
           role="button"
           tabindex="0"
-          class="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left"
+          class="flex w-full items-center gap-3 rounded-tile px-3 py-3 text-left"
           @click="workoutNotesOpen = !workoutNotesOpen"
           @keydown.enter="workoutNotesOpen = !workoutNotesOpen"
           @keydown.space.prevent="workoutNotesOpen = !workoutNotesOpen"
         >
-          <span class="flex-1 text-sm font-medium text-slate-300">Workout Notes</span>
+          <span class="flex-1 text-sm font-medium text-label">Workout Notes</span>
           <UIcon
             :name="workoutNotesOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-            class="size-6 shrink-0 text-slate-400"
+            class="size-6 shrink-0 text-label-secondary"
           />
         </div>
         <div
@@ -450,17 +450,17 @@ async function handleDiscard(): Promise<void> {
           :class="workoutNotesOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
         >
           <div class="min-h-0">
-            <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
+            <div class="border-t border-separator px-3 pb-3 pt-2">
               <textarea
                 id="workout-notes"
                 :value="notesDraft"
                 rows="3"
                 placeholder="Add notes for this workout..."
-                class="w-full resize-none bg-transparent text-base text-white placeholder-slate-600 outline-none"
+                class="w-full resize-none bg-transparent text-base text-label placeholder-label-tertiary outline-none"
                 @input="notesDraft = ($event.target as HTMLTextAreaElement).value; saveWorkoutNotes(notesDraft)"
                 @blur="saveWorkoutNotes(notesDraft)"
               />
-              <p class="mt-0.5 text-right text-xs text-slate-600" :class="{ invisible: !notesSaving }">
+              <p class="mt-0.5 text-right text-xs text-label-tertiary" :class="{ invisible: !notesSaving }">
                 Saving...
               </p>
             </div>

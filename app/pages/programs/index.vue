@@ -31,13 +31,13 @@ const emptyMessage = computed(() => {
       <div
         v-for="i in 3"
         :key="i"
-        class="h-28 animate-pulse rounded-lg bg-slate-800"
+        class="h-28 animate-pulse rounded-tile bg-label-secondary/12"
       />
     </div>
 
     <!-- Error state -->
     <UCard v-else-if="status === 'error'">
-      <div class="text-center text-red-400">
+      <div class="text-center text-ios-red">
         <p>Failed to load programs.</p>
         <p class="mt-1 text-sm">
           Please try again later.
@@ -47,7 +47,7 @@ const emptyMessage = computed(() => {
 
     <!-- Empty state -->
     <UCard v-else-if="programs && programs.length === 0">
-      <div class="text-center text-slate-400">
+      <div class="text-center text-label-secondary">
         <p>No programs available.</p>
         <p class="mt-1 text-sm">
           Check back later for new programs.
@@ -95,12 +95,12 @@ const emptyMessage = computed(() => {
         >
           <div class="flex items-start justify-between">
             <div class="min-w-0 flex-1">
-              <h3 class="font-semibold text-white">
+              <h3 class="font-semibold text-label">
                 {{ program.name }}
               </h3>
             </div>
             <div class="ml-3 flex shrink-0 items-center gap-2">
-              <span class="rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400">
+              <span class="rounded-full bg-tint/15 px-2.5 py-0.5 text-xs font-medium text-tint">
                 {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
               </span>
               <UButton
@@ -126,13 +126,13 @@ const emptyMessage = computed(() => {
           </div>
           <p
             v-if="program.description"
-            class="mt-2 text-sm text-slate-400"
+            class="mt-2 text-sm text-label-secondary"
           >
             {{ program.description }}
           </p>
         </UCard>
       </template>
-      <p v-else class="text-center text-sm text-slate-500">
+      <p v-else class="text-center text-sm text-label-secondary">
         {{ emptyMessage }}
       </p>
     </div>

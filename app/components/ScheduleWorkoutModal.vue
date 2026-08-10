@@ -69,43 +69,43 @@ function selectDay(weekNumber: number, dayNumber: number): void {
     <template #body>
       <div class="space-y-4 p-4">
         <div v-for="week in program.weeks" :key="week.id">
-          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-label-secondary">
             Week {{ week.weekNumber }}
           </p>
           <div class="space-y-1.5">
             <button
               v-for="day in week.days"
               :key="day.id"
-              class="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors overflow-hidden"
+              class="flex w-full items-center gap-3 rounded-tile px-4 py-3 text-left transition-colors overflow-hidden"
               :class="isDayDisabled(week.weekNumber, day.dayNumber)
-                ? 'bg-slate-800/20 opacity-50 cursor-not-allowed'
-                : 'bg-slate-800/30 hover:bg-slate-800/60 active:bg-slate-700/50'"
+                ? 'bg-surface opacity-50 cursor-not-allowed'
+                : 'bg-surface hover:bg-label-secondary/10 active:bg-label-secondary/20'"
               :disabled="isDayDisabled(week.weekNumber, day.dayNumber)"
               @click="selectDay(week.weekNumber, day.dayNumber)"
             >
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-medium text-white">
+                <p class="text-sm font-medium text-label">
                   Day {{ day.dayNumber }}
-                  <span v-if="day.name" class="text-slate-400"> — {{ day.name }}</span>
+                  <span v-if="day.name" class="text-label-secondary"> — {{ day.name }}</span>
                 </p>
-                <p v-if="statusLabel(week.weekNumber, day.dayNumber)" class="text-xs text-slate-500">
+                <p v-if="statusLabel(week.weekNumber, day.dayNumber)" class="text-xs text-label-secondary">
                   {{ statusLabel(week.weekNumber, day.dayNumber) }}
                 </p>
               </div>
               <UIcon
                 v-if="!isDayDisabled(week.weekNumber, day.dayNumber)"
                 name="i-lucide-plus"
-                class="size-4 shrink-0 text-slate-500"
+                class="size-4 shrink-0 text-label-secondary"
               />
               <UIcon
                 v-else-if="isDayCompleted(week.weekNumber, day.dayNumber)"
                 name="i-lucide-check"
-                class="size-4 shrink-0 text-emerald-500/50"
+                class="size-4 shrink-0 text-ios-green/50"
               />
               <UIcon
                 v-else
                 name="i-lucide-calendar-check"
-                class="size-4 shrink-0 text-slate-500/50"
+                class="size-4 shrink-0 text-label-tertiary"
               />
             </button>
           </div>

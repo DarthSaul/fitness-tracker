@@ -64,9 +64,9 @@ const displayHistory = computed(() => {
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4" @click="e1rmInfoOpen = false">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">Trend</h3>
+          <h3 class="text-lg font-semibold text-label">Trend</h3>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close"
             @click="emit('close')"
           >
@@ -76,21 +76,21 @@ const displayHistory = computed(() => {
 
         <!-- Loading -->
         <div v-if="status === 'pending'" class="flex flex-col items-center gap-3 py-10">
-          <div class="size-6 animate-spin rounded-full border-2 border-slate-600 border-t-violet-400" />
-          <p class="text-sm text-slate-400">
-            Retrieving your trends for <strong class="text-white">{{ exerciseName }}</strong>
+          <div class="size-6 animate-spin rounded-full border-2 border-separator border-t-violet-400" />
+          <p class="text-sm text-label-secondary">
+            Retrieving your trends for <strong class="text-label">{{ exerciseName }}</strong>
           </p>
         </div>
 
         <!-- Error -->
-        <div v-else-if="status === 'error'" class="py-10 text-center text-sm text-red-400">
+        <div v-else-if="status === 'error'" class="py-10 text-center text-sm text-ios-red">
           Failed to load trend data. Please close and try again.
         </div>
 
         <!-- No history -->
         <div
           v-else-if="status === 'success' && history && history.history.length === 0"
-          class="py-10 text-center text-sm text-slate-400"
+          class="py-10 text-center text-sm text-label-secondary"
         >
           No completed sessions found for this exercise yet.
         </div>
@@ -100,17 +100,17 @@ const displayHistory = computed(() => {
           <!-- e1RM sparkline chart -->
           <div
             v-if="sparklinePoints.length > 0"
-            class="mb-3 rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-3"
+            class="mb-3 rounded-tile border border-separator bg-surface px-4 py-3"
           >
             <div class="mb-2 flex items-center gap-1.5">
-              <p class="text-xs text-slate-400">
+              <p class="text-xs text-label-secondary">
                 e1RM Trend
               </p>
               <div class="relative">
                 <button
                   type="button"
                   aria-label="What is e1RM?"
-                  class="text-slate-600 transition-colors hover:text-slate-400"
+                  class="text-label-tertiary transition-colors hover:text-label-secondary"
                   @click.stop="e1rmInfoOpen = !e1rmInfoOpen"
                 >
                   <UIcon name="i-lucide-info" class="size-3" />
@@ -125,9 +125,9 @@ const displayHistory = computed(() => {
                 >
                   <div
                     v-if="e1rmInfoOpen"
-                    class="absolute left-0 top-5 z-50 w-56 origin-top-left rounded-lg border border-slate-600/50 bg-slate-800 p-3 shadow-xl"
+                    class="absolute left-0 top-5 z-50 w-56 origin-top-left rounded-tile border border-separator bg-fill p-3 shadow-xl"
                   >
-                    <p class="text-xs leading-relaxed text-slate-300">
+                    <p class="text-xs leading-relaxed text-label">
                       Estimated 1-Rep Max (e1RM) is a way to estimate the maximum weight you could lift for a single rep, based on any set you actually performed.
                     </p>
                   </div>
@@ -180,21 +180,21 @@ const displayHistory = computed(() => {
             <div
               v-for="session in displayHistory"
               :key="session.sessionId"
-              class="rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-3"
+              class="rounded-tile border border-separator bg-surface px-4 py-3"
             >
               <div class="flex items-start justify-between gap-2">
-                <p class="text-sm font-medium text-white">
+                <p class="text-sm font-medium text-label">
                   {{ formatSessionDate(session.completedAt) }}
                 </p>
-                <span class="shrink-0 text-xs text-slate-400">
+                <span class="shrink-0 text-xs text-label-secondary">
                   {{ session.sets.length }} {{ session.sets.length === 1 ? 'set' : 'sets' }}
                 </span>
               </div>
               <div class="mt-1 flex items-center gap-3">
-                <span class="text-xs text-violet-400">
+                <span class="text-xs text-tint">
                   e1RM: {{ session.bestE1rm !== null ? formatE1rm(session.bestE1rm) : '—' }}
                 </span>
-                <span class="text-xs text-slate-400">
+                <span class="text-xs text-label-secondary">
                   Vol: {{ session.totalVolume !== null ? `${formatVolume(session.totalVolume)} lbs` : '—' }}
                 </span>
               </div>

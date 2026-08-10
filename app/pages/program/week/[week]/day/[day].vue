@@ -182,9 +182,9 @@ async function confirmDiscard(): Promise<void> {
 
     <!-- Loading -->
     <template v-if="pageLoading">
-      <div class="h-10 animate-pulse rounded-lg bg-slate-800" />
-      <div class="h-4 w-full animate-pulse rounded-lg bg-slate-800" />
-      <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-lg bg-slate-800" />
+      <div class="h-10 animate-pulse rounded-tile bg-label-secondary/12" />
+      <div class="h-4 w-full animate-pulse rounded-tile bg-label-secondary/12" />
+      <div v-for="n in 3" :key="n" class="h-32 animate-pulse rounded-tile bg-label-secondary/12" />
     </template>
 
     <!-- Error -->
@@ -193,8 +193,8 @@ async function confirmDiscard(): Promise<void> {
     <!-- No session yet — show start logging prompt -->
     <template v-else-if="!session">
       <div class="flex flex-col items-center gap-4 py-8 text-center">
-        <UIcon name="i-lucide-clipboard-list" class="size-12 text-slate-600" />
-        <p class="text-slate-400">
+        <UIcon name="i-lucide-clipboard-list" class="size-12 text-label-tertiary" />
+        <p class="text-label-secondary">
           No workout logged for this day yet.
         </p>
         <UButton
@@ -211,41 +211,41 @@ async function confirmDiscard(): Promise<void> {
     <!-- Session exists — show editor -->
     <template v-else-if="day">
       <!-- Date picker -->
-      <div class="flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2.5">
-        <UIcon name="i-lucide-calendar" class="size-4 text-slate-400" />
-        <label class="text-sm text-slate-400">Date <span class="text-slate-500">(optional)</span></label>
+      <div class="flex items-center gap-3 rounded-tile bg-surface px-3 py-2.5">
+        <UIcon name="i-lucide-calendar" class="size-4 text-label-secondary" />
+        <label class="text-sm text-label-secondary">Date <span class="text-label-secondary">(optional)</span></label>
         <input
           v-model="workoutDate"
           type="date"
           :max="todayLocal"
-          class="flex-1 bg-transparent text-sm text-white outline-none"
+          class="flex-1 bg-transparent text-sm text-label outline-none"
         >
       </div>
 
       <!-- Completed badge -->
-      <div v-if="session.status === 'COMPLETED'" class="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
+      <div v-if="session.status === 'COMPLETED'" class="flex items-center gap-2 rounded-tile bg-ios-green/15 px-3 py-2 text-sm text-ios-green">
         <UIcon name="i-lucide-check-circle" class="size-4" />
         Workout completed
       </div>
 
       <!-- Progress bar -->
       <div class="space-y-1">
-        <div class="flex items-center justify-between text-xs text-slate-400">
+        <div class="flex items-center justify-between text-xs text-label-secondary">
           <span>Progress</span>
           <span>{{ completedSetCount }} / {{ totalSets }} sets</span>
         </div>
-        <div class="h-3 overflow-hidden rounded-full bg-slate-800">
+        <div class="h-3 overflow-hidden rounded-full bg-fill">
           <div
-            class="h-full rounded-full bg-violet-600 transition-all duration-300"
+            class="h-full rounded-full bg-tint transition-all duration-300"
             :style="{ width: `${progressPercent}%` }"
           />
         </div>
       </div>
 
       <!-- Warm-up -->
-      <div v-if="day.warmUp" class="rounded-lg bg-amber-500/10 px-3 py-2.5">
-        <p class="text-[10px] font-medium text-amber-500/70">Warm-up</p>
-        <p class="mt-0.5 text-sm text-amber-400">{{ day.warmUp }}</p>
+      <div v-if="day.warmUp" class="rounded-tile bg-ios-orange/15 px-3 py-2.5">
+        <p class="text-[10px] font-medium text-ios-orange/70">Warm-up</p>
+        <p class="mt-0.5 text-sm text-ios-orange">{{ day.warmUp }}</p>
       </div>
 
       <!-- Exercise groups -->

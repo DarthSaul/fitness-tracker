@@ -141,6 +141,7 @@ onUnmounted(() => {
         :aria-label="`Resume workout, ${resumeSubtitle}`"
       >
         <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-tint">
+          <!-- Always white: the circle behind it is the tint in both schemes -->
           <UIcon name="i-lucide-dumbbell" class="size-5 text-white" />
         </span>
         <span class="min-w-0 flex-1">

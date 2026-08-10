@@ -186,19 +186,19 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
   <div
     v-if="group.type === 'SUPERSET'"
     ref="supersetRootEl"
-    class="relative rounded-xl border border-indigo-500/25 p-1.5 pt-2"
+    class="relative rounded-card border border-tint/30 p-1.5 pt-2"
   >
-    <span class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-indigo-500/40 bg-slate-950 text-[8px] font-semibold text-indigo-300">SS</span>
+    <span class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-tint/50 bg-canvas text-[8px] font-semibold text-tint">SS</span>
     <div class="space-y-1.5">
       <div
         v-for="(ex, exIdx) in group.exercises"
         :key="ex.id"
-        class="rounded-lg bg-slate-800/50"
+        class="rounded-tile bg-surface"
       >
         <div
           role="button"
           tabindex="0"
-          class="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left"
+          class="flex w-full items-center gap-3 rounded-tile px-3 py-3 text-left"
           @click="toggleExercise(ex.id)"
           @keydown.enter="toggleExercise(ex.id)"
           @keydown.space.prevent="toggleExercise(ex.id)"
@@ -206,14 +206,14 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           <div class="min-w-0 flex-1">
             <!-- Row 1: Name + action icons -->
             <div class="flex items-center gap-1.5">
-              <p class="min-w-0 truncate font-medium text-white">{{ ex.exercise.name }}</p>
+              <p class="min-w-0 truncate font-medium text-label">{{ ex.exercise.name }}</p>
               <!-- Program set notes icon -->
               <span
                 v-if="exerciseNotes(ex)"
                 role="button"
                 tabindex="0"
                 aria-label="Toggle notes"
-                class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[9px] text-slate-400"
+                class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-separator text-[9px] text-label-secondary"
                 @click="toggleNotes(ex.id, $event)"
                 @keydown.enter="toggleNotes(ex.id, $event)"
               >i</span>
@@ -239,13 +239,13 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <div class="mt-1.5 flex items-center gap-1.5">
               <span
                 v-if="exIdx === group.exercises.length - 1"
-                class="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400"
+                class="inline-flex shrink-0 items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary"
               >
                 <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
               </span>
               <span
                 role="button"
-                class="inline-flex cursor-pointer items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-white"
+                class="inline-flex cursor-pointer items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary transition-colors hover:bg-label-secondary/20 hover:text-label"
                 @click.stop="openTrend(ex.exercise.id, ex.exercise.name)"
               >
                 <span>📈</span><span>Trend</span>
@@ -255,16 +255,16 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           <UIcon
             v-if="isExerciseComplete(ex)"
             name="i-lucide-check-circle-2"
-            class="size-5 shrink-0 text-emerald-400"
+            class="size-5 shrink-0 text-ios-green"
           />
           <UIcon
             :name="expandedExercises.has(ex.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-            class="size-6 shrink-0 text-slate-400"
+            class="size-6 shrink-0 text-label-secondary"
           />
         </div>
 
         <!-- Program notes box -->
-        <div v-if="notesVisibleFor === ex.id && exerciseNotes(ex)" class="mx-3 mb-2 rounded-md bg-slate-700/50 px-3 py-2 text-xs text-slate-300">
+        <div v-if="notesVisibleFor === ex.id && exerciseNotes(ex)" class="mx-3 mb-2 rounded-chip bg-label-secondary/15 px-3 py-2 text-xs text-label">
           {{ exerciseNotes(ex) }}
         </div>
 
@@ -273,20 +273,20 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           :class="expandedExercises.has(ex.id) ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
         >
           <div class="min-h-0">
-            <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
+            <div class="border-t border-separator px-3 pb-3 pt-2">
               <!-- Inline personal notes -->
               <div v-if="userNotesOpen === ex.id" class="mx-1 mb-2 mt-1">
-                <div v-if="userNotesLoading.has(ex.exercise.id)" class="h-16 animate-pulse rounded-lg bg-slate-800" />
+                <div v-if="userNotesLoading.has(ex.exercise.id)" class="h-16 animate-pulse rounded-tile bg-label-secondary/12" />
                 <template v-else>
                   <textarea
                     :value="userNotesContent[ex.exercise.id] ?? ''"
                     rows="3"
                     placeholder="Your personal notes for this exercise..."
-                    class="w-full resize-none rounded-md bg-slate-700/50 px-3 py-2 text-base text-slate-200 placeholder-slate-600 outline-none focus:ring-1 focus:ring-slate-600"
+                    class="w-full resize-none rounded-chip bg-label-secondary/15 px-3 py-2 text-base text-label placeholder-label-tertiary outline-none focus:ring-1 focus:ring-tint"
                     @input="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
                     @blur="saveUserNotes(ex.exercise.id, ($event.target as HTMLTextAreaElement).value)"
                   />
-                  <p class="mt-0.5 text-right text-xs text-slate-600" :class="{ invisible: !userNotesSaving[ex.exercise.id] }">
+                  <p class="mt-0.5 text-right text-xs text-label-tertiary" :class="{ invisible: !userNotesSaving[ex.exercise.id] }">
                     Saving...
                   </p>
                 </template>
@@ -325,7 +325,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               <button
                 v-if="editable && !disableExtraSets"
                 type="button"
-                class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-xs text-slate-600 transition-colors hover:text-slate-400"
+                class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary"
                 @click.stop="emit('add-extra-set', ex.id)"
               >
                 <UIcon name="i-lucide-plus" class="size-3" />
@@ -355,13 +355,13 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
   <div
     v-else
     ref="standardRootEl"
-    class="rounded-lg bg-slate-800/50"
+    class="rounded-tile bg-surface"
   >
     <template v-if="group.exercises[0]">
       <div
         role="button"
         tabindex="0"
-        class="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left"
+        class="flex w-full items-center gap-3 rounded-tile px-3 py-3 text-left"
         @click="toggleExercise(group.id)"
         @keydown.enter="toggleExercise(group.id)"
         @keydown.space.prevent="toggleExercise(group.id)"
@@ -369,14 +369,14 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
         <div class="min-w-0 flex-1">
           <!-- Row 1: Name + action icons -->
           <div class="flex items-center gap-1.5">
-            <p class="min-w-0 truncate font-medium text-white">{{ group.exercises[0].exercise.name }}</p>
+            <p class="min-w-0 truncate font-medium text-label">{{ group.exercises[0].exercise.name }}</p>
             <!-- Program set notes icon -->
             <span
               v-if="exerciseNotes(group.exercises[0])"
               role="button"
               tabindex="0"
               aria-label="Toggle notes"
-              class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-slate-600 text-[9px] text-slate-400"
+              class="inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-separator text-[9px] text-label-secondary"
               @click="toggleNotes(group.exercises[0].id, $event)"
               @keydown.enter="toggleNotes(group.exercises[0].id, $event)"
             >i</span>
@@ -400,12 +400,12 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
           </div>
           <!-- Row 2: chips -->
           <div class="mt-1.5 flex items-center gap-1.5">
-            <span class="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400">
+            <span class="inline-flex shrink-0 items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary">
               <span>⏱️</span><span>{{ formatRest(group.restSeconds) }}</span>
             </span>
             <span
               role="button"
-              class="inline-flex cursor-pointer items-center gap-1 rounded-md bg-slate-700/50 px-2 py-1 text-[10px] text-slate-400 transition-colors hover:bg-slate-600/50 hover:text-white"
+              class="inline-flex cursor-pointer items-center gap-1 rounded-chip bg-label-secondary/15 px-2 py-1 text-[10px] text-label-secondary transition-colors hover:bg-label-secondary/20 hover:text-label"
               @click.stop="openTrend(group.exercises[0].exercise.id, group.exercises[0].exercise.name)"
             >
               <span>📈</span><span>Trend</span>
@@ -415,16 +415,16 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
         <UIcon
           v-if="isExerciseComplete(group.exercises[0])"
           name="i-lucide-check-circle-2"
-          class="size-5 shrink-0 text-emerald-400"
+          class="size-5 shrink-0 text-ios-green"
         />
         <UIcon
           :name="expandedExercises.has(group.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-          class="size-6 shrink-0 text-slate-400"
+          class="size-6 shrink-0 text-label-secondary"
         />
       </div>
 
       <!-- Program notes box -->
-      <div v-if="notesVisibleFor === group.exercises[0].id && exerciseNotes(group.exercises[0])" class="mx-3 mb-2 rounded-md bg-slate-700/50 px-3 py-2 text-xs text-slate-300">
+      <div v-if="notesVisibleFor === group.exercises[0].id && exerciseNotes(group.exercises[0])" class="mx-3 mb-2 rounded-chip bg-label-secondary/15 px-3 py-2 text-xs text-label">
         {{ exerciseNotes(group.exercises[0]) }}
       </div>
 
@@ -433,20 +433,20 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
         :class="expandedExercises.has(group.id) ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
       >
         <div class="min-h-0">
-          <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
+          <div class="border-t border-separator px-3 pb-3 pt-2">
             <!-- Inline personal notes -->
             <div v-if="userNotesOpen === group.exercises[0].id" class="mx-1 mb-2 mt-1">
-              <div v-if="userNotesLoading.has(group.exercises[0].exercise.id)" class="h-16 animate-pulse rounded-lg bg-slate-800" />
+              <div v-if="userNotesLoading.has(group.exercises[0].exercise.id)" class="h-16 animate-pulse rounded-tile bg-label-secondary/12" />
               <template v-else>
                 <textarea
                   :value="userNotesContent[group.exercises[0].exercise.id] ?? ''"
                   rows="3"
                   placeholder="Your personal notes for this exercise..."
-                  class="w-full resize-none rounded-md bg-slate-700/50 px-3 py-2 text-base text-slate-200 placeholder-slate-600 outline-none focus:ring-1 focus:ring-slate-600"
+                  class="w-full resize-none rounded-chip bg-label-secondary/15 px-3 py-2 text-base text-label placeholder-label-tertiary outline-none focus:ring-1 focus:ring-tint"
                   @input="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
                   @blur="saveUserNotes(group.exercises[0].exercise.id, ($event.target as HTMLTextAreaElement).value)"
                 />
-                <p class="mt-0.5 text-right text-xs text-slate-600" :class="{ invisible: !userNotesSaving[group.exercises[0].exercise.id] }">
+                <p class="mt-0.5 text-right text-xs text-label-tertiary" :class="{ invisible: !userNotesSaving[group.exercises[0].exercise.id] }">
                   Saving...
                 </p>
               </template>
@@ -485,7 +485,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <button
               v-if="editable && !disableExtraSets"
               type="button"
-              class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md py-2 text-xs text-slate-600 transition-colors hover:text-slate-400"
+              class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary"
               @click.stop="emit('add-extra-set', group.exercises[0].id)"
             >
               <UIcon name="i-lucide-plus" class="size-3" />

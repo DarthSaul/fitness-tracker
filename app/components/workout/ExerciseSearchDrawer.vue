@@ -53,9 +53,9 @@ const filteredExercises = computed(() => {
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">Add Exercise Group</h3>
+          <h3 class="text-lg font-semibold text-label">Add Exercise Group</h3>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close"
             @click="emit('close')"
           >
@@ -70,13 +70,13 @@ const filteredExercises = computed(() => {
           type="text"
           inputmode="search"
           placeholder="Search exercises..."
-          class="mb-3 w-full rounded-lg bg-slate-800 px-4 py-3 text-base text-white placeholder-slate-500 outline-none ring-1 ring-slate-700 focus:ring-violet-500"
+          class="mb-3 w-full rounded-tile bg-fill px-4 py-3 text-base text-label placeholder-label-tertiary outline-none ring-1 ring-separator focus:ring-tint"
         >
 
         <div v-if="exercisesLoading" class="space-y-2">
-          <div v-for="n in 5" :key="n" class="h-10 animate-pulse rounded-lg bg-slate-800" />
+          <div v-for="n in 5" :key="n" class="h-10 animate-pulse rounded-tile bg-label-secondary/12" />
         </div>
-        <div v-else-if="exercisesError" class="py-8 text-center text-sm text-red-400">
+        <div v-else-if="exercisesError" class="py-8 text-center text-sm text-ios-red">
           Failed to load exercises. Please close and try again.
         </div>
         <div v-else class="max-h-64 overflow-y-auto space-y-1">
@@ -84,12 +84,12 @@ const filteredExercises = computed(() => {
             v-for="exercise in filteredExercises"
             :key="exercise.id"
             type="button"
-            class="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-white transition-colors hover:bg-slate-700/60 active:bg-slate-700"
+            class="w-full rounded-tile px-3 py-2.5 text-left text-sm font-medium text-label transition-colors hover:bg-label-secondary/15 active:bg-label-secondary/20"
             @click="emit('select', exercise.name)"
           >
             {{ exercise.name }}
           </button>
-          <p v-if="filteredExercises.length === 0" class="py-4 text-center text-sm text-slate-500">
+          <p v-if="filteredExercises.length === 0" class="py-4 text-center text-sm text-label-secondary">
             No exercises found
           </p>
         </div>

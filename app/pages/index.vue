@@ -323,7 +323,7 @@ async function handleUnschedule(): Promise<void> {
 	/>
 
 	<!-- Date header -->
-	<h2 class="text-lg font-semibold text-white mb-3">
+	<h2 class="text-lg font-semibold text-label mb-3">
 		{{ formattedSelectedDate }}
 	</h2>
 	<div class="space-y-6">
@@ -335,13 +335,13 @@ async function handleUnschedule(): Promise<void> {
 					activeWorkoutStatus === 'pending' ||
 					activeProgramStatus === 'pending'
 				"
-				class="h-[220px] animate-pulse rounded-lg bg-slate-800"
+				class="h-[220px] animate-pulse rounded-tile bg-label-secondary/12"
 			/>
 
 			<!-- Resume workout with progress bar -->
 			<div
 				v-else-if="activeWorkout?.session"
-				class="flex overflow-hidden rounded-xl border border-slate-700/50 min-h-[220px] cursor-pointer"
+				class="flex overflow-hidden rounded-card border border-separator min-h-[220px] cursor-pointer"
 				tabindex="0"
 				role="button"
 				:aria-label="`Resume workout: Week ${activeWorkout.session.weekNumber}, Day ${activeWorkout.session.dayNumber}`"
@@ -350,15 +350,15 @@ async function handleUnschedule(): Promise<void> {
 				@keydown.space.prevent="resumeWorkout"
 			>
 				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-violet-500 to-fuchsia-500"
+					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
 				/>
 				<UCard
 					v-wave
 					class="flex-1 min-w-0 rounded-none border-0"
 					:ui="{ body: 'p-4 flex flex-col h-full' }"
 				>
-					<p class="text-sm text-slate-400 mb-1">In progress</p>
-					<p class="font-medium text-white">
+					<p class="text-sm text-label-secondary mb-1">In progress</p>
+					<p class="font-medium text-label">
 						Week
 						{{
 							activeWorkout.session
@@ -372,17 +372,17 @@ async function handleUnschedule(): Promise<void> {
 					</p>
 					<div class="mt-3 space-y-1">
 						<div
-							class="h-3 overflow-hidden rounded-full bg-slate-800"
+							class="h-3 overflow-hidden rounded-full bg-fill"
 						>
 							<div
-								class="h-full rounded-full bg-violet-600 transition-all duration-300"
+								class="h-full rounded-full bg-tint transition-all duration-300"
 								:style="{
 									width: `${activeWorkoutProgress}%`,
 								}"
 							/>
 						</div>
 						<p
-							class="text-xs text-slate-400"
+							class="text-xs text-label-secondary"
 						>
 							{{
 								activeWorkoutCompletedSets
@@ -395,13 +395,13 @@ async function handleUnschedule(): Promise<void> {
 						</p>
 					</div>
 					<ul v-if="activeWorkoutNextExercise" class="mt-2 space-y-1">
-						<li class="flex items-center gap-2 text-sm text-slate-300">
-							<span class="size-1.5 shrink-0 rounded-full bg-violet-400" />
+						<li class="flex items-center gap-2 text-sm text-label">
+							<span class="size-1.5 shrink-0 rounded-full bg-tint" />
 							Next: {{ activeWorkoutNextExercise }}
 						</li>
 					</ul>
 					<span
-						class="mt-auto flex items-center justify-between gap-1 rounded-md bg-emerald-600/20 px-2.5 py-1 text-sm font-medium text-emerald-400"
+						class="mt-auto flex items-center justify-between gap-1 rounded-chip bg-ios-green/20 px-2.5 py-1 text-sm font-medium text-ios-green"
 					>
 						Resume workout
 						<UIcon
@@ -415,7 +415,7 @@ async function handleUnschedule(): Promise<void> {
 			<!-- Next day / Start workout card -->
 			<div
 				v-else-if="activeProgram"
-				class="flex overflow-hidden rounded-xl border border-slate-700/50 min-h-[220px]"
+				class="flex overflow-hidden rounded-card border border-separator min-h-[220px]"
 				:class="
 					startingWorkout
 						? 'opacity-70 cursor-wait'
@@ -437,7 +437,7 @@ async function handleUnschedule(): Promise<void> {
 				"
 			>
 				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-violet-500 to-fuchsia-500"
+					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
 				/>
 				<UCard
 					v-wave
@@ -445,7 +445,7 @@ async function handleUnschedule(): Promise<void> {
 					:ui="{ body: 'p-4 flex flex-col h-full' }"
 				>
 					<p
-						class="text-sm text-slate-400 mb-1"
+						class="text-sm text-label-secondary mb-1"
 					>
 						{{
 							nextWorkoutIsScheduledForFuture
@@ -454,7 +454,7 @@ async function handleUnschedule(): Promise<void> {
 						}}
 					</p>
 					<p
-						class="font-semibold text-white"
+						class="font-semibold text-label"
 					>
 						Week
 						{{
@@ -473,22 +473,22 @@ async function handleUnschedule(): Promise<void> {
 						<li
 							v-for="(name, i) in nextWorkoutExercises.slice(0, 3)"
 							:key="i"
-							class="flex items-center gap-2 text-sm text-slate-300"
+							class="flex items-center gap-2 text-sm text-label"
 						>
 							<span
-								class="size-1.5 shrink-0 rounded-full bg-violet-400"
+								class="size-1.5 shrink-0 rounded-full bg-tint"
 							/>
 							{{ name }}
 						</li>
 						<li
 							v-if="nextWorkoutExercises.length > 3"
-							class="text-xs text-slate-500 mb-1"
+							class="text-xs text-label-secondary mb-1"
 						>
 							+{{ nextWorkoutExercises.length - 3 }} more
 						</li>
 					</ul>
 					<span
-						class="mt-auto flex items-center justify-between gap-1 rounded-md bg-emerald-600/20 px-2.5 py-1 text-sm font-medium text-emerald-400"
+						class="mt-auto flex items-center justify-between gap-1 rounded-chip bg-ios-green/20 px-2.5 py-1 text-sm font-medium text-ios-green"
 					>
 						{{
 							nextWorkoutIsScheduledForFuture
@@ -507,7 +507,7 @@ async function handleUnschedule(): Promise<void> {
 						/>
 					</span>
 					<button
-						class="mt-2 flex w-full items-center justify-between gap-1 rounded-md bg-slate-700/50 px-2.5 py-1 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/80"
+						class="mt-2 flex w-full items-center justify-between gap-1 rounded-chip bg-label-secondary/15 px-2.5 py-1 text-sm font-medium text-label transition-colors hover:bg-label-secondary/15"
 						type="button"
 						aria-label="Preview next workout"
 						@click.stop="previewOpen = true"
@@ -532,7 +532,7 @@ async function handleUnschedule(): Promise<void> {
 
 			<!-- No active program placeholder -->
 			<UCard v-else class="py-1">
-				<div class="text-slate-400">
+				<div class="text-label-secondary">
 					Next day in program
 				</div>
 			</UCard>
@@ -543,18 +543,18 @@ async function handleUnschedule(): Promise<void> {
 			<!-- Scheduled workout for this date -->
 			<div
 				v-if="scheduledForSelectedDate"
-				class="flex overflow-hidden rounded-xl border border-slate-700/50"
+				class="flex overflow-hidden rounded-card border border-separator"
 			>
 				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-violet-500 to-fuchsia-500"
+					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
 				/>
 				<UCard
 					class="flex-1 min-w-0 rounded-none border-0 py-1"
 				>
-					<p class="text-sm text-slate-400">
+					<p class="text-sm text-label-secondary">
 						Scheduled
 					</p>
-					<p class="font-semibold text-white">
+					<p class="font-semibold text-label">
 						Week
 						{{
 							scheduledForSelectedDate.weekNumber
@@ -569,7 +569,7 @@ async function handleUnschedule(): Promise<void> {
 									scheduledForSelectedDate.dayNumber,
 								)
 							"
-							class="font-normal text-slate-400"
+							class="font-normal text-label-secondary"
 						>
 							—
 							{{
@@ -581,7 +581,7 @@ async function handleUnschedule(): Promise<void> {
 						</span>
 					</p>
 					<button
-						class="mt-3 flex items-center justify-between gap-1 rounded-md bg-slate-700/50 px-2.5 py-1 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/80"
+						class="mt-3 flex items-center justify-between gap-1 rounded-chip bg-label-secondary/15 px-2.5 py-1 text-sm font-medium text-label transition-colors hover:bg-label-secondary/15"
 						:disabled="unscheduling"
 						:class="
 							unscheduling
@@ -618,23 +618,23 @@ async function handleUnschedule(): Promise<void> {
 			<!-- No workout scheduled for this date -->
 			<div
 				v-else-if="activeProgram"
-				class="flex overflow-hidden rounded-xl border border-slate-700/50 min-h-[220px]"
+				class="flex overflow-hidden rounded-card border border-separator min-h-[220px]"
 			>
 				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-violet-500 to-fuchsia-500"
+					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
 				/>
 				<UCard
 					class="flex-1 min-w-0 rounded-none border-0"
 					:ui="{ body: 'p-4 flex flex-col h-full' }"
 				>
-					<p class="text-sm text-slate-400">
+					<p class="text-sm text-label-secondary">
 						Scheduled
 					</p>
-					<p class="font-semibold text-white">
+					<p class="font-semibold text-label">
 						No workout scheduled
 					</p>
 					<button
-						class="mt-auto flex w-full items-center justify-between gap-1 rounded-md bg-violet-600/20 px-2.5 py-1 text-sm font-medium text-violet-400 transition-colors hover:bg-violet-600/30"
+						class="mt-auto flex w-full items-center justify-between gap-1 rounded-chip bg-tint/15 px-2.5 py-1 text-sm font-medium text-tint transition-colors hover:bg-tint/25"
 						@click="scheduleModalOpen = true"
 					>
 						Schedule a workout
@@ -651,7 +651,7 @@ async function handleUnschedule(): Promise<void> {
 				v-else-if="activeProgramStatus !== 'pending'"
 				class="py-1"
 			>
-				<div class="text-slate-400">
+				<div class="text-label-secondary">
 					No active program
 				</div>
 			</UCard>
@@ -666,16 +666,16 @@ async function handleUnschedule(): Promise<void> {
 			class="grid grid-cols-[1fr_3fr] gap-3"
 		>
 			<div
-				class="h-28 animate-pulse rounded-lg bg-slate-800"
+				class="h-28 animate-pulse rounded-tile bg-label-secondary/12"
 			/>
 			<div
-				class="h-28 animate-pulse rounded-lg bg-slate-800"
+				class="h-28 animate-pulse rounded-tile bg-label-secondary/12"
 			/>
 		</div>
 
 		<!-- Fetch error (non-404) -->
 		<UCard v-else-if="isActiveProgramFetchError" class="py-1">
-			<div class="text-center text-red-400">
+			<div class="text-center text-ios-red">
 				<p>Failed to load program.</p>
 				<p class="mt-1 text-sm">
 					Please try again later.
@@ -705,7 +705,7 @@ async function handleUnschedule(): Promise<void> {
 							fill="none"
 							stroke="currentColor"
 							stroke-width="5"
-							class="text-slate-700"
+							class="text-label-tertiary"
 						/>
 						<!-- Progress arc -->
 						<circle
@@ -716,7 +716,7 @@ async function handleUnschedule(): Promise<void> {
 							stroke="currentColor"
 							stroke-width="5"
 							stroke-linecap="round"
-							class="text-violet-500 transition-all duration-500"
+							class="text-tint transition-all duration-500"
 							:stroke-dasharray="`${programProgressPercent * 1.7593} 175.93`"
 							transform="rotate(-90 32 32)"
 						/>
@@ -750,12 +750,12 @@ async function handleUnschedule(): Promise<void> {
 				>
 					<div>
 						<p
-							class="text-sm text-slate-400"
+							class="text-sm text-label-secondary"
 						>
 							My Program
 						</p>
 						<h4
-							class="font-semibold text-white"
+							class="font-semibold text-label"
 						>
 							{{
 								activeProgram
@@ -765,7 +765,7 @@ async function handleUnschedule(): Promise<void> {
 						</h4>
 					</div>
 					<span
-						class="flex items-center gap-1 rounded-full bg-violet-600/20 px-2.5 py-0.5 text-xs font-medium text-violet-400"
+						class="flex items-center gap-1 rounded-full bg-tint/15 px-2.5 py-0.5 text-xs font-medium text-tint"
 					>
 						Manage
 						<UIcon
@@ -779,11 +779,11 @@ async function handleUnschedule(): Promise<void> {
 
 		<!-- No active program -->
 		<UCard v-else class="py-1">
-			<div class="text-center text-slate-400">
+			<div class="text-center text-label-secondary">
 				<p>No active programs yet.</p>
 				<NuxtLink
 					to="/programs"
-					class="mt-1 inline-block text-sm text-violet-400 hover:text-violet-300"
+					class="mt-1 inline-block text-sm text-tint hover:text-tint"
 				>
 					Browse programs to get started.
 				</NuxtLink>
@@ -792,7 +792,7 @@ async function handleUnschedule(): Promise<void> {
 
 		<!-- My Fitness section -->
 		<h3
-			class="text-sm font-semibold uppercase tracking-wide text-slate-400"
+			class="text-sm font-semibold uppercase tracking-wide text-label-secondary"
 		>
 			My Fitness
 		</h3>
@@ -801,14 +801,14 @@ async function handleUnschedule(): Promise<void> {
 		<div class="grid grid-cols-2 gap-4">
 			<NuxtLink to="/analytics">
 				<UCard v-wave class="overflow-hidden py-5">
-					<div class="text-center text-slate-400">
+					<div class="text-center text-label-secondary">
 						Analytics
 					</div>
 				</UCard>
 			</NuxtLink>
 			<NuxtLink to="/programs">
 				<UCard v-wave class="overflow-hidden py-5">
-					<div class="text-center text-slate-400">
+					<div class="text-center text-label-secondary">
 						Browse Programs
 					</div>
 				</UCard>

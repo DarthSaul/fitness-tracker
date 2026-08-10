@@ -80,13 +80,13 @@ function formatRest(seconds: number): string {
         <!-- Header -->
         <div class="flex shrink-0 items-center justify-between px-5 pb-3 pt-4">
           <div>
-            <p class="text-xs text-slate-400">Preview</p>
-            <h3 class="text-base font-semibold text-white">
+            <p class="text-xs text-label-secondary">Preview</p>
+            <h3 class="text-base font-semibold text-label">
               Week {{ weekNumber }} · Day {{ dayNumber }}
             </h3>
           </div>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close preview"
             @click="emit('close')"
           >
@@ -97,9 +97,9 @@ function formatRest(seconds: number): string {
         <!-- Scrollable body -->
         <div class="flex-1 overflow-y-auto px-5 pb-6">
           <!-- Warm-up -->
-          <div v-if="day?.warmUp" class="mb-4 rounded-lg bg-amber-500/10 px-3 py-2.5">
-            <p class="mb-0.5 text-xs font-medium uppercase tracking-wide text-amber-400">Warm-up</p>
-            <p class="text-sm text-slate-300">{{ day.warmUp }}</p>
+          <div v-if="day?.warmUp" class="mb-4 rounded-tile bg-ios-orange/15 px-3 py-2.5">
+            <p class="mb-0.5 text-xs font-medium uppercase tracking-wide text-ios-orange">Warm-up</p>
+            <p class="text-sm text-label">{{ day.warmUp }}</p>
           </div>
 
           <!-- Exercise groups -->
@@ -110,27 +110,27 @@ function formatRest(seconds: number): string {
             >
               <!-- Superset -->
               <template v-if="group.type === 'SUPERSET'">
-                <p class="mb-2 text-xs font-medium uppercase tracking-wide text-violet-400">
+                <p class="mb-2 text-xs font-medium uppercase tracking-wide text-tint">
                   {{ gi + 1 }}. Superset
                 </p>
                 <div class="grid grid-cols-2 gap-2">
                   <div
                     v-for="pe in group.exercises"
                     :key="pe.id"
-                    class="flex flex-col rounded-lg border border-violet-500/20 bg-violet-500/5 p-3"
+                    class="flex flex-col rounded-tile border border-tint/30 bg-tint/10 p-3"
                   >
-                    <p class="mb-1.5 text-sm font-semibold leading-snug text-white">
+                    <p class="mb-1.5 text-sm font-semibold leading-snug text-label">
                       {{ pe.exercise.name }}
                     </p>
                     <ul class="mt-auto space-y-0.5">
                       <li
                         v-for="set in pe.sets"
                         :key="set.id"
-                        class="flex items-baseline gap-2 text-sm text-slate-400"
+                        class="flex items-baseline gap-2 text-sm text-label-secondary"
                       >
-                        <span class="w-10 shrink-0 text-xs text-slate-500">Set {{ set.setNumber }}</span>
-                        <span class="text-slate-300">{{ describeSet(set) }}</span>
-                        <span v-if="set.notes" class="text-xs text-slate-500">· {{ set.notes }}</span>
+                        <span class="w-10 shrink-0 text-xs text-label-secondary">Set {{ set.setNumber }}</span>
+                        <span class="text-label">{{ describeSet(set) }}</span>
+                        <span v-if="set.notes" class="text-xs text-label-secondary">· {{ set.notes }}</span>
                       </li>
                     </ul>
                   </div>
@@ -143,18 +143,18 @@ function formatRest(seconds: number): string {
                   v-for="pe in group.exercises"
                   :key="pe.id"
                 >
-                  <p class="mb-1 text-sm font-semibold text-white">
+                  <p class="mb-1 text-sm font-semibold text-label">
                     {{ gi + 1 }}. {{ pe.exercise.name }}
                   </p>
                   <ul class="space-y-0.5">
                     <li
                       v-for="set in pe.sets"
                       :key="set.id"
-                      class="flex items-baseline gap-2 text-sm text-slate-400"
+                      class="flex items-baseline gap-2 text-sm text-label-secondary"
                     >
-                      <span class="w-10 shrink-0 text-xs text-slate-500">Set {{ set.setNumber }}</span>
-                      <span class="text-slate-300">{{ describeSet(set) }}</span>
-                      <span v-if="set.notes" class="text-xs text-slate-500">· {{ set.notes }}</span>
+                      <span class="w-10 shrink-0 text-xs text-label-secondary">Set {{ set.setNumber }}</span>
+                      <span class="text-label">{{ describeSet(set) }}</span>
+                      <span v-if="set.notes" class="text-xs text-label-secondary">· {{ set.notes }}</span>
                     </li>
                   </ul>
                 </div>
@@ -163,7 +163,7 @@ function formatRest(seconds: number): string {
               <!-- Rest -->
               <p
                 v-if="group.restSeconds !== null"
-                class="mt-1.5 flex items-center gap-1 text-xs text-slate-500"
+                class="mt-1.5 flex items-center gap-1 text-xs text-label-secondary"
               >
                 <UIcon name="i-lucide-timer" class="size-3.5" />
                 {{ formatRest(group.restSeconds) }}
@@ -172,7 +172,7 @@ function formatRest(seconds: number): string {
           </div>
 
           <!-- Empty state -->
-          <p v-else class="py-6 text-center text-sm text-slate-500">
+          <p v-else class="py-6 text-center text-sm text-label-secondary">
             No workout data available.
           </p>
         </div>

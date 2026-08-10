@@ -105,9 +105,9 @@ function handleSave(): void {
       <div class="mx-auto max-h-[85dvh] w-full max-w-lg overflow-y-auto px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">{{ routine ? 'Edit PT Routine' : 'New PT Routine' }}</h3>
+          <h3 class="text-lg font-semibold text-label">{{ routine ? 'Edit PT Routine' : 'New PT Routine' }}</h3>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close"
             @click="isOpen = false"
           >
@@ -116,7 +116,7 @@ function handleSave(): void {
         </div>
 
         <!-- Routine name -->
-        <label for="pt-routine-name" class="mb-1.5 block text-sm font-medium text-slate-300">
+        <label for="pt-routine-name" class="mb-1.5 block text-sm font-medium text-label">
           Routine name
         </label>
         <input
@@ -126,7 +126,7 @@ function handleSave(): void {
           type="text"
           maxlength="100"
           placeholder="e.g. Knee Rehab"
-          class="mb-5 w-full rounded-lg bg-slate-800 px-4 py-3 text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
+          class="mb-5 w-full rounded-tile bg-fill px-4 py-3 text-label outline-none ring-1 ring-separator transition-shadow focus:ring-2 focus:ring-tint"
         >
 
         <!-- Exercise rows -->
@@ -134,20 +134,20 @@ function handleSave(): void {
           <div
             v-for="(draft, index) in drafts"
             :key="index"
-            class="rounded-lg bg-slate-800/40 p-3 ring-1 ring-slate-800"
+            class="rounded-tile bg-surface p-3 ring-1 ring-separator"
           >
             <div class="mb-2 flex items-center gap-1.5">
-              <span class="text-sm font-semibold text-violet-400">{{ index + 1 }}.</span>
+              <span class="text-sm font-semibold text-tint">{{ index + 1 }}.</span>
               <input
                 v-model="draft.title"
                 data-testid="exercise-title"
                 type="text"
                 maxlength="100"
                 placeholder="Exercise title"
-                class="min-w-0 flex-1 rounded-lg bg-slate-800 px-3 py-2 text-sm text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
+                class="min-w-0 flex-1 rounded-tile bg-fill px-3 py-2 text-sm text-label outline-none ring-1 ring-separator transition-shadow focus:ring-2 focus:ring-tint"
               >
               <button
-                class="rounded p-1.5 text-slate-500 transition-colors hover:text-white disabled:opacity-30"
+                class="rounded p-1.5 text-label-secondary transition-colors hover:text-label disabled:opacity-30"
                 aria-label="Move up"
                 :disabled="index === 0"
                 @click="moveExercise(index, -1)"
@@ -155,7 +155,7 @@ function handleSave(): void {
                 <UIcon name="i-lucide-chevron-up" class="size-4" />
               </button>
               <button
-                class="rounded p-1.5 text-slate-500 transition-colors hover:text-white disabled:opacity-30"
+                class="rounded p-1.5 text-label-secondary transition-colors hover:text-label disabled:opacity-30"
                 aria-label="Move down"
                 :disabled="index === drafts.length - 1"
                 @click="moveExercise(index, 1)"
@@ -163,7 +163,7 @@ function handleSave(): void {
                 <UIcon name="i-lucide-chevron-down" class="size-4" />
               </button>
               <button
-                class="rounded p-1.5 text-slate-500 transition-colors hover:text-red-400"
+                class="rounded p-1.5 text-label-secondary transition-colors hover:text-ios-red"
                 aria-label="Remove exercise"
                 @click="removeExercise(index)"
               >
@@ -171,12 +171,12 @@ function handleSave(): void {
               </button>
             </div>
             <div class="flex items-center gap-2">
-              <div class="flex overflow-hidden rounded-lg ring-1 ring-slate-700">
+              <div class="flex overflow-hidden rounded-tile ring-1 ring-separator">
                 <button
                   type="button"
                   data-testid="measure-reps"
                   class="px-3 py-1.5 text-xs font-medium transition-colors"
-                  :class="draft.measure === 'reps' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'"
+                  :class="draft.measure === 'reps' ? 'bg-tint text-white' : 'bg-fill text-label-secondary hover:text-label'"
                   @click="setMeasure(draft, 'reps')"
                 >
                   Reps
@@ -185,7 +185,7 @@ function handleSave(): void {
                   type="button"
                   data-testid="measure-duration"
                   class="px-3 py-1.5 text-xs font-medium transition-colors"
-                  :class="draft.measure === 'duration' ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'"
+                  :class="draft.measure === 'duration' ? 'bg-tint text-white' : 'bg-fill text-label-secondary hover:text-label'"
                   @click="setMeasure(draft, 'duration')"
                 >
                   Seconds
@@ -200,7 +200,7 @@ function handleSave(): void {
                 :max="draft.measure === 'reps' ? 1000 : 3600"
                 :placeholder="draft.measure === 'reps' ? 'Reps' : 'Seconds'"
                 :aria-label="draft.measure === 'reps' ? 'Reps' : 'Duration in seconds'"
-                class="w-24 rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
+                class="w-24 rounded-tile bg-fill px-3 py-1.5 text-sm text-label outline-none ring-1 ring-separator transition-shadow focus:ring-2 focus:ring-tint"
               >
             </div>
           </div>
@@ -210,7 +210,7 @@ function handleSave(): void {
         <button
           type="button"
           data-testid="add-exercise"
-          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium text-violet-400 ring-1 ring-dashed ring-slate-700 transition-colors hover:bg-slate-800/60 disabled:opacity-40"
+          class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-tile py-2.5 text-sm font-medium text-tint ring-1 ring-dashed ring-separator transition-colors hover:bg-label-secondary/10 disabled:opacity-40"
           :disabled="drafts.length >= 50"
           @click="addExercise"
         >
