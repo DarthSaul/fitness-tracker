@@ -17,54 +17,13 @@ const {
 
 const e1rmInfoOpen = ref(false)
 
-function formatVolume(lbs: number): string {
-  return lbs >= 1000 ? `${(lbs / 1000).toFixed(1)}k` : lbs.toFixed(0)
-}
-
-function formatE1rm(e1rm: number): string {
-  return `${Math.round(e1rm)} lbs`
-}
-
-function formatSessionDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-// --- Sparkline chart logic ---
-
-const CHART_PAD_X = 16
-const CHART_PAD_Y = 8
-const PLOT_WIDTH = 268   // 300 - 16*2
-const PLOT_HEIGHT = 64   // 80 - 8*2
+// --- Sparkline chart (geometry shared with WorkoutExerciseTrendDrawer) ---
 
 const selectedPoint = ref<number | null>(null)
 
-// Sessions with a valid e1RM for chart plotting
-const chartPoints = computed(() => {
-  if (!exerciseHistory.value) return []
-  return exerciseHistory.value.history.filter(s => s.bestE1rm !== null)
-})
+const sparklinePoints = computed(() => buildSparkline(exerciseHistory.value?.history ?? []))
 
-const sparklinePoints = computed(() => {
-  const pts = chartPoints.value
-  if (pts.length === 0) return []
-
-  const e1rms = pts.map(p => p.bestE1rm as number)
-  const minE1rm = Math.min(...e1rms)
-  const maxE1rm = Math.max(...e1rms)
-  const range = maxE1rm - minE1rm
-
-  return pts.map((p, i) => {
-    const x = CHART_PAD_X + (pts.length === 1 ? PLOT_WIDTH / 2 : (i / (pts.length - 1)) * PLOT_WIDTH)
-    const y = range === 0
-      ? CHART_PAD_Y + PLOT_HEIGHT / 2
-      : CHART_PAD_Y + PLOT_HEIGHT - (((p.bestE1rm as number) - minE1rm) / range) * PLOT_HEIGHT
-    return { x, y, session: p }
-  })
-})
-
-const polylinePointsStr = computed(() =>
-  sparklinePoints.value.map(p => `${p.x},${p.y}`).join(' ')
-)
+const polylinePointsStr = computed(() => toPolylinePoints(sparklinePoints.value))
 
 function handleChartPointClick(index: number) {
   selectedPoint.value = selectedPoint.value === index ? null : index
@@ -278,7 +237,7 @@ function handleExerciseClear() {
           <template v-else>
             <!-- e1RM sparkline chart -->
             <div
-              v-if="chartPoints.length > 0"
+              v-if="sparklinePoints.length > 0"
               class="rounded-lg bg-slate-800/50 border border-slate-700/50 px-4 py-3"
             >
               <p class="text-xs text-slate-400 mb-2">

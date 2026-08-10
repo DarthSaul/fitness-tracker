@@ -126,9 +126,38 @@ UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
 ### Loading Skeletons
 
 - Every UI area that fetches data from an API must display a loading skeleton while the request is pending.
-- Use the established pattern: `<div class="h-[SIZE] animate-pulse rounded-lg bg-slate-800" />` with an appropriate height.
-- For lists, render multiple skeleton items (e.g., `v-for="i in 3"`).
+- Use `<AppSkeleton :height="96" />` (`app/components/ios/Skeleton.vue`) — do not hand-roll `animate-pulse` divs.
+- For lists, pass `:count="3"` rather than wrapping it in a `v-for`.
 - Guard skeletons with the `useFetch` status: `v-if="status === 'pending'"`.
+
+### Design System
+
+The web client mirrors the SwiftUI app's design language, which is Apple's
+semantic palette rather than a bespoke theme. See `app/assets/css/main.css`.
+
+- **Never hardcode a colour class.** Use the semantic tokens: `bg-canvas`,
+  `bg-surface`, `text-label`, `text-label-secondary`, `text-label-tertiary`,
+  `border-separator`, `bg-fill`, `text-tint`, and the named accents
+  `text-ios-green` / `ios-orange` / `ios-red` / `ios-purple` / `ios-pink` /
+  `ios-mint`. Literal `slate-*` / `violet-*` / `emerald-*` classes are legacy
+  and are being removed — light mode cannot ship until they are all gone.
+- **Colour is semantic, not decorative:** green = logged or complete, orange =
+  extra set / swapped / in-progress / beta, tint (blue) = navigation and
+  primary action, red = destructive, purple→pink = the brand gradient rail,
+  gray = inert.
+- **Type scale** mirrors iOS text styles: `text-large-title`, `text-title`,
+  `text-title2`, `text-title3`, `text-headline`, `text-body`,
+  `text-subheadline`, `text-footnote`, `text-caption`, `text-caption2`.
+- **Radii:** `rounded-card` (14px, the signature surface), `rounded-panel` (12),
+  `rounded-tile` (10), `rounded-chip` (8), `rounded-full`.
+- Cards have **no border and no shadow**. The only shadow in the app is
+  `shadow-chip`, on the floating scroll-title chip.
+- Add `tnum` to any element rendering numbers so digits align, matching
+  SwiftUI's `.monospacedDigit()`.
+- Reuse the primitives in `app/components/ios/` — `<AppCard>`,
+  `<AppActionPill>`, `<AppChip>`, `<AppStatusBadge>`, `<AppStatTile>`,
+  `<AppScreenHeader>`, `<AppProgressRing>`, `<AppSheet>`, `<AppSkeleton>` —
+  before writing new markup.
 
 ### Nitro API Routes
 

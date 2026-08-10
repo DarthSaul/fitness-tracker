@@ -38,39 +38,13 @@ watch(() => props.open, async (opened) => {
   }
 })
 
-// --- Sparkline chart (same logic as analytics.vue) ---
-
-const CHART_PAD_X = 16
-const CHART_PAD_Y = 8
-const PLOT_WIDTH = 268
-const PLOT_HEIGHT = 64
+// --- Sparkline chart (geometry shared with the analytics page) ---
 
 const selectedPoint = ref<number | null>(null)
 
-const chartPoints = computed(() => {
-  if (!history.value) return []
-  return history.value.history.filter(s => s.bestE1rm !== null)
-})
+const sparklinePoints = computed(() => buildSparkline(history.value?.history ?? []))
 
-const sparklinePoints = computed(() => {
-  const pts = chartPoints.value
-  if (pts.length === 0) return []
-  const e1rms = pts.map(p => p.bestE1rm as number)
-  const minE1rm = Math.min(...e1rms)
-  const maxE1rm = Math.max(...e1rms)
-  const range = maxE1rm - minE1rm
-  return pts.map((p, i) => {
-    const x = CHART_PAD_X + (pts.length === 1 ? PLOT_WIDTH / 2 : (i / (pts.length - 1)) * PLOT_WIDTH)
-    const y = range === 0
-      ? CHART_PAD_Y + PLOT_HEIGHT / 2
-      : CHART_PAD_Y + PLOT_HEIGHT - (((p.bestE1rm as number) - minE1rm) / range) * PLOT_HEIGHT
-    return { x, y, session: p }
-  })
-})
-
-const polylinePointsStr = computed(() =>
-  sparklinePoints.value.map(p => `${p.x},${p.y}`).join(' '),
-)
+const polylinePointsStr = computed(() => toPolylinePoints(sparklinePoints.value))
 
 function handleChartPointClick(index: number): void {
   selectedPoint.value = selectedPoint.value === index ? null : index
@@ -82,18 +56,6 @@ const displayHistory = computed(() => {
   if (!history.value) return []
   return [...history.value.history].reverse()
 })
-
-function formatVolume(lbs: number): string {
-  return lbs >= 1000 ? `${(lbs / 1000).toFixed(1)}k` : lbs.toFixed(0)
-}
-
-function formatE1rm(e1rm: number): string {
-  return `${Math.round(e1rm)} lbs`
-}
-
-function formatSessionDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 </script>
 
 <template>
@@ -137,7 +99,7 @@ function formatSessionDate(iso: string): string {
         <template v-else-if="status === 'success' && history">
           <!-- e1RM sparkline chart -->
           <div
-            v-if="chartPoints.length > 0"
+            v-if="sparklinePoints.length > 0"
             class="mb-3 rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-3"
           >
             <div class="mb-2 flex items-center gap-1.5">

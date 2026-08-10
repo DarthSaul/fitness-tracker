@@ -46,7 +46,7 @@ function isLogged(set: AdHocExerciseGroup['sets'][number]): boolean {
       <div class="min-h-0">
         <div class="border-t border-slate-700/50 px-3 pb-3 pt-2">
           <!-- Column headers -->
-          <div class="adhoc-grid pb-2 text-[10px] uppercase tracking-wider text-slate-500">
+          <div class="grid grid-cols-4 items-center pb-2 text-caption2 font-semibold uppercase text-label-secondary">
             <span class="text-center font-medium">#</span>
             <span class="text-center font-medium">lb</span>
             <span class="text-center font-medium">Reps</span>
@@ -58,7 +58,7 @@ function isLogged(set: AdHocExerciseGroup['sets'][number]): boolean {
             v-for="(set, idx) in group.sets"
             :key="set.id"
             type="button"
-            class="adhoc-grid w-full py-2 text-sm transition-colors"
+            class="grid w-full grid-cols-4 items-center py-2 text-subheadline tnum transition-colors"
             :class="editable ? 'cursor-pointer hover:bg-slate-700/30 rounded' : 'cursor-default'"
             @click="editable && emit('log-set', set.id)"
           >
@@ -94,11 +94,3 @@ function isLogged(set: AdHocExerciseGroup['sets'][number]): boolean {
     </div>
   </div>
 </template>
-
-<style scoped>
-.adhoc-grid {
-  display: grid;
-  grid-template-columns: 0.5fr 1.5fr 1fr 0.75fr;
-  align-items: center;
-}
-</style>

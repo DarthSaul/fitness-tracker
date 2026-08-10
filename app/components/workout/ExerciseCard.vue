@@ -292,7 +292,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
                 </template>
               </div>
 
-              <div class="set-grid pb-2 text-[10px] uppercase tracking-wider text-slate-500">
+              <div class="grid grid-cols-5 items-center pb-2 text-caption2 font-semibold uppercase text-label-secondary">
                 <span class="text-center font-medium">#</span>
                 <span class="text-center font-medium">lb</span>
                 <span class="text-center font-medium">Reps</span>
@@ -452,7 +452,7 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               </template>
             </div>
 
-            <div class="set-grid pb-2 text-[10px] uppercase tracking-wider text-slate-500">
+            <div class="grid grid-cols-5 items-center pb-2 text-caption2 font-semibold uppercase text-label-secondary">
               <span class="text-center font-medium">#</span>
               <span class="text-center font-medium">lb</span>
               <span class="text-center font-medium">Reps</span>
@@ -519,11 +519,3 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
     />
   </Teleport>
 </template>
-
-<style scoped>
-.set-grid {
-  display: grid;
-  grid-template-columns: 0.5fr 1.5fr 1fr 1.5fr 0.75fr;
-  align-items: center;
-}
-</style>

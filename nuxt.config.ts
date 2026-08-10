@@ -36,6 +36,12 @@ export default defineNuxtConfig({
     apnsKeyId: '',
     apnsPrivateKey: '',
   },
+  components: [
+    // iOS design-system primitives register as <AppCard>, <AppChip>, … so they
+    // read distinctly from Nuxt UI's U-prefixed components.
+    { path: '~/components/ios', prefix: 'App', pathPrefix: false },
+    '~/components',
+  ],
   css: ['~/assets/css/main.css'],
   ui: {
     // @nuxt/ui auto-registers @nuxt/fonts. The design system is 100% system
