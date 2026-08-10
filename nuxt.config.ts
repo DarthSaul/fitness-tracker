@@ -37,7 +37,16 @@ export default defineNuxtConfig({
     apnsPrivateKey: '',
   },
   css: ['~/assets/css/main.css'],
+  ui: {
+    // @nuxt/ui auto-registers @nuxt/fonts. The design system is 100% system
+    // fonts (SF Pro on Apple platforms, system-ui elsewhere) to match the iOS
+    // client, so the webfont pipeline is dead weight — and it can misfire
+    // trying to resolve `-apple-system` as a downloadable family.
+    fonts: false,
+  },
   colorMode: {
+    // Pinned to dark until every screen has moved off the hardcoded
+    // slate/violet classes; the token layer already defines both schemes.
     preference: 'dark',
   },
   app: {
