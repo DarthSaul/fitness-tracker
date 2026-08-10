@@ -50,6 +50,17 @@ const typeScale = [
   { name: 'caption2', class: 'text-caption2' },
 ]
 
+/** Every icon the shell and the new screens rely on — a missing name renders
+ *  as an empty box, which is easy to miss on a real screen. */
+const icons = [
+  'i-lucide-house', 'i-lucide-history', 'i-lucide-trending-up', 'i-lucide-dumbbell',
+  'i-lucide-settings', 'i-lucide-contrast', 'i-lucide-message-square',
+  'i-lucide-activity', 'i-lucide-list-checks', 'i-lucide-chevron-right',
+  'i-lucide-chevron-left', 'i-lucide-triangle-alert', 'i-lucide-circle-dashed',
+  'i-lucide-check', 'i-lucide-x', 'i-lucide-loader-circle', 'i-lucide-eye',
+  'i-lucide-clock', 'i-lucide-repeat', 'i-lucide-calendar-check', 'i-lucide-weight',
+]
+
 const sheetOpen = ref(false)
 </script>
 
@@ -194,6 +205,13 @@ const sheetOpen = ref(false)
       </div>
       <UInput placeholder="Input" class="w-full" size="xl" />
       <UAlert color="error" variant="subtle" title="Something went wrong" icon="i-lucide-alert-circle" />
+    </section>
+
+    <section class="space-y-2">
+      <p class="text-caption font-semibold uppercase text-label-secondary">Icons</p>
+      <div class="flex flex-wrap gap-3 rounded-card bg-surface p-4">
+        <UIcon v-for="icon in icons" :key="icon" :name="icon" class="size-6 text-label" />
+      </div>
     </section>
 
     <section class="space-y-2">

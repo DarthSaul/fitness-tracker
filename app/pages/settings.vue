@@ -63,6 +63,14 @@ async function handlePtToggle(value: boolean): Promise<void> {
     <section>
       <p class="mb-1.5 px-1 text-caption font-semibold uppercase text-label-secondary">Preferences</p>
       <div class="divide-y divide-separator overflow-hidden rounded-card bg-surface">
+        <div class="flex items-center justify-between gap-3 px-4 py-3">
+          <span class="flex items-center gap-2.5 text-body">
+            <UIcon name="i-lucide-contrast" class="size-5 text-tint" />
+            Appearance
+          </span>
+          <UColorModeSelect />
+        </div>
+
         <NuxtLink to="/feedback" class="flex items-center justify-between gap-3 px-4 py-3">
           <span class="flex items-center gap-2.5 text-body">
             <UIcon name="i-lucide-message-square" class="size-5 text-tint" />

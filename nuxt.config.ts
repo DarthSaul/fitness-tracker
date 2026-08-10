@@ -61,9 +61,11 @@ export default defineNuxtConfig({
     fonts: false,
   },
   colorMode: {
-    // Pinned to dark until every screen has moved off the hardcoded
-    // slate/violet classes; the token layer already defines both schemes.
-    preference: 'dark',
+    // Mirrors iOS `AppAppearance`: follow the system by default, with an
+    // explicit override available in Settings.
+    preference: 'system',
+    fallback: 'dark',
+    storageKey: 'appAppearance',
   },
   app: {
     head: {
@@ -74,7 +76,11 @@ export default defineNuxtConfig({
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'Dr. Dumbbell' },
-        { name: 'theme-color', content: '#000000' },
+        // Scoped per scheme so the browser chrome tracks systemBackground.
+        // These follow the OS setting rather than the in-app override, which
+        // is the most a static meta tag can do.
+        { name: 'theme-color', content: '#ffffff', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#000000', media: '(prefers-color-scheme: dark)' },
       ],
       link: [
         { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon-180.png' },
