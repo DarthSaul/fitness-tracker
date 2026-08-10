@@ -2,7 +2,10 @@
 /**
  * Analytics page — strength progress dashboard with e1RM sparklines per exercise.
  */
-definePageMeta({ layout: 'app' })
+definePageMeta({
+  layout: 'app',
+  header: { title: 'Analytics', emoji: '📈', subtitle: 'Strength progress' },
+})
 
 const {
   dashboard,
@@ -53,16 +56,6 @@ function handleExerciseClear() {
 
 <template>
   <div class="space-y-6">
-    <!-- Page header -->
-    <div>
-      <h2 class="text-lg font-semibold text-white">
-        Analytics
-      </h2>
-      <p class="mt-1 text-sm text-slate-400">
-        Track your strength progress over time
-      </p>
-    </div>
-
     <!-- Section 1: Dashboard stats -->
     <div v-if="dashboardStatus === 'pending'" class="grid grid-cols-3 gap-3">
       <div v-for="i in 3" :key="i" class="h-16 animate-pulse rounded-lg bg-slate-800" />

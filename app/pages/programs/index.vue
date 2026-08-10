@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Programs', emoji: '🏋️' } })
 
 import type { ProgramSummary } from '~/types/program'
 
@@ -26,15 +26,6 @@ const emptyMessage = computed(() => {
 
 <template>
   <div class="space-y-6">
-    <div>
-      <h2 class="text-lg font-semibold text-white">
-        Programs
-      </h2>
-      <p class="mt-1 text-sm text-slate-400">
-        Browse available workout programs
-      </p>
-    </div>
-
     <!-- Loading state -->
     <div v-if="status === 'pending'" class="space-y-4">
       <div

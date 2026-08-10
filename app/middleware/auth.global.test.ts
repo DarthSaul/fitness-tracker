@@ -134,6 +134,29 @@ describe('app/middleware/auth.global', () => {
     })
   })
 
+  // These four were reachable anonymously before the tab bar gained History
+  // and Settings; /settings in particular exposes the profile and sign-out.
+  describe.each([
+    ['/history'],
+    ['/history/abc'],
+    ['/settings'],
+    ['/pt-routines'],
+    ['/standalone-workouts'],
+    ['/standalone-workouts/abc'],
+  ])('%s route protection', (path) => {
+    test('redirects unauthenticated users to /login', () => {
+      setLoggedIn(false)
+      ;(middleware as MiddlewareFn)(makeTo(path))
+      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
+    })
+
+    test('does NOT redirect authenticated users', () => {
+      setLoggedIn(true)
+      ;(middleware as MiddlewareFn)(makeTo(path))
+      expect(mockNavigateTo).not.toHaveBeenCalled()
+    })
+  })
+
   describe('prefix boundary — /programsother should not be protected', () => {
     test('does not redirect unauthenticated users on a path that starts with /programs but is not /programs or /programs/', () => {
       setLoggedIn(false)

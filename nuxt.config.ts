@@ -1,3 +1,5 @@
+import { version } from './package.json'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -35,6 +37,10 @@ export default defineNuxtConfig({
     apnsTeamId: '',
     apnsKeyId: '',
     apnsPrivateKey: '',
+    public: {
+      // Surfaced on the Settings screen; single source of truth is package.json.
+      appVersion: version,
+    },
   },
   components: [
     // iOS design-system primitives register as <AppCard>, <AppChip>, … so they

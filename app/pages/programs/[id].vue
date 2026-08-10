@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Program', style: 'inline' } })
 
 import type { ProgramDetail, ProgramWeekSummary, ProgramDayDetail, ExerciseSetDetail } from '~/types/program'
 
@@ -86,15 +86,7 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center gap-3">
-      <NuxtLink to="/programs">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-        />
-      </NuxtLink>
-      <h2 class="text-lg font-semibold text-white">
+      <h2 class="text-title3 font-semibold">
         <template v-if="program">{{ program.name }}</template>
         <template v-else>Program</template>
       </h2>

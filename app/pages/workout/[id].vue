@@ -3,7 +3,7 @@ import type { EditingContext, AdHocExerciseGroup } from '~/types/workout'
 
 interface ExerciseCardHandle { collapseAll: () => void }
 
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'fullscreen' })
 
 const route = useRoute()
 const router = useRouter()

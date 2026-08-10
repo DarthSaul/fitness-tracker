@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Manage Program', style: 'inline' } })
 
 const router = useRouter()
 
@@ -58,21 +58,6 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
 
 <template>
   <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex items-center gap-3">
-      <NuxtLink to="/">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-        />
-      </NuxtLink>
-      <h2 class="text-lg font-semibold text-white">
-        Manage Program
-      </h2>
-    </div>
-
     <!-- Loading skeleton -->
     <template v-if="isLoading">
       <div class="h-6 w-40 animate-pulse rounded bg-slate-800" />

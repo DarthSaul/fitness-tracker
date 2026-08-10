@@ -2,7 +2,7 @@
 and active program status. * Supports date selection to view scheduled workouts
 and schedule new ones. */
 <script setup lang="ts">
-definePageMeta({ layout: 'app' });
+definePageMeta({ layout: 'app', header: { title: 'Home', emoji: '💪' } });
 
 import type { ActiveWorkoutResponse } from '~/types/workout';
 

@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { PtRoutine, PtRoutineExerciseInput } from '~/types/pt-routine'
 
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'PT Routines', style: 'inline' } })
 
 const { routines, status, saving, createRoutine, updateRoutine, deleteRoutine, isDeleting } = usePtRoutines()
 
@@ -71,17 +71,7 @@ async function confirmDelete(): Promise<void> {
 
 <template>
   <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex items-center gap-3">
-      <NuxtLink to="/">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-        />
-      </NuxtLink>
-      <h2 class="flex-1 text-lg font-semibold text-white">PT Routines</h2>
+    <div class="flex justify-end">
       <UButton
         icon="i-lucide-plus"
         color="primary"

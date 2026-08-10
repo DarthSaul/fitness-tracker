@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Feedback', style: 'inline' } })
 
 type FeedbackItem = {
   id: string
@@ -104,10 +104,7 @@ function formatDate(iso: string) {
 
 <template>
   <div class="space-y-6 pt-2">
-    <div>
-      <h2 class="text-xl font-semibold text-white">Feedback</h2>
-      <p class="mt-1 text-sm text-slate-400">Jot down thoughts while you're using the app.</p>
-    </div>
+    <p class="text-subheadline text-label-secondary">Jot down thoughts while you're using the app.</p>
 
     <!-- Submit form -->
     <div class="space-y-3">

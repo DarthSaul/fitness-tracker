@@ -2,7 +2,7 @@
 import type { EditingContext } from '~/types/workout'
 import type { CompletedSetRecord, WorkoutExerciseSwap } from '~/types/workout'
 
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Log Workout', style: 'inline' } })
 
 const route = useRoute()
 const router = useRouter()
@@ -166,15 +166,7 @@ async function confirmDiscard(): Promise<void> {
   <div class="space-y-4">
     <!-- Header -->
     <div class="flex items-center gap-3">
-      <NuxtLink to="/program">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-        />
-      </NuxtLink>
-      <h2 class="flex-1 text-lg font-semibold text-white">
+      <h2 class="flex-1 text-title3 font-semibold">
         Week {{ weekNumber }}, Day {{ dayNumber }}
       </h2>
       <UButton
