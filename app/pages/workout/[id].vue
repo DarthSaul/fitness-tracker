@@ -45,6 +45,7 @@ const { enabled: ptEnabled, status: ptSettingStatus } = usePtRoutineSetting()
 const { routines: ptRoutines, status: ptRoutinesStatus } = usePtRoutines()
 const ptLoading = computed(() => ptSettingStatus.value === 'pending' || ptRoutinesStatus.value === 'pending')
 const ptDrawerOpen = ref(false)
+const restTimerOpen = ref(false)
 
 function openPtDrawer(): void {
   ptDrawerOpen.value = true
@@ -351,9 +352,17 @@ async function handleDiscard(): Promise<void> {
             size="sm"
           />
         </NuxtLink>
-        <h2 class="text-lg font-semibold text-label">
+        <h2 class="flex-1 text-title3 font-semibold">
           Week {{ session.weekNumber }}, Day {{ session.dayNumber }}
         </h2>
+        <UButton
+          icon="i-lucide-timer"
+          color="neutral"
+          variant="soft"
+          size="sm"
+          aria-label="Rest timer"
+          @click="restTimerOpen = true"
+        />
       </div>
 
       <!-- PT routines quick access -->
@@ -490,6 +499,9 @@ async function handleDiscard(): Promise<void> {
         </UButton>
       </div>
     </template>
+
+    <!-- Rest timer. Always mounted so it keeps counting while dismissed. -->
+    <WorkoutRestTimerSheet v-model:open="restTimerOpen" />
 
     <!-- PT routine drawer (read-only) -->
     <PtRoutineDrawer

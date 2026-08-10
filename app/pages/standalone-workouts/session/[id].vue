@@ -35,6 +35,7 @@ const editReps = ref<number | null>(null)
 const editWeight = ref<number | null>(null)
 const completeOpen = ref(false)
 const abandonOpen = ref(false)
+const restTimerOpen = ref(false)
 
 const logOpen = computed({
   get: () => editingSet.value !== null,
@@ -113,16 +114,29 @@ function formatValue(value: number | null | undefined): string {
           {{ completedSetCount }} / {{ totalSets }} sets
         </p>
       </div>
-      <UButton
-        color="error"
-        variant="ghost"
-        size="sm"
-        icon="i-lucide-trash-2"
-        aria-label="Abandon workout"
-        :loading="abandoning"
-        @click="abandonOpen = true"
-      />
+      <div class="flex shrink-0 items-center gap-1">
+        <UButton
+          color="neutral"
+          variant="soft"
+          size="sm"
+          icon="i-lucide-timer"
+          aria-label="Rest timer"
+          @click="restTimerOpen = true"
+        />
+        <UButton
+          color="error"
+          variant="ghost"
+          size="sm"
+          icon="i-lucide-trash-2"
+          aria-label="Abandon workout"
+          :loading="abandoning"
+          @click="abandonOpen = true"
+        />
+      </div>
     </div>
+
+    <!-- Always mounted so it keeps counting while dismissed -->
+    <WorkoutRestTimerSheet v-model:open="restTimerOpen" />
 
     <AppSkeleton v-if="loading" :height="120" :count="3" />
 
