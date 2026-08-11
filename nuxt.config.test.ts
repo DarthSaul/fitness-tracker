@@ -133,6 +133,20 @@ describe('API CORS headers', () => {
     await expect(loadConfig({ NUXT_PUBLIC_APP_URL: 'fitness-app.me' }))
       .rejects.toThrow(/must be an absolute URL/)
   })
+
+  // `file:///` is the dangerous one: its pathname is "/", so it clears the path
+  // check, and its origin serialises to the *string* "null". Shipping
+  // `Access-Control-Allow-Origin: null` grants access to every opaque origin —
+  // sandboxed iframes and `data:` documents included. ftp/ws merely produce a
+  // header no browser will ever send, but there is no reason to allow either.
+  test.each([
+    'file:///',
+    'ftp://example.com/',
+    'ws://example.com/',
+  ])('rejects the non-HTTP scheme %s', async (value) => {
+    await expect(loadConfig({ NUXT_PUBLIC_APP_URL: value }))
+      .rejects.toThrow(/http:\/\/ or https:\/\//)
+  })
 })
 
 describe('appleAuthEnabled', () => {

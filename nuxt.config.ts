@@ -33,6 +33,17 @@ function corsOrigin(raw: string | undefined): string {
     )
   }
 
+  // Must precede the path check: `file:///` has a pathname of "/" and would
+  // otherwise sail through, and its origin serialises to the *string* "null".
+  // `Access-Control-Allow-Origin: null` is worse than a wrong origin — it
+  // matches every opaque origin, sandboxed iframes and `data:` documents
+  // included. Non-HTTP schemes are never a legitimate web origin here.
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(
+      `NUXT_PUBLIC_APP_URL must use http:// or https://, got ${JSON.stringify(value)}.`,
+    )
+  }
+
   // A lone "/" is the trailing slash people naturally type, and dropping it is
   // the whole point. Anything past it means the value is a page, not an origin.
   if ((url.pathname !== '' && url.pathname !== '/') || url.search || url.hash) {
