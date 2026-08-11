@@ -44,7 +44,7 @@ describe('ShellTabBar', () => {
       'Settings',
     ])
     expect(links.map(link => link.attributes('href'))).toEqual([
-      '/',
+      '/home',
       '/history',
       '/analytics',
       '/programs',
@@ -69,7 +69,7 @@ describe('ShellTabBar', () => {
 
   describe('active state', () => {
     test('tints the active tab and marks it as the current page', () => {
-      const home = mountTabBar('/').findAll('a')[0]!
+      const home = mountTabBar('/home').findAll('a')[0]!
 
       expect(home.classes()).toContain('text-tint')
       expect(home.attributes('aria-current')).toBe('page')

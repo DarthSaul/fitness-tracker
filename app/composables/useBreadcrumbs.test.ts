@@ -34,14 +34,14 @@ describe('resolveBreadcrumbs', () => {
   describe('screens whose parent is not their path prefix', () => {
     test('program (Manage Program) hangs off Home, not Programs', () => {
       expect(resolveBreadcrumbs('program', 'Manage Program')).toEqual([
-        { label: 'Home', to: '/' },
+        { label: 'Home', to: '/home' },
         { label: 'Manage Program' },
       ])
     })
 
     test('standalone-workouts hangs off Home', () => {
       expect(resolveBreadcrumbs('standalone-workouts', 'Strength on the Go')).toEqual([
-        { label: 'Home', to: '/' },
+        { label: 'Home', to: '/home' },
         { label: 'Strength on the Go' },
       ])
     })
@@ -50,7 +50,7 @@ describe('resolveBreadcrumbs', () => {
   describe('two-parent chains', () => {
     test('a program day carries Home → Manage Program', () => {
       expect(resolveBreadcrumbs('program-week-week-day-day', 'Log Workout')).toEqual([
-        { label: 'Home', to: '/' },
+        { label: 'Home', to: '/home' },
         { label: 'Manage Program', to: '/program' },
         { label: 'Log Workout' },
       ])
@@ -58,7 +58,7 @@ describe('resolveBreadcrumbs', () => {
 
     test('a standalone workout carries Home → Strength on the Go', () => {
       expect(resolveBreadcrumbs('standalone-workouts-id', 'Full Body A')).toEqual([
-        { label: 'Home', to: '/' },
+        { label: 'Home', to: '/home' },
         { label: 'Strength on the Go', to: '/standalone-workouts' },
         { label: 'Full Body A' },
       ])

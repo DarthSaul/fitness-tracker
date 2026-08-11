@@ -51,6 +51,13 @@ if (route.query.confirmed === 'true') {
   successMessage.value = 'Email confirmed! You can now sign in.'
 }
 
+// The landing page's "Get started" CTA opens straight into the signup form, so
+// `/login` stays the single auth surface rather than growing a sibling page.
+if (route.query.signup === '1') {
+  emailOpen.value = true
+  mode.value = 'signup'
+}
+
 const submitLabel = computed(() => {
   if (mode.value === 'signup') return 'Create Account'
   if (mode.value === 'reset') return 'Send Reset Link'
@@ -85,12 +92,12 @@ async function handleEmailSubmit() {
         successMessage.value = 'Check your email to confirm your account before signing in.'
       }
       else {
-        await navigateTo('/')
+        await navigateTo('/home')
       }
     }
     else {
       await signInWithEmail(email.value, password.value)
-      await navigateTo('/')
+      await navigateTo('/home')
     }
   }
   catch (err: unknown) {

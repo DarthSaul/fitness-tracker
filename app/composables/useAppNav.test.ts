@@ -21,10 +21,10 @@ describe('APP_NAV_ITEMS', () => {
     ])
   })
 
-  // Home moves to /home when the dashboard vacates `/` for the landing page.
+  // Home is /home, not `/` — the root is the public landing page.
   test('points at the five tab roots', () => {
     expect(APP_NAV_ITEMS.map(item => item.to)).toEqual([
-      '/',
+      '/home',
       '/history',
       '/analytics',
       '/programs',

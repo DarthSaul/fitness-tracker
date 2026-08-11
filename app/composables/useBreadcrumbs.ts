@@ -18,14 +18,14 @@ const PARENTS: Record<string, Crumb[]> = {
   'history-id': [{ label: 'History', to: '/history' }],
   'history-standalone-id': [{ label: 'History', to: '/history' }],
   'programs-id': [{ label: 'Programs', to: '/programs' }],
-  'program': [{ label: 'Home', to: '/' }],
+  'program': [{ label: 'Home', to: '/home' }],
   'program-week-week-day-day': [
-    { label: 'Home', to: '/' },
+    { label: 'Home', to: '/home' },
     { label: 'Manage Program', to: '/program' },
   ],
-  'standalone-workouts': [{ label: 'Home', to: '/' }],
+  'standalone-workouts': [{ label: 'Home', to: '/home' }],
   'standalone-workouts-id': [
-    { label: 'Home', to: '/' },
+    { label: 'Home', to: '/home' },
     { label: 'Strength on the Go', to: '/standalone-workouts' },
   ],
   'feedback': [{ label: 'Settings', to: '/settings' }],

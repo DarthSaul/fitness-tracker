@@ -57,7 +57,7 @@ describe('ShellSideNav', () => {
       'Settings',
     ])
     expect(items.map(item => item.attributes('href'))).toEqual([
-      '/',
+      '/home',
       '/history',
       '/analytics',
       '/programs',

@@ -25,7 +25,7 @@ const userInitial = computed(() => user.value?.name?.charAt(0).toUpperCase() ?? 
 <template>
   <div class="w-sidenav shrink-0 flex-col border-r border-separator bg-canvas px-3 py-4">
     <NuxtLink
-      to="/"
+      to="/home"
       class="flex items-center gap-2.5 rounded-panel px-2 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tint"
     >
       <img src="/icons/icon-192.png" alt="" aria-hidden="true" class="size-8 rounded-tile">

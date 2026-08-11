@@ -12,7 +12,7 @@ export type NavItem = {
 }
 
 export const APP_NAV_ITEMS: readonly NavItem[] = [
-  { label: 'Home', icon: 'i-lucide-house', to: '/' },
+  { label: 'Home', icon: 'i-lucide-house', to: '/home' },
   { label: 'History', icon: 'i-lucide-history', to: '/history' },
   { label: 'Analytics', icon: 'i-lucide-trending-up', to: '/analytics' },
   { label: 'Programs', icon: 'i-lucide-dumbbell', to: '/programs' },

@@ -1,10 +1,12 @@
 /**
  * Composable that wraps `nuxt-auth-utils` session state with app-level sign-in and sign-out actions.
  * Supports Google OAuth and email/password authentication via Supabase Auth.
- * @returns Session state (`loggedIn`, `user`, `session`, `fetch`) plus auth action helpers.
+ * @returns Session state (`loggedIn`, `ready`, `user`, `session`, `fetch`) plus auth action helpers.
  */
 export function useAuth() {
-  const { loggedIn, user, session, fetch } = useUserSession()
+  // `ready` distinguishes "signed out" from "not resolved yet" — the landing
+  // page needs that to avoid flashing marketing at a signed-in visitor.
+  const { loggedIn, ready, user, session, fetch } = useUserSession()
 
   /** Redirects the browser to the Google OAuth initiation endpoint. */
   async function signInWithGoogle() {
@@ -48,15 +50,16 @@ export function useAuth() {
     })
   }
 
-  /** Clears the server session, refreshes local session state, and navigates to the login page. */
+  /** Clears the server session, refreshes local session state, and returns to the public landing page. */
   async function signOut() {
     await $fetch('/api/auth/logout', { method: 'POST' })
     await fetch()
-    await navigateTo('/login')
+    await navigateTo('/')
   }
 
   return {
     loggedIn,
+    ready,
     user,
     session,
     fetch,

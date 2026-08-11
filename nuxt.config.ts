@@ -105,11 +105,14 @@ export default defineNuxtConfig({
     manifest: {
       name: 'DR. DUMBBELL',
       short_name: 'Dr. Dumbbell',
-      start_url: '/',
+      // An installed app opens straight into the dashboard, not the marketing
+      // page. `scope` stays at the root because it must cover `/`, `/login` and
+      // the OAuth callbacks; `id` stays because changing it mints a new app
+      // identity and orphans every existing install.
+      start_url: '/home',
       scope: '/',
       id: '/',
       display: 'standalone',
-      orientation: 'portrait',
       // Matches the dark systemBackground. The manifest colours are static per
       // spec, so the light-scheme splash intentionally doesn't track them.
       theme_color: '#000000',
