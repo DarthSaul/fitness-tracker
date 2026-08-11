@@ -79,9 +79,13 @@ const emptyMessage = computed(() => {
       </UButton>
     </div>
 
-    <!-- Program list -->
-    <div v-if="status !== 'pending' && status !== 'error' && programs && programs.length > 0" class="space-y-4">
-      <template v-if="filteredPrograms.length > 0">
+    <!-- Program list. Two-up from `xl`; a real element rather than a fragment so
+         the empty-state message below does not become a half-width grid cell. -->
+    <div v-if="status !== 'pending' && status !== 'error' && programs && programs.length > 0">
+      <div
+        v-if="filteredPrograms.length > 0"
+        class="space-y-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0"
+      >
         <UCard
           v-for="program in filteredPrograms"
           :key="program.id"
@@ -127,7 +131,7 @@ const emptyMessage = computed(() => {
             {{ program.description }}
           </p>
         </UCard>
-      </template>
+      </div>
       <p v-else class="text-center text-sm text-label-secondary">
         {{ emptyMessage }}
       </p>

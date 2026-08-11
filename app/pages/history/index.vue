@@ -56,10 +56,23 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <div class="divide-y divide-separator overflow-hidden rounded-card bg-surface">
-        <HistoryRow v-for="entry in sessions" :key="entry.id" :entry="entry" />
+      <!--
+        One divided card on a phone; a grid of individual cards from `xl`,
+        where a single column of full-width rows would leave the frame empty.
+        Reading order stays newest-first, left to right then down.
+      -->
+      <div
+        class="divide-y divide-separator overflow-hidden rounded-card bg-surface xl:grid xl:grid-cols-2 xl:gap-3 xl:divide-y-0 xl:rounded-none xl:bg-transparent"
+      >
+        <HistoryRow
+          v-for="entry in sessions"
+          :key="entry.id"
+          :entry="entry"
+          class="xl:overflow-hidden xl:rounded-card xl:bg-surface"
+        />
       </div>
 
+      <!-- Outside the grid: as a child it would take a cell of its own -->
       <div ref="sentinel" class="h-px" />
 
       <div v-if="loadingMore" class="py-4">

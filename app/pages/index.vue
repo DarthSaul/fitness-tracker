@@ -322,523 +322,537 @@ async function handleUnschedule(): Promise<void> {
 </script>
 
 <template>
-	<!-- Weekly calendar strip -->
-	<CalendarStrip
-		v-model="selectedDate"
-		:loading="!nowRef"
-		:scheduled-dates="scheduledDateStrings"
-		class="mb-3"
-	/>
+	<!--
+		From `xl` the day you are training splits from everything else: the
+		calendar, today's workout and the program row stay in the left column,
+		while Strength on the Go and recent history move alongside. Placement is
+		explicit because auto-flow would drop the date header beside the calendar
+		rather than beneath it.
+	-->
+	<div class="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
+		<!-- Weekly calendar strip -->
+		<CalendarStrip
+			v-model="selectedDate"
+			:loading="!nowRef"
+			:scheduled-dates="scheduledDateStrings"
+			class="mb-3 xl:col-start-1 xl:row-start-1"
+		/>
 
-	<!-- Date header -->
-	<h2 class="text-lg font-semibold text-label mb-3">
-		{{ formattedSelectedDate }}
-	</h2>
-	<div class="space-y-6">
-		<!-- ===== TODAY VIEW ===== -->
-		<template v-if="isViewingToday">
-			<!-- Workout card skeleton -->
-			<AppSkeleton
-				v-if="
-					activeWorkoutStatus === 'pending' ||
-					activeProgramStatus === 'pending'
-				"
-				:height="220"
-			/>
-
-			<!-- Resume workout with progress bar -->
-			<div
-				v-else-if="activeWorkout?.session"
-				class="flex overflow-hidden rounded-card border border-separator min-h-[220px] cursor-pointer"
-				tabindex="0"
-				role="button"
-				:aria-label="`Resume workout: Week ${activeWorkout.session.weekNumber}, Day ${activeWorkout.session.dayNumber}`"
-				@click="resumeWorkout"
-				@keydown.enter="resumeWorkout"
-				@keydown.space.prevent="resumeWorkout"
-			>
-				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
+		<!-- Date header -->
+		<h2 class="text-lg font-semibold text-label mb-3 xl:col-start-1 xl:row-start-2">
+			{{ formattedSelectedDate }}
+		</h2>
+		<div class="space-y-6 xl:col-start-1 xl:row-start-3">
+			<!-- ===== TODAY VIEW ===== -->
+			<template v-if="isViewingToday">
+				<!-- Workout card skeleton -->
+				<AppSkeleton
+					v-if="
+						activeWorkoutStatus === 'pending' ||
+						activeProgramStatus === 'pending'
+					"
+					:height="220"
 				/>
-				<UCard
-					v-wave
-					class="flex-1 min-w-0 rounded-none border-0"
-					:ui="{ body: 'p-4 flex flex-col h-full' }"
-				>
-					<p class="text-sm text-label-secondary mb-1">In progress</p>
-					<p class="font-medium text-label">
-						Week
-						{{
-							activeWorkout.session
-								.weekNumber
-						}}
-						· Day
-						{{
-							activeWorkout.session
-								.dayNumber
-						}}
-					</p>
-					<div class="mt-3 space-y-1">
-						<div
-							class="h-3 overflow-hidden rounded-full bg-fill"
-						>
-							<div
-								class="h-full rounded-full bg-tint transition-all duration-300"
-								:style="{
-									width: `${activeWorkoutProgress}%`,
-								}"
-							/>
-						</div>
-						<p
-							class="text-xs text-label-secondary"
-						>
-							{{
-								activeWorkoutCompletedSets
-							}}
-							/
-							{{
-								activeWorkoutTotalSets
-							}}
-							sets
-						</p>
-					</div>
-					<ul v-if="activeWorkoutNextExercise" class="mt-2 space-y-1">
-						<li class="flex items-center gap-2 text-sm text-label">
-							<span class="size-1.5 shrink-0 rounded-full bg-tint" />
-							Next: {{ activeWorkoutNextExercise }}
-						</li>
-					</ul>
-					<span
-						class="mt-auto flex items-center justify-between gap-1 rounded-chip bg-ios-green/20 px-2.5 py-1 text-sm font-medium text-ios-green"
-					>
-						Resume workout
-						<UIcon
-							name="i-lucide-chevron-right"
-							class="size-4.5"
-						/>
-					</span>
-				</UCard>
-			</div>
 
-			<!-- Next day / Start workout card -->
-			<div
-				v-else-if="activeProgram"
-				class="flex overflow-hidden rounded-card border border-separator min-h-[220px]"
-				:class="
-					startingWorkout
-						? 'opacity-70 cursor-wait'
-						: 'cursor-pointer'
-				"
-				:tabindex="startingWorkout ? -1 : 0"
-				role="button"
-				:aria-label="`Start workout: Week ${activeProgram.currentWeek}, Day ${activeProgram.currentDay}`"
-				:aria-busy="startingWorkout"
-				:aria-disabled="startingWorkout"
-				@click="
-					!startingWorkout && handleStartWorkout()
-				"
-				@keydown.enter="
-					!startingWorkout && handleStartWorkout()
-				"
-				@keydown.space.prevent="
-					!startingWorkout && handleStartWorkout()
-				"
-			>
+				<!-- Resume workout with progress bar -->
 				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
-				/>
-				<UCard
-					v-wave
-					class="flex-1 min-w-0 rounded-none border-0"
-					:ui="{ body: 'p-4 flex flex-col h-full' }"
+					v-else-if="activeWorkout?.session"
+					class="flex overflow-hidden rounded-card border border-separator min-h-[220px] cursor-pointer"
+					tabindex="0"
+					role="button"
+					:aria-label="`Resume workout: Week ${activeWorkout.session.weekNumber}, Day ${activeWorkout.session.dayNumber}`"
+					@click="resumeWorkout"
+					@keydown.enter="resumeWorkout"
+					@keydown.space.prevent="resumeWorkout"
 				>
-					<p
-						class="text-sm text-label-secondary mb-1"
-					>
-						{{
-							nextWorkoutIsScheduledForFuture
-								? nextWorkoutScheduledLabel
-								: 'Next up'
-						}}
-					</p>
-					<p
-						class="font-semibold text-label"
-					>
-						Week
-						{{
-							activeProgram.currentWeek
-						}}
-						· Day
-						{{
-							activeProgram.currentDay
-						}}
-					</p>
-					<!-- Exercise preview -->
-					<ul
-						v-if="nextWorkoutExercises.length"
-						class="mt-2 space-y-1"
-					>
-						<li
-							v-for="(name, i) in nextWorkoutExercises.slice(0, 3)"
-							:key="i"
-							class="flex items-center gap-2 text-sm text-label"
-						>
-							<span
-								class="size-1.5 shrink-0 rounded-full bg-tint"
-							/>
-							{{ name }}
-						</li>
-						<li
-							v-if="nextWorkoutExercises.length > 3"
-							class="text-xs text-label-secondary mb-1"
-						>
-							+{{ nextWorkoutExercises.length - 3 }} more
-						</li>
-					</ul>
-					<span
-						class="mt-auto flex items-center justify-between gap-1 rounded-chip bg-ios-green/20 px-2.5 py-1 text-sm font-medium text-ios-green"
-					>
-						{{
-							nextWorkoutIsScheduledForFuture
-								? 'Start next workout early'
-								: 'Start next workout'
-						}}
-						<UIcon
-							v-if="startingWorkout"
-							name="i-lucide-loader-circle"
-							class="size-4.5 animate-spin"
-						/>
-						<UIcon
-							v-else
-							name="i-lucide-chevron-right"
-							class="size-4.5"
-						/>
-					</span>
-					<button
-						class="mt-2 flex w-full items-center justify-between gap-1 rounded-chip bg-label-secondary/15 px-2.5 py-1 text-sm font-medium text-label transition-colors hover:bg-label-secondary/15"
-						type="button"
-						aria-label="Preview next workout"
-						@click.stop="previewOpen = true"
-						@keydown.enter.stop.prevent="previewOpen = true"
-						@keydown.space.stop.prevent="previewOpen = true"
-					>
-						Preview
-						<UIcon
-							name="i-lucide-eye"
-							class="size-4.5"
-						/>
-					</button>
-					<UAlert
-						v-if="workoutError"
-						color="error"
-						variant="subtle"
-						:title="workoutError"
-						class="mt-3"
+					<div
+						class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
 					/>
+					<UCard
+						v-wave
+						class="flex-1 min-w-0 rounded-none border-0"
+						:ui="{ body: 'p-4 flex flex-col h-full' }"
+					>
+						<p class="text-sm text-label-secondary mb-1">In progress</p>
+						<p class="font-medium text-label">
+							Week
+							{{
+								activeWorkout.session
+									.weekNumber
+							}}
+							· Day
+							{{
+								activeWorkout.session
+									.dayNumber
+							}}
+						</p>
+						<div class="mt-3 space-y-1">
+							<div
+								class="h-3 overflow-hidden rounded-full bg-fill"
+							>
+								<div
+									class="h-full rounded-full bg-tint transition-all duration-300"
+									:style="{
+										width: `${activeWorkoutProgress}%`,
+									}"
+								/>
+							</div>
+							<p
+								class="text-xs text-label-secondary"
+							>
+								{{
+									activeWorkoutCompletedSets
+								}}
+								/
+								{{
+									activeWorkoutTotalSets
+								}}
+								sets
+							</p>
+						</div>
+						<ul v-if="activeWorkoutNextExercise" class="mt-2 space-y-1">
+							<li class="flex items-center gap-2 text-sm text-label">
+								<span class="size-1.5 shrink-0 rounded-full bg-tint" />
+								Next: {{ activeWorkoutNextExercise }}
+							</li>
+						</ul>
+						<span
+							class="mt-auto flex items-center justify-between gap-1 rounded-chip bg-ios-green/20 px-2.5 py-1 text-sm font-medium text-ios-green"
+						>
+							Resume workout
+							<UIcon
+								name="i-lucide-chevron-right"
+								class="size-4.5"
+							/>
+						</span>
+					</UCard>
+				</div>
+
+				<!-- Next day / Start workout card -->
+				<div
+					v-else-if="activeProgram"
+					class="flex overflow-hidden rounded-card border border-separator min-h-[220px]"
+					:class="
+						startingWorkout
+							? 'opacity-70 cursor-wait'
+							: 'cursor-pointer'
+					"
+					:tabindex="startingWorkout ? -1 : 0"
+					role="button"
+					:aria-label="`Start workout: Week ${activeProgram.currentWeek}, Day ${activeProgram.currentDay}`"
+					:aria-busy="startingWorkout"
+					:aria-disabled="startingWorkout"
+					@click="
+						!startingWorkout && handleStartWorkout()
+					"
+					@keydown.enter="
+						!startingWorkout && handleStartWorkout()
+					"
+					@keydown.space.prevent="
+						!startingWorkout && handleStartWorkout()
+					"
+				>
+					<div
+						class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
+					/>
+					<UCard
+						v-wave
+						class="flex-1 min-w-0 rounded-none border-0"
+						:ui="{ body: 'p-4 flex flex-col h-full' }"
+					>
+						<p
+							class="text-sm text-label-secondary mb-1"
+						>
+							{{
+								nextWorkoutIsScheduledForFuture
+									? nextWorkoutScheduledLabel
+									: 'Next up'
+							}}
+						</p>
+						<p
+							class="font-semibold text-label"
+						>
+							Week
+							{{
+								activeProgram.currentWeek
+							}}
+							· Day
+							{{
+								activeProgram.currentDay
+							}}
+						</p>
+						<!-- Exercise preview -->
+						<ul
+							v-if="nextWorkoutExercises.length"
+							class="mt-2 space-y-1"
+						>
+							<li
+								v-for="(name, i) in nextWorkoutExercises.slice(0, 3)"
+								:key="i"
+								class="flex items-center gap-2 text-sm text-label"
+							>
+								<span
+									class="size-1.5 shrink-0 rounded-full bg-tint"
+								/>
+								{{ name }}
+							</li>
+							<li
+								v-if="nextWorkoutExercises.length > 3"
+								class="text-xs text-label-secondary mb-1"
+							>
+								+{{ nextWorkoutExercises.length - 3 }} more
+							</li>
+						</ul>
+						<span
+							class="mt-auto flex items-center justify-between gap-1 rounded-chip bg-ios-green/20 px-2.5 py-1 text-sm font-medium text-ios-green"
+						>
+							{{
+								nextWorkoutIsScheduledForFuture
+									? 'Start next workout early'
+									: 'Start next workout'
+							}}
+							<UIcon
+								v-if="startingWorkout"
+								name="i-lucide-loader-circle"
+								class="size-4.5 animate-spin"
+							/>
+							<UIcon
+								v-else
+								name="i-lucide-chevron-right"
+								class="size-4.5"
+							/>
+						</span>
+						<button
+							class="mt-2 flex w-full items-center justify-between gap-1 rounded-chip bg-label-secondary/15 px-2.5 py-1 text-sm font-medium text-label transition-colors hover:bg-label-secondary/15"
+							type="button"
+							aria-label="Preview next workout"
+							@click.stop="previewOpen = true"
+							@keydown.enter.stop.prevent="previewOpen = true"
+							@keydown.space.stop.prevent="previewOpen = true"
+						>
+							Preview
+							<UIcon
+								name="i-lucide-eye"
+								class="size-4.5"
+							/>
+						</button>
+						<UAlert
+							v-if="workoutError"
+							color="error"
+							variant="subtle"
+							:title="workoutError"
+							class="mt-3"
+						/>
+					</UCard>
+				</div>
+
+				<!-- No active program placeholder -->
+				<UCard v-else class="py-1">
+					<div class="text-label-secondary">
+						Next day in program
+					</div>
 				</UCard>
+			</template>
+
+			<!-- ===== NON-TODAY VIEW ===== -->
+			<template v-else>
+				<!-- Scheduled workout for this date -->
+				<div
+					v-if="scheduledForSelectedDate"
+					class="flex overflow-hidden rounded-card border border-separator"
+				>
+					<div
+						class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
+					/>
+					<UCard
+						class="flex-1 min-w-0 rounded-none border-0 py-1"
+					>
+						<p class="text-sm text-label-secondary">
+							Scheduled
+						</p>
+						<p class="font-semibold text-label">
+							Week
+							{{
+								scheduledForSelectedDate.weekNumber
+							}}, Day
+							{{
+								scheduledForSelectedDate.dayNumber
+							}}
+							<span
+								v-if="
+									getDayName(
+										scheduledForSelectedDate.weekNumber,
+										scheduledForSelectedDate.dayNumber,
+									)
+								"
+								class="font-normal text-label-secondary"
+							>
+								—
+								{{
+									getDayName(
+										scheduledForSelectedDate.weekNumber,
+										scheduledForSelectedDate.dayNumber,
+									)
+								}}
+							</span>
+						</p>
+						<button
+							class="mt-3 flex items-center justify-between gap-1 rounded-chip bg-label-secondary/15 px-2.5 py-1 text-sm font-medium text-label transition-colors hover:bg-label-secondary/15"
+							:disabled="unscheduling"
+							:class="
+								unscheduling
+									? 'w-full opacity-50 cursor-wait'
+									: 'w-full'
+							"
+							@click="handleUnschedule"
+						>
+							<template v-if="unscheduling">
+								<UIcon
+									name="i-lucide-loader-circle"
+									class="size-4 animate-spin"
+								/>
+								Unscheduling…
+							</template>
+							<template v-else>
+								Unschedule
+								<UIcon
+									name="i-lucide-x"
+									class="size-4"
+								/>
+							</template>
+						</button>
+						<UAlert
+							v-if="scheduleError"
+							color="error"
+							variant="subtle"
+							:title="scheduleError"
+							class="mt-3"
+						/>
+					</UCard>
+				</div>
+
+				<!-- No workout scheduled for this date -->
+				<div
+					v-else-if="activeProgram"
+					class="flex overflow-hidden rounded-card border border-separator min-h-[220px]"
+				>
+					<div
+						class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
+					/>
+					<UCard
+						class="flex-1 min-w-0 rounded-none border-0"
+						:ui="{ body: 'p-4 flex flex-col h-full' }"
+					>
+						<p class="text-sm text-label-secondary">
+							Scheduled
+						</p>
+						<p class="font-semibold text-label">
+							No workout scheduled
+						</p>
+						<button
+							class="mt-auto flex w-full items-center justify-between gap-1 rounded-chip bg-tint/15 px-2.5 py-1 text-sm font-medium text-tint transition-colors hover:bg-tint/25"
+							@click="scheduleModalOpen = true"
+						>
+							Schedule a workout
+							<UIcon
+								name="i-lucide-plus"
+								class="size-4.5"
+							/>
+						</button>
+					</UCard>
+				</div>
+
+				<!-- No active program -->
+				<UCard
+					v-else-if="activeProgramStatus !== 'pending'"
+					class="py-1"
+				>
+					<div class="text-label-secondary">
+						No active program
+					</div>
+				</UCard>
+			</template>
+
+			<!-- Loading -->
+			<div
+				v-if="
+					activeProgramStatus === 'pending' ||
+					sessionsStatus === 'pending'
+				"
+				class="grid grid-cols-[1fr_3fr] gap-3"
+			>
+				<AppSkeleton :height="112" />
+				<AppSkeleton :height="112" />
 			</div>
 
-			<!-- No active program placeholder -->
-			<UCard v-else class="py-1">
-				<div class="text-label-secondary">
-					Next day in program
+			<!-- Fetch error (non-404) -->
+			<UCard v-else-if="isActiveProgramFetchError" class="py-1">
+				<div class="text-center text-ios-red">
+					<p>Failed to load program.</p>
+					<p class="mt-1 text-sm">
+						Please try again later.
+					</p>
 				</div>
 			</UCard>
-		</template>
 
-		<!-- ===== NON-TODAY VIEW ===== -->
-		<template v-else>
-			<!-- Scheduled workout for this date -->
-			<div
-				v-if="scheduledForSelectedDate"
-				class="flex overflow-hidden rounded-card border border-separator"
-			>
-				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
-				/>
-				<UCard
-					class="flex-1 min-w-0 rounded-none border-0 py-1"
-				>
-					<p class="text-sm text-label-secondary">
-						Scheduled
-					</p>
-					<p class="font-semibold text-label">
-						Week
-						{{
-							scheduledForSelectedDate.weekNumber
-						}}, Day
-						{{
-							scheduledForSelectedDate.dayNumber
-						}}
-						<span
-							v-if="
-								getDayName(
-									scheduledForSelectedDate.weekNumber,
-									scheduledForSelectedDate.dayNumber,
-								)
-							"
-							class="font-normal text-label-secondary"
-						>
-							—
-							{{
-								getDayName(
-									scheduledForSelectedDate.weekNumber,
-									scheduledForSelectedDate.dayNumber,
-								)
-							}}
-						</span>
-					</p>
-					<button
-						class="mt-3 flex items-center justify-between gap-1 rounded-chip bg-label-secondary/15 px-2.5 py-1 text-sm font-medium text-label transition-colors hover:bg-label-secondary/15"
-						:disabled="unscheduling"
-						:class="
-							unscheduling
-								? 'w-full opacity-50 cursor-wait'
-								: 'w-full'
-						"
-						@click="handleUnschedule"
-					>
-						<template v-if="unscheduling">
-							<UIcon
-								name="i-lucide-loader-circle"
-								class="size-4 animate-spin"
-							/>
-							Unscheduling…
-						</template>
-						<template v-else>
-							Unschedule
-							<UIcon
-								name="i-lucide-x"
-								class="size-4"
-							/>
-						</template>
-					</button>
-					<UAlert
-						v-if="scheduleError"
-						color="error"
-						variant="subtle"
-						:title="scheduleError"
-						class="mt-3"
-					/>
-				</UCard>
-			</div>
-
-			<!-- No workout scheduled for this date -->
+			<!-- Active program -->
 			<div
 				v-else-if="activeProgram"
-				class="flex overflow-hidden rounded-card border border-separator min-h-[220px]"
+				class="grid grid-cols-[1fr_3fr] gap-3"
 			>
-				<div
-					class="w-3 shrink-0 bg-gradient-to-b from-ios-purple to-ios-pink"
-				/>
-				<UCard
-					class="flex-1 min-w-0 rounded-none border-0"
-					:ui="{ body: 'p-4 flex flex-col h-full' }"
-				>
-					<p class="text-sm text-label-secondary">
-						Scheduled
-					</p>
-					<p class="font-semibold text-label">
-						No workout scheduled
-					</p>
-					<button
-						class="mt-auto flex w-full items-center justify-between gap-1 rounded-chip bg-tint/15 px-2.5 py-1 text-sm font-medium text-tint transition-colors hover:bg-tint/25"
-						@click="scheduleModalOpen = true"
+				<!-- Circular progress card -->
+				<UCard class="py-0">
+					<div
+						class="flex flex-col items-center justify-center -my-1"
 					>
-						Schedule a workout
-						<UIcon
-							name="i-lucide-plus"
-							class="size-4.5"
-						/>
-					</button>
+						<svg
+							class="size-16"
+							viewBox="0 0 64 64"
+						>
+							<!-- Background circle -->
+							<circle
+								cx="32"
+								cy="32"
+								r="28"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="5"
+								class="text-label-tertiary"
+							/>
+							<!-- Progress arc -->
+							<circle
+								cx="32"
+								cy="32"
+								r="28"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="5"
+								stroke-linecap="round"
+								class="text-tint transition-all duration-500"
+								:stroke-dasharray="`${programProgressPercent * 1.7593} 175.93`"
+								transform="rotate(-90 32 32)"
+							/>
+							<text
+								x="32"
+								y="34"
+								text-anchor="middle"
+								dominant-baseline="middle"
+								fill="white"
+								font-size="13"
+								font-weight="600"
+							>
+								{{
+									programCompletedDays
+								}}/{{
+									programTotalDays
+								}}
+							</text>
+						</svg>
+					</div>
+				</UCard>
+
+				<!-- Program info card -->
+				<UCard
+					v-wave
+					class="overflow-hidden py-1 cursor-pointer"
+				>
+					<NuxtLink
+						to="/program"
+						class="flex h-full items-end justify-between"
+					>
+						<div>
+							<p
+								class="text-sm text-label-secondary"
+							>
+								My Program
+							</p>
+							<h4
+								class="font-semibold text-label"
+							>
+								{{
+									activeProgram
+										.program
+										.name
+								}}
+							</h4>
+						</div>
+						<span
+							class="flex items-center gap-1 rounded-full bg-tint/15 px-2.5 py-0.5 text-xs font-medium text-tint"
+						>
+							Manage
+							<UIcon
+								name="i-lucide-chevron-right"
+								class="size-3.5"
+							/>
+						</span>
+					</NuxtLink>
 				</UCard>
 			</div>
 
 			<!-- No active program -->
-			<UCard
-				v-else-if="activeProgramStatus !== 'pending'"
-				class="py-1"
-			>
-				<div class="text-label-secondary">
-					No active program
+			<UCard v-else class="py-1">
+				<div class="text-center text-label-secondary">
+					<p>No active programs yet.</p>
+					<NuxtLink
+						to="/programs"
+						class="mt-1 inline-block text-sm text-tint hover:text-tint"
+					>
+						Browse programs to get started.
+					</NuxtLink>
 				</div>
 			</UCard>
-		</template>
 
-		<!-- Loading -->
-		<div
-			v-if="
-				activeProgramStatus === 'pending' ||
-				sessionsStatus === 'pending'
-			"
-			class="grid grid-cols-[1fr_3fr] gap-3"
-		>
-			<AppSkeleton :height="112" />
-			<AppSkeleton :height="112" />
 		</div>
 
-		<!-- Fetch error (non-404) -->
-		<UCard v-else-if="isActiveProgramFetchError" class="py-1">
-			<div class="text-center text-ios-red">
-				<p>Failed to load program.</p>
-				<p class="mt-1 text-sm">
-					Please try again later.
-				</p>
-			</div>
-		</UCard>
-
-		<!-- Active program -->
-		<div
-			v-else-if="activeProgram"
-			class="grid grid-cols-[1fr_3fr] gap-3"
-		>
-			<!-- Circular progress card -->
-			<UCard class="py-0">
-				<div
-					class="flex flex-col items-center justify-center -my-1"
-				>
-					<svg
-						class="size-16"
-						viewBox="0 0 64 64"
-					>
-						<!-- Background circle -->
-						<circle
-							cx="32"
-							cy="32"
-							r="28"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="5"
-							class="text-label-tertiary"
-						/>
-						<!-- Progress arc -->
-						<circle
-							cx="32"
-							cy="32"
-							r="28"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="5"
-							stroke-linecap="round"
-							class="text-tint transition-all duration-500"
-							:stroke-dasharray="`${programProgressPercent * 1.7593} 175.93`"
-							transform="rotate(-90 32 32)"
-						/>
-						<text
-							x="32"
-							y="34"
-							text-anchor="middle"
-							dominant-baseline="middle"
-							fill="white"
-							font-size="13"
-							font-weight="600"
-						>
-							{{
-								programCompletedDays
-							}}/{{
-								programTotalDays
-							}}
-						</text>
-					</svg>
-				</div>
-			</UCard>
-
-			<!-- Program info card -->
-			<UCard
-				v-wave
-				class="overflow-hidden py-1 cursor-pointer"
-			>
-				<NuxtLink
-					to="/program"
-					class="flex h-full items-end justify-between"
-				>
-					<div>
-						<p
-							class="text-sm text-label-secondary"
-						>
-							My Program
-						</p>
-						<h4
-							class="font-semibold text-label"
-						>
-							{{
-								activeProgram
-									.program
-									.name
-							}}
-						</h4>
+		<!-- Right column from `xl`; stacked underneath below it -->
+		<div class="mt-6 space-y-6 xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:mt-0">
+			<!-- Strength on the Go -->
+			<NuxtLink v-wave to="/standalone-workouts" class="block">
+				<AppCard>
+					<div class="flex items-center gap-3">
+						<span class="flex size-10 shrink-0 items-center justify-center rounded-tile bg-gradient-to-b from-ios-purple to-ios-pink">
+							<UIcon name="i-lucide-zap" class="size-5 text-white" />
+						</span>
+						<span class="min-w-0 flex-1">
+							<span class="block text-headline">Strength on the Go</span>
+							<span class="block text-caption text-label-secondary">Quick 30–45 minute workouts, any time</span>
+						</span>
+						<span class="flex shrink-0 items-center gap-0.5 rounded-full bg-tint/15 px-2.5 py-1 text-caption font-semibold text-tint">
+							Browse
+							<UIcon name="i-lucide-chevron-right" class="size-3" />
+						</span>
 					</div>
-					<span
-						class="flex items-center gap-1 rounded-full bg-tint/15 px-2.5 py-0.5 text-xs font-medium text-tint"
-					>
-						Manage
-						<UIcon
-							name="i-lucide-chevron-right"
-							class="size-3.5"
-						/>
-					</span>
-				</NuxtLink>
-			</UCard>
-		</div>
-
-		<!-- No active program -->
-		<UCard v-else class="py-1">
-			<div class="text-center text-label-secondary">
-				<p>No active programs yet.</p>
-				<NuxtLink
-					to="/programs"
-					class="mt-1 inline-block text-sm text-tint hover:text-tint"
-				>
-					Browse programs to get started.
-				</NuxtLink>
-			</div>
-		</UCard>
-
-		<!-- Strength on the Go -->
-		<NuxtLink v-wave to="/standalone-workouts" class="block">
-			<AppCard>
-				<div class="flex items-center gap-3">
-					<span class="flex size-10 shrink-0 items-center justify-center rounded-tile bg-gradient-to-b from-ios-purple to-ios-pink">
-						<UIcon name="i-lucide-zap" class="size-5 text-white" />
-					</span>
-					<span class="min-w-0 flex-1">
-						<span class="block text-headline">Strength on the Go</span>
-						<span class="block text-caption text-label-secondary">Quick 30–45 minute workouts, any time</span>
-					</span>
-					<span class="flex shrink-0 items-center gap-0.5 rounded-full bg-tint/15 px-2.5 py-1 text-caption font-semibold text-tint">
-						Browse
-						<UIcon name="i-lucide-chevron-right" class="size-3" />
-					</span>
-				</div>
-			</AppCard>
-		</NuxtLink>
-
-		<!-- Recent history -->
-		<section class="space-y-2">
-			<p class="px-1 text-caption font-semibold uppercase text-label-secondary">
-				History
-			</p>
-			<AppSkeleton v-if="recentHistoryStatus === 'pending'" :height="64" :count="3" />
-			<div
-				v-else-if="recentHistory.length > 0"
-				class="divide-y divide-separator overflow-hidden rounded-card bg-surface"
-			>
-				<HistoryRow v-for="entry in recentHistory" :key="entry.id" :entry="entry" />
-			</div>
-			<!-- A failed fetch must not claim the user has never trained -->
-			<p
-				v-else-if="recentHistoryStatus === 'error'"
-				class="rounded-card bg-surface px-4 py-6 text-center text-subheadline text-label-secondary"
-			>
-				Couldn't load recent workouts.
-			</p>
-			<p v-else class="rounded-card bg-surface px-4 py-6 text-center text-subheadline text-label-secondary">
-				Finish a workout and it will show up here.
-			</p>
-			<NuxtLink to="/history" class="block px-1 pt-1 text-subheadline font-medium text-tint">
-				View all history →
+				</AppCard>
 			</NuxtLink>
-		</section>
+
+			<!-- Recent history -->
+			<section class="space-y-2">
+				<p class="px-1 text-caption font-semibold uppercase text-label-secondary">
+					History
+				</p>
+				<AppSkeleton v-if="recentHistoryStatus === 'pending'" :height="64" :count="3" />
+				<div
+					v-else-if="recentHistory.length > 0"
+					class="divide-y divide-separator overflow-hidden rounded-card bg-surface"
+				>
+					<HistoryRow v-for="entry in recentHistory" :key="entry.id" :entry="entry" />
+				</div>
+				<!-- A failed fetch must not claim the user has never trained -->
+				<p
+					v-else-if="recentHistoryStatus === 'error'"
+					class="rounded-card bg-surface px-4 py-6 text-center text-subheadline text-label-secondary"
+				>
+					Couldn't load recent workouts.
+				</p>
+				<p v-else class="rounded-card bg-surface px-4 py-6 text-center text-subheadline text-label-secondary">
+					Finish a workout and it will show up here.
+				</p>
+				<NuxtLink to="/history" class="block px-1 pt-1 text-subheadline font-medium text-tint">
+					View all history →
+				</NuxtLink>
+			</section>
+
+		</div>
 
 		<!-- Schedule workout modal -->
 		<ScheduleWorkoutModal

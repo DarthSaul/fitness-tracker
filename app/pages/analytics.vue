@@ -55,17 +55,22 @@ function handleExerciseClear() {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <!--
+    From `xl` the picker and the history it drives sit side by side, so
+    choosing an exercise renders its trend beside the selector instead of
+    below the fold. The stat row spans both columns.
+  -->
+  <div class="space-y-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6 xl:space-y-0">
     <!-- Section 1: Dashboard stats -->
     <!--
       One skeleton per grid cell: a single `:count="3"` would stack vertically
       inside one column instead of standing in for the three stat tiles.
     -->
-    <div v-if="dashboardStatus === 'pending'" class="grid grid-cols-3 gap-3">
+    <div v-if="dashboardStatus === 'pending'" class="grid grid-cols-3 gap-3 xl:col-span-2">
       <AppSkeleton v-for="i in 3" :key="i" :height="64" />
     </div>
 
-    <div v-else-if="dashboard" class="grid grid-cols-3 gap-3">
+    <div v-else-if="dashboard" class="grid grid-cols-3 gap-3 xl:col-span-2">
       <!-- Total Sessions -->
       <div class="rounded-tile bg-surface px-3 py-2.5">
         <UIcon name="i-lucide-calendar-check" class="size-4 text-tint mb-1" />
@@ -100,93 +105,96 @@ function handleExerciseClear() {
       </div>
     </div>
 
-    <!-- Section 2: e1RM explainer card -->
-    <div class="rounded-tile bg-surface overflow-hidden">
-      <!-- Collapsible header -->
-      <button
-        class="w-full flex items-center gap-3 px-4 py-3 text-left border-l-2 border-tint"
-        @click="e1rmInfoOpen = !e1rmInfoOpen"
-      >
-        <UIcon name="i-lucide-info" class="size-4 shrink-0 text-tint" />
-        <span class="flex-1 text-sm font-medium text-label">What is e1RM?</span>
-        <UIcon
-          name="i-lucide-chevron-down"
-          class="size-4 text-label-secondary transition-transform duration-200"
-          :class="e1rmInfoOpen ? 'rotate-180' : ''"
-        />
-      </button>
+    <!-- Left cell from `xl`: what e1RM is, and which exercise to look at -->
+    <div class="space-y-6">
+      <!-- Section 2: e1RM explainer card -->
+      <div class="rounded-tile bg-surface overflow-hidden">
+        <!-- Collapsible header -->
+        <button
+          class="w-full flex items-center gap-3 px-4 py-3 text-left border-l-2 border-tint"
+          @click="e1rmInfoOpen = !e1rmInfoOpen"
+        >
+          <UIcon name="i-lucide-info" class="size-4 shrink-0 text-tint" />
+          <span class="flex-1 text-sm font-medium text-label">What is e1RM?</span>
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="size-4 text-label-secondary transition-transform duration-200"
+            :class="e1rmInfoOpen ? 'rotate-180' : ''"
+          />
+        </button>
 
-      <!-- Expanded content -->
-      <div v-if="e1rmInfoOpen" class="px-4 pb-4 space-y-3 text-sm text-label">
-        <p>
-          Estimated 1-Rep Max (e1RM) is a way to estimate the maximum weight you could lift for a single rep, based on any set you actually performed.
-        </p>
-        <p>
-          Formula: <code class="px-1.5 py-0.5 rounded bg-label-secondary/15 text-tint font-mono text-xs">e1RM = weight × (1 + reps ÷ 30)</code>
-        </p>
-        <p>
-          This is the Epley formula — one of the most widely used estimates in strength training.
-        </p>
-        <p>
-          <span class="font-medium text-label">Why it matters:</span> Your program uses different rep ranges across phases (e.g., 5×5 one month, 3×12 the next). Your average weight would drop as rep counts go up, even if you're getting stronger. e1RM normalizes this so your trend always reflects true progress.
-        </p>
-        <p class="text-label-secondary">
-          Note: Less accurate above ~15 reps; most meaningful for compound barbell movements.
-        </p>
+        <!-- Expanded content -->
+        <div v-if="e1rmInfoOpen" class="px-4 pb-4 space-y-3 text-sm text-label">
+          <p>
+            Estimated 1-Rep Max (e1RM) is a way to estimate the maximum weight you could lift for a single rep, based on any set you actually performed.
+          </p>
+          <p>
+            Formula: <code class="px-1.5 py-0.5 rounded bg-label-secondary/15 text-tint font-mono text-xs">e1RM = weight × (1 + reps ÷ 30)</code>
+          </p>
+          <p>
+            This is the Epley formula — one of the most widely used estimates in strength training.
+          </p>
+          <p>
+            <span class="font-medium text-label">Why it matters:</span> Your program uses different rep ranges across phases (e.g., 5×5 one month, 3×12 the next). Your average weight would drop as rep counts go up, even if you're getting stronger. e1RM normalizes this so your trend always reflects true progress.
+          </p>
+          <p class="text-label-secondary">
+            Note: Less accurate above ~15 reps; most meaningful for compound barbell movements.
+          </p>
+        </div>
+      </div>
+
+      <!-- Section 3: Exercise selector -->
+      <div>
+        <h3 class="text-sm text-label-secondary mb-3">
+          Exercise
+        </h3>
+
+        <!-- Loading skeleton -->
+        <AppSkeleton v-if="exercisesStatus === 'pending'" :height="40" />
+
+        <!-- Error -->
+        <UCard v-else-if="exercisesStatus === 'error'">
+          <div class="text-center text-ios-red">
+            <p>Failed to load exercises.</p>
+            <p class="mt-1 text-sm">
+              Please try again later.
+            </p>
+          </div>
+        </UCard>
+
+        <!-- Empty -->
+        <UCard v-else-if="exercises && exercises.length === 0">
+          <div class="text-center text-label-secondary">
+            <p>No exercises tracked yet.</p>
+            <p class="mt-1 text-sm">
+              Complete some workouts to see your exercises here.
+            </p>
+          </div>
+        </UCard>
+
+        <!-- Searchable dropdown -->
+        <USelectMenu
+          v-else-if="exercises"
+          :model-value="selectedExerciseId"
+          :items="exercises"
+          value-key="id"
+          label-key="name"
+          :search-input="{ placeholder: 'Search exercises…' }"
+          placeholder="Choose an exercise…"
+          :clear="true"
+          size="lg"
+          class="w-full"
+          @update:model-value="handleExerciseChange"
+          @clear="handleExerciseClear"
+        >
+          <template #item-trailing="{ item: exercise }">
+            <span class="text-xs text-label-secondary">{{ (exercise as any).sessionCount }} sessions</span>
+          </template>
+        </USelectMenu>
       </div>
     </div>
 
-    <!-- Section 3: Exercise selector -->
-    <div>
-      <h3 class="text-sm text-label-secondary mb-3">
-        Exercise
-      </h3>
-
-      <!-- Loading skeleton -->
-      <AppSkeleton v-if="exercisesStatus === 'pending'" :height="40" />
-
-      <!-- Error -->
-      <UCard v-else-if="exercisesStatus === 'error'">
-        <div class="text-center text-ios-red">
-          <p>Failed to load exercises.</p>
-          <p class="mt-1 text-sm">
-            Please try again later.
-          </p>
-        </div>
-      </UCard>
-
-      <!-- Empty -->
-      <UCard v-else-if="exercises && exercises.length === 0">
-        <div class="text-center text-label-secondary">
-          <p>No exercises tracked yet.</p>
-          <p class="mt-1 text-sm">
-            Complete some workouts to see your exercises here.
-          </p>
-        </div>
-      </UCard>
-
-      <!-- Searchable dropdown -->
-      <USelectMenu
-        v-else-if="exercises"
-        :model-value="selectedExerciseId"
-        :items="exercises"
-        value-key="id"
-        label-key="name"
-        :search-input="{ placeholder: 'Search exercises…' }"
-        placeholder="Choose an exercise…"
-        :clear="true"
-        size="lg"
-        class="w-full"
-        @update:model-value="handleExerciseChange"
-        @clear="handleExerciseClear"
-      >
-        <template #item-trailing="{ item: exercise }">
-          <span class="text-xs text-label-secondary">{{ (exercise as any).sessionCount }} sessions</span>
-        </template>
-      </USelectMenu>
-    </div>
-
-    <!-- Section 4: Exercise history detail -->
+    <!-- Section 4: Exercise history detail — the right cell from `xl` -->
     <Transition
       enter-active-class="transition-all duration-200 ease-out"
       enter-from-class="opacity-0 -translate-y-1"
