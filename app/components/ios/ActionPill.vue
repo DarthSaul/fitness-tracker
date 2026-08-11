@@ -42,6 +42,11 @@ const TINT_CLASSES: Record<Tint, string> = {
  * `pointer-events-none` alone still leaves a link keyboard-reachable, so a
  * disabled pill is also taken out of the tab order, announced as disabled, and
  * has its navigation cancelled outright.
+ *
+ * Bound with `.capture` — that modifier is load-bearing. RouterLink puts its
+ * own `navigate` on the anchor, and a plain `@click` here falls through as a
+ * second bubble-phase listener merged *after* it, so `navigate` would read
+ * `defaultPrevented` as false and route away before this ever ran.
  */
 function onLinkClick(event: MouseEvent): void {
   if (props.disabled || props.loading) event.preventDefault()
@@ -61,7 +66,7 @@ const classes = computed(() => [
     :class="classes"
     :aria-disabled="disabled || loading ? 'true' : undefined"
     :tabindex="disabled || loading ? -1 : undefined"
-    @click="onLinkClick"
+    @click.capture="onLinkClick"
   >
     <span>{{ label }}</span>
     <UIcon v-if="icon" :name="icon" class="size-4 shrink-0" />
