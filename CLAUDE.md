@@ -1,6 +1,8 @@
 # DR. DUMBBELL
 
-A mobile-first PWA for tracking structured workout programs. Also consumed by a native iOS client. Registration is open — anyone can sign up with Google, Apple, or email.
+A mobile-first PWA for tracking structured workout programs, with a desktop layout from `lg` up. Also consumed by a native iOS client. Registration is open — anyone can sign up with Google, Apple, or email.
+
+**Routing:** `/` is the public marketing landing page and the only server-rendered route; the authenticated dashboard is `/home`. Every other route is client-rendered exactly as before (see `nitro.routeRules` in `nuxt.config.ts`).
 
 ## Tech Stack
 
@@ -40,9 +42,15 @@ workout-tracker/
 │       └── rate-limit.ts      # Upstash rate limiting (no-op when KV not configured)
 ├── app/
 │   ├── pages/                 # File-based routing (Vue pages)
-│   ├── components/            # Reusable Vue components
-│   ├── composables/           # Shared logic (useAuth, useWorkout)
-│   ├── layouts/               # App shell layouts
+│   │   ├── index.vue          # Public marketing landing page (the only SSR route)
+│   │   └── home.vue           # Authenticated dashboard
+│   ├── components/
+│   │   ├── ios/               # Design-system primitives (<AppCard>, …)
+│   │   ├── shell/             # App chrome (<ShellSideNav>, <ShellTabBar>, …)
+│   │   ├── marketing/         # Landing-page sections (<MarketingHero>, …)
+│   │   └── …                  # Feature components (workout/, history/, pt/)
+│   ├── composables/           # Shared logic (useAuth, useWorkout, useAppNav)
+│   ├── layouts/               # app · fullscreen · marketing · default
 │   ├── types/                 # TypeScript type definitions
 │   ├── middleware/            # Client-side route middleware
 │   └── plugins/               # Nuxt plugins (v-wave, etc.)
@@ -162,6 +170,30 @@ semantic palette rather than a bespoke theme. See `app/assets/css/main.css`.
   `<AppScreenHeader>`, `<AppProgressRing>`, `<AppSheet>`, `<AppSkeleton>` —
   before writing new markup.
 
+### Responsive Layout
+
+The app is mobile-first and stays that way; desktop is an additive layer on
+top, in two stages at Tailwind's default breakpoints.
+
+- **`lg` (1024px)** — the shell changes: the bottom tab bar becomes a
+  `w-sidenav` side rail, the `< Back` bar becomes a breadcrumb, and everything
+  centres in a `max-w-frame` window. iPad portrait stays on the phone shell
+  deliberately.
+- **`xl` (1280px)** — the dense screens (Home, Analytics, History, Programs)
+  go two-column.
+- **Geometry tokens** live in `main.css` §4: `max-w-frame` (1440),
+  `max-w-column` (768, single-column at `lg`), `max-w-content` (1120,
+  two-column at `xl`), `w-sidenav` (260). Do not add `--breakpoint-*`
+  overrides — they are global and would ripple through every Nuxt UI
+  component.
+- **Use CSS, not JS.** There is no `useMediaQuery` and no `@vueuse/core`;
+  responsive behaviour is Tailwind variants only. `/` is server-rendered, so a
+  JS width check there would hydrate-mismatch.
+- Drawers and sheets deliberately stay at the phone width — a centred 512px
+  panel docked to the bottom edge reads correctly on a large screen.
+- `hover:` needs no `lg:` scoping: Tailwind v4 already gates it behind
+  `@media (hover: hover)`.
+
 ### Nitro API Routes
 
 - All routes live under `server/api/` and are auto-registered by Nuxt.
@@ -226,7 +258,8 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 
 ## Roadmap
 
-**Current phase: Phase 6 — Web client parity with the iOS app**
+**Current phase: Phase 7 — Desktop and the public front door** (Phase 6 is
+complete apart from Exercise skip UI and Core workouts)
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
@@ -306,6 +339,31 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - [ ] Home "today" card polish — the resume/start/no-program cards still
       predate `AppCard`; they work but hand-roll their chrome.
 
+### Phase 7 — Desktop and the public front door
+- [x] Desktop shell — 1440px centred frame, 260px side rail replacing the tab
+      bar at `lg`, breadcrumbs replacing the `< Back` bar. Nav model and
+      breadcrumb map live in `app/composables/{useAppNav,useBreadcrumbs}.ts`;
+      chrome in `app/components/shell/`. Below `lg` the phone shell is
+      unchanged.
+- [x] Two-column layouts at `xl` on Home, Analytics, History and Programs
+- [x] Live workout on desktop — exercise flow beside a sticky control rail,
+      so progress, the rest timer and Complete stay put while scrolling
+- [x] Public marketing landing page at `/`; dashboard moved to `/home`
+- [x] Desktop layout for the sign-in screen
+- [x] SSR + prerender for `/` only, with SEO/OG meta and a corrected service
+      worker navigation fallback
+- [ ] **UI screenshots for the landing page** — the slots are wired and empty.
+      Populate `SHOTS` in `app/components/marketing/HowItWorks.vue` (three
+      phone captures at 390×844 CSS, DPR 2) and `SHOT` in
+      `.../Progress.vue` (one at 1280×800 CSS, DPR 2), dark scheme only,
+      into `public/img/screens/`. Shoot against `nuxt build && nuxt preview`,
+      and scroll `<main>` rather than the window — the app shell is
+      `fixed inset-0` and the document does not scroll.
+- [ ] Proper Open Graph card — `useSeoMeta` in `app/pages/index.vue` currently
+      points at `/icons/icon-512.png` with `twitterCard: 'summary'`. Compose a
+      1200×630 `public/img/og-cover.jpg` and switch to
+      `summary_large_image`.
+
 ### Backlog
 - [ ] Configure Apple OAuth (web redirect flow — needed only when web frontend is built)
 - [ ] RPE tracking (optional, user-enabled in settings)
@@ -314,6 +372,9 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - [ ] Manual unlink flow — UI to disconnect a specific provider Identity from a User (covers the "I changed my Apple email" case). Account linking on sign-in is implemented; this is the inverse operation.
 - [ ] `GET /api/feedback` authorization gating — restrict results to the authenticated user's own feedback unless the caller has an admin role; only admins should see cross-user entries (flagged by CodeRabbit on PR #93).
 - [ ] `GET /api/feedback` pagination — add a hard server-side cap (e.g. `take: 100`) and cursor- or page-based pagination to prevent unbounded system-wide reads as the dataset grows (flagged by CodeRabbit on PR #93).
+- [ ] `app/pages/analytics.vue` hardcodes hex colours in the sparkline SVG (`#8b5cf6`, `#1e1b4b`, `#c4b5fd`, `#94a3b8`) — a design-system violation that is far more visible now the chart renders at desktop width. Move them onto semantic tokens.
+- [ ] Raw Tailwind type sizes (`text-lg`, `text-sm`, `text-xs`) still in `app/pages/home.vue` and `app/pages/analytics.vue` — migrate to the iOS type scale.
+- [ ] Migrate the Analytics stat row to `AppStatTileGroup` / `AppStatTile`; it hand-rolls its own `grid-cols-3`, which is why the group primitive has no real consumer.
 - [ ] Achieve the 95% code coverage threshold — `vitest run --coverage` fails its configured 95% global thresholds on the current baseline (~74% lines as of 2026-07-09); backfill tests for uncovered server code (e.g. `server/routes/_schemas.ts`, `server/utils/supabase.ts`, scheduled-workouts routes) until the thresholds pass.
 
 ## Subagents
