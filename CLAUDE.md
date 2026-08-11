@@ -161,8 +161,9 @@ semantic palette rather than a bespoke theme. See `app/assets/css/main.css`.
   `text-subheadline`, `text-footnote`, `text-caption`, `text-caption2`.
 - **Radii:** `rounded-card` (14px, the signature surface), `rounded-panel` (12),
   `rounded-tile` (10), `rounded-chip` (8), `rounded-full`.
-- Cards have **no border and no shadow**. The only shadow in the app is
-  `shadow-chip`, on the floating scroll-title chip.
+- Cards have **no border and no shadow**. `shadow-chip` is the only shadow in
+  the app, and it is reserved for elements that float above content: the
+  scroll-title chip, the resume banner, and the PWA install banner.
 - Add `tnum` to any element rendering numbers so digits align, matching
   SwiftUI's `.monospacedDigit()`.
 - Reuse the primitives in `app/components/ios/` — `<AppCard>`,
@@ -340,7 +341,11 @@ complete apart from Exercise skip UI and Core workouts)
       full-screen interval timer (84px countdown, green/blue phase wash).
       Largest remaining surface; still flagged Beta on iOS.
 - [ ] Home "today" card polish — the resume/start/no-program cards still
-      predate `AppCard`; they work but hand-roll their chrome.
+      predate `AppCard`; they work but hand-roll their chrome. The start-workout
+      card additionally nests the "Preview" `<button>` inside a `role="button"`
+      wrapper, which is invalid interactive nesting — fix it in the same pass by
+      making "Start next workout" a real sibling button and dropping the
+      whole-card click target.
 
 ### Phase 7 — Desktop and the public front door
 - [x] Desktop shell — 1440px centred frame, 260px side rail replacing the tab
@@ -378,6 +383,8 @@ complete apart from Exercise skip UI and Core workouts)
 - [ ] `app/pages/analytics.vue` hardcodes hex colours in the sparkline SVG (`#8b5cf6`, `#1e1b4b`, `#c4b5fd`, `#94a3b8`) — a design-system violation that is far more visible now the chart renders at desktop width. Move them onto semantic tokens.
 - [ ] Raw Tailwind type sizes (`text-lg`, `text-sm`, `text-xs`) still in `app/pages/home.vue` and `app/pages/analytics.vue` — migrate to the iOS type scale.
 - [ ] Migrate the Analytics stat row to `AppStatTileGroup` / `AppStatTile`; it hand-rolls its own `grid-cols-3`, which is why the group primitive has no real consumer.
+- [ ] `text-white` is hardcoded on tint/brand backgrounds in ~11 places (`CalendarStrip`, `PwaInstallBanner`, `ShellResumeBanner`, `pt/*Drawer`, `MarketingHowItWorks`, `offline`, `home`, `feedback`). Add an `--color-on-tint` semantic token and migrate them together — doing one at a time is worse than leaving them consistent.
+- [ ] `app/pages/settings.vue` has the same empty-name avatar bug fixed in `ShellSideNav`: `user?.name?.charAt(0) ?? '?'` renders blank for an account with an empty name, since `''` is not nullish.
 - [ ] Achieve the 95% code coverage threshold — `vitest run --coverage` fails its configured 95% global thresholds on the current baseline (~74% lines as of 2026-07-09); backfill tests for uncovered server code (e.g. `server/routes/_schemas.ts`, `server/utils/supabase.ts`, scheduled-workouts routes) until the thresholds pass.
 
 ## Subagents

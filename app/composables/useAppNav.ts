@@ -22,16 +22,17 @@ export const APP_NAV_ITEMS: readonly NavItem[] = [
 /**
  * Whether `to` owns the screen currently at `path`.
  *
- * Home is matched exactly — with five tabs a prefix match would light it up on
- * every route. Every other tab also owns its nested detail screens, but stops
- * at a path boundary so `/programs` does not swallow `/programslist` (or, more
- * to the point, `/program`).
+ * Every tab owns its own route and anything nested under it, stopping at a path
+ * boundary so `/programs` does not swallow `/programslist` — or, more to the
+ * point, `/program`, which is a different screen.
+ *
+ * Home needed an exact-match special case while it lived at `/`, since `/` is a
+ * prefix of every route. At `/home` it is an ordinary prefix like the rest.
  *
  * Screens reached from a tab root but living outside its path — `/program`,
  * `/standalone-workouts`, `/feedback`, `/pt-routines` — deliberately light
  * nothing. The breadcrumb is what orients the user there.
  */
 export function isNavItemActive(to: string, path: string): boolean {
-  if (to === '/') return path === '/'
   return path === to || path.startsWith(`${to}/`)
 }

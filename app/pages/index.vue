@@ -21,28 +21,36 @@ const description
   = 'A workout tracker for people following a real program. Multi-week programs, '
     + 'set-by-set logging, exercise swaps, a rest timer, and strength trends per exercise.'
 
+/**
+ * Open Graph and canonical URLs have to be absolute — a relative one is
+ * ignored or misresolved by most crawlers. `appUrl` is baked in at build time
+ * here (this page is prerendered), so if the build environment didn't supply
+ * it, emit no URL rather than a broken `/…` one.
+ */
+const origin = (appUrl ?? '').replace(/\/+$/, '')
+
 // No dedicated OG artwork exists yet, so this points at the app icon, which
 // carries the wordmark — a plain-but-correct preview beats a broken one. Swap
 // to a 1200×630 card and `summary_large_image` when one is composed.
-const ogImage = `${appUrl}/icons/icon-512.png`
+const ogImage = origin ? `${origin}/icons/icon-512.png` : undefined
 
 useSeoMeta({
   title,
   description,
   ogType: 'website',
-  ogUrl: `${appUrl}/`,
+  ogUrl: origin ? `${origin}/` : undefined,
   ogTitle: `DR. DUMBBELL — ${title}`,
   ogDescription: description,
   ogImage,
-  ogImageWidth: 512,
-  ogImageHeight: 512,
+  ogImageWidth: ogImage ? 512 : undefined,
+  ogImageHeight: ogImage ? 512 : undefined,
   twitterCard: 'summary',
   twitterTitle: `DR. DUMBBELL — ${title}`,
   twitterDescription: description,
   twitterImage: ogImage,
 })
 
-useHead({ link: [{ rel: 'canonical', href: `${appUrl}/` }] })
+useHead({ link: origin ? [{ rel: 'canonical', href: `${origin}/` }] : [] })
 
 /**
  * On a prerendered `/`, nuxt-auth-utils defers its session fetch to

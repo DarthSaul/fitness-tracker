@@ -19,7 +19,10 @@ const route = useRoute()
 const config = useRuntimeConfig()
 const { user } = useAuth()
 
-const userInitial = computed(() => user.value?.name?.charAt(0).toUpperCase() ?? '?')
+// `||`, not `??`: an empty name yields an empty string from charAt, which is
+// not nullish and would render a blank avatar.
+const userInitial = computed(() => user.value?.name?.charAt(0).toUpperCase() || '?')
+const userName = computed(() => user.value?.name || 'Unknown')
 </script>
 
 <template>
@@ -71,7 +74,7 @@ const userInitial = computed(() => user.value?.name?.charAt(0).toUpperCase() ?? 
         {{ userInitial }}
       </span>
       <span class="min-w-0">
-        <span class="block truncate text-subheadline font-semibold">{{ user?.name ?? 'Unknown' }}</span>
+        <span class="block truncate text-subheadline font-semibold">{{ userName }}</span>
         <span class="block truncate text-caption text-label-secondary">{{ user?.email ?? '' }}</span>
       </span>
     </NuxtLink>

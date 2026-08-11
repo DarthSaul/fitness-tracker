@@ -546,12 +546,12 @@ async function handleUnschedule(): Promise<void> {
 					</UCard>
 				</div>
 
-				<!-- No active program placeholder -->
-				<UCard v-else class="py-1">
-					<div class="text-label-secondary">
-						Next day in program
-					</div>
-				</UCard>
+				<!--
+					No card when there is no active program: this slot used to
+					render an empty "Next day in program" label, which said
+					nothing and sat directly above the real "No active programs
+					yet" card that owns this state.
+				-->
 			</template>
 
 			<!-- ===== NON-TODAY VIEW ===== -->
@@ -862,6 +862,7 @@ async function handleUnschedule(): Promise<void> {
 			:program="activeProgram.program"
 			:scheduled-workouts="scheduledWorkouts"
 			:completed-days="completedDaysList"
+			:error="scheduleError"
 			@schedule="handleSchedule"
 		/>
 

@@ -149,10 +149,13 @@ onUnmounted(() => {
         </header>
 
         <div class="relative flex min-h-0 flex-1 flex-col">
+          <!-- tabindex="-1" so the skip link can actually move focus here;
+               without it the browser scrolls but focus stays on the link. -->
           <main
             id="main"
             ref="mainEl"
-            class="w-full flex-1 overflow-y-auto"
+            tabindex="-1"
+            class="w-full flex-1 overflow-y-auto outline-none"
             :style="{ paddingTop: isInlineHeader ? '0' : 'env(safe-area-inset-top)' }"
           >
             <!--

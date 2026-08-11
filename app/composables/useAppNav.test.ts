@@ -71,12 +71,31 @@ describe('isNavItemActive', () => {
     expect(isNavItemActive('/programs', '/program')).toBe(false)
   })
 
-  test('Home is matched exactly, not as a prefix', () => {
+  /**
+   * Home needed an exact-match special case while it lived at `/`, since `/`
+   * prefixes every route. At `/home` it behaves like any other tab — including
+   * owning nested paths, which is the consistent answer rather than making
+   * Home an arbitrary exception.
+   */
+  describe('Home', () => {
     const home = APP_NAV_ITEMS[0]!.to
 
-    expect(isNavItemActive(home, home)).toBe(true)
-    expect(isNavItemActive(home, '/history')).toBe(false)
-    expect(isNavItemActive(home, '/analytics')).toBe(false)
+    test('matches its own route', () => {
+      expect(isNavItemActive(home, home)).toBe(true)
+    })
+
+    test('does not match sibling tabs', () => {
+      expect(isNavItemActive(home, '/history')).toBe(false)
+      expect(isNavItemActive(home, '/analytics')).toBe(false)
+    })
+
+    test('owns nested paths, like every other tab', () => {
+      expect(isNavItemActive(home, '/home/detail')).toBe(true)
+    })
+
+    test('stops at the path boundary', () => {
+      expect(isNavItemActive(home, '/homepage')).toBe(false)
+    })
   })
 
   /**

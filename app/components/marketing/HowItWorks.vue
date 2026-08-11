@@ -22,7 +22,7 @@ type Shot = {
  */
 const SHOTS: Record<string, Shot> = {}
 
-const steps = [
+const STEPS = [
   {
     key: 'home',
     n: '1',
@@ -42,6 +42,9 @@ const steps = [
     body: 'Every session lands in your history, and your estimated 1-rep max charts itself per exercise.',
   },
 ]
+
+/** Resolves each step's screenshot once, so the template has no repeated lookups. */
+const steps = computed(() => STEPS.map(step => ({ ...step, shot: SHOTS[step.key] ?? null })))
 </script>
 
 <template>
@@ -65,14 +68,14 @@ const steps = [
           <h3 class="mt-4 text-title3 text-label">{{ step.title }}</h3>
           <p class="mt-1.5 text-subheadline text-label-secondary">{{ step.body }}</p>
 
-          <div v-if="SHOTS[step.key]" class="mt-6 overflow-hidden rounded-card bg-surface">
+          <div v-if="step.shot" class="mt-6 overflow-hidden rounded-card bg-surface">
             <img
-              :src="SHOTS[step.key]!.src"
-              :srcset="`${SHOTS[step.key]!.src} ${SHOTS[step.key]!.w}w, ${SHOTS[step.key]!.src2x} ${SHOTS[step.key]!.w * 2}w`"
+              :src="step.shot.src"
+              :srcset="`${step.shot.src} ${step.shot.w}w, ${step.shot.src2x} ${step.shot.w * 2}w`"
               sizes="(min-width: 1024px) 260px, 70vw"
-              :width="SHOTS[step.key]!.w"
-              :height="SHOTS[step.key]!.h"
-              :alt="SHOTS[step.key]!.alt"
+              :width="step.shot.w"
+              :height="step.shot.h"
+              :alt="step.shot.alt"
               class="block w-full"
               loading="lazy"
             >

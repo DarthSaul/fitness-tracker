@@ -115,6 +115,19 @@ describe('ShellSideNav', () => {
       expect(account.text()).toContain('Unknown')
       expect(account.text()).toContain('?')
     })
+
+    /**
+     * An email sign-up carries no name, so the field arrives as an empty
+     * string rather than absent — which `??` treats as a real value and
+     * renders as a blank avatar and a blank row.
+     */
+    test('degrades when the name and email are empty strings', () => {
+      const account = mountSideNav({ user: { name: '', email: '' } })
+        .find('[aria-label="Account settings"]')
+
+      expect(account.text()).toContain('Unknown')
+      expect(account.text()).toContain('?')
+    })
   })
 
   test('shows the app version', () => {

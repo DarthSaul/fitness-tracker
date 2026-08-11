@@ -20,7 +20,9 @@
 
     <MarketingHeader />
 
-    <main id="content">
+    <!-- tabindex="-1" so the skip link can actually move focus here; without
+         it the browser scrolls but focus stays on the link. -->
+    <main id="content" tabindex="-1" class="outline-none">
       <slot />
     </main>
 
