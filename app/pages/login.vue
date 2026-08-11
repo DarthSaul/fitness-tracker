@@ -1,7 +1,12 @@
 /**
  * Sign-in screen — full-bleed hero art with the auth stack docked at the
- * bottom, mirroring `AuthView.swift`. From `lg` it becomes a centred card with
+ * bottom, mirroring `AuthView.swift`. From `md` it becomes a centred card with
  * the art beside the form instead of behind it.
+ *
+ * `md` rather than the `lg` the app shell switches at: this is a standalone
+ * page with two short columns, not a nav rail plus content, so it has room to
+ * go side-by-side sooner. iPad portrait therefore gets the card here and the
+ * phone shell once signed in — deliberate, not a mismatch.
  *
  * The card stays dark at every width even though the page around it follows
  * the colour scheme: the provider buttons are black-on-white-hairline by iOS
@@ -126,7 +131,7 @@ async function handleEmailSubmit() {
     layout is byte-identical to what shipped.
   -->
   <div
-    class="relative flex min-h-dvh flex-col justify-end overflow-hidden bg-black lg:flex-row lg:items-center lg:justify-center lg:overflow-auto lg:bg-canvas lg:p-10"
+    class="relative flex min-h-dvh flex-col justify-end overflow-hidden bg-black md:flex-row md:items-center md:justify-center md:overflow-auto md:bg-canvas md:p-6 lg:p-10"
   >
     <!--
       A fixed height at `lg`, because the art is a tall portrait and would
@@ -134,12 +139,12 @@ async function handleEmailSubmit() {
       hairline is what separates a black card from the black canvas in dark
       mode — in light mode the contrast does that on its own.
     -->
-    <div class="contents lg:flex lg:h-[560px] lg:w-full lg:max-w-4xl lg:items-stretch lg:overflow-hidden lg:rounded-card lg:border lg:border-separator lg:bg-black">
+    <div class="contents md:flex md:h-[520px] md:w-full md:max-w-4xl md:items-stretch md:overflow-hidden md:rounded-card md:border md:border-separator md:bg-black lg:h-[560px]">
       <!--
         The art is framed slightly left of centre, matching the -45pt offset the
         iOS screen applies so the two figures sit under the button stack.
       -->
-      <div class="absolute inset-0 lg:static lg:w-1/2 lg:shrink-0">
+      <div class="absolute inset-0 md:static md:w-1/2 md:shrink-0">
         <img
           src="/img/login-hero.jpg"
           srcset="/img/login-hero.jpg 640w, /img/login-hero@2x.jpg 940w"
@@ -152,17 +157,17 @@ async function handleEmailSubmit() {
 
         <!-- Scrim so the docked stack stays legible over the art; on desktop
              the stack sits beside it and needs none. -->
-        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[360px] bg-gradient-to-t from-black/90 via-black/65 to-transparent lg:hidden" />
+        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[360px] bg-gradient-to-t from-black/90 via-black/65 to-transparent md:hidden" />
       </div>
 
       <div
-        class="relative z-10 mx-auto w-full max-w-md space-y-4 px-8 pb-[calc(env(safe-area-inset-bottom)_+_2rem)] lg:my-auto lg:max-w-none lg:flex-1 lg:px-10 lg:py-14"
+        class="relative z-10 mx-auto w-full max-w-md space-y-4 px-8 pb-[calc(env(safe-area-inset-bottom)_+_2rem)] md:my-auto md:max-w-none md:flex-1 md:px-6 md:py-10 lg:px-10 lg:py-14"
       >
         <!--
           Desktop only: the phone layout gets its identity from the full-bleed
           art behind the stack, which the card treatment takes away.
         -->
-        <div class="hidden lg:mb-2 lg:block">
+        <div class="hidden md:mb-2 md:block">
           <div class="flex items-center gap-2.5">
             <img src="/icons/icon-192.png" alt="" aria-hidden="true" class="size-8 rounded-tile">
             <span class="text-headline font-bold tracking-tight text-white">DR. DUMBBELL</span>

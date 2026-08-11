@@ -181,6 +181,9 @@ top, in two stages at Tailwind's default breakpoints.
   deliberately.
 - **`xl` (1280px)** — the dense screens (Home, Analytics, History, Programs)
   go two-column.
+- **`/login` is the one exception**, switching to its side-by-side card at
+  `md` (768px). It is a standalone page with two short columns rather than a
+  nav rail plus content, so it has room to split sooner.
 - **Geometry tokens** live in `main.css` §4: `max-w-frame` (1440),
   `max-w-column` (768, single-column at `lg`), `max-w-content` (1120,
   two-column at `xl`), `w-sidenav` (260). Do not add `--breakpoint-*`
