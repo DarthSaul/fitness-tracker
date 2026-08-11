@@ -54,6 +54,10 @@ export default defineNuxtConfig({
         && process.env.NUXT_OAUTH_APPLE_KEY_ID
         && process.env.NUXT_OAUTH_APPLE_PRIVATE_KEY,
       ),
+      // The landing page needs this at runtime: Open Graph image and canonical
+      // URLs must be absolute for most crawlers. The same env var already
+      // drives the API's CORS headers, read there via process.env.
+      appUrl: process.env.NUXT_PUBLIC_APP_URL ?? '',
     },
   },
   components: [
@@ -80,8 +84,16 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
+      // Global defaults. The landing page overrides these with useSeoMeta; the
+      // app screens are behind auth and never surface in a link preview.
+      title: 'DR. DUMBBELL',
+      titleTemplate: '%s · DR. DUMBBELL',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        {
+          name: 'description',
+          content: 'A workout tracker for people following a structured strength program — multi-week programs, set-by-set logging and strength trends per exercise.',
+        },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },

@@ -1,2 +1,18 @@
 User-Agent: *
-Disallow:
+Allow: /
+Allow: /login
+
+# The app itself is behind auth and client-rendered, so a crawler would only
+# ever get an empty shell. No sitemap line: there is no sitemap to point at.
+Disallow: /home
+Disallow: /workout/
+Disallow: /program
+Disallow: /programs
+Disallow: /history
+Disallow: /analytics
+Disallow: /settings
+Disallow: /standalone-workouts
+Disallow: /pt-routines
+Disallow: /feedback
+Disallow: /auth/
+Disallow: /api/
