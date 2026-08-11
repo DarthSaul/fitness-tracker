@@ -1,5 +1,50 @@
 import { version } from './package.json'
 
+/**
+ * Normalises NUXT_PUBLIC_APP_URL into a bare CORS origin.
+ *
+ * An `Origin` is scheme + host + port and nothing else, and the browser matches
+ * it byte for byte. So a value carrying a path yields a header that can never
+ * match, and `*` hands the API to every site on the internet — which CLAUDE.md
+ * forbids outright. Both fail silently at runtime, surfacing only as a CORS
+ * error in someone else's console, so reject them at build time instead.
+ *
+ * Empty stays legal: it is how a build with no configured web origin says
+ * "no cross-origin caller", which is the correct local and CI default.
+ */
+function corsOrigin(raw: string | undefined): string {
+  const value = (raw ?? '').trim()
+  if (!value) return ''
+
+  if (value === '*') {
+    throw new Error(
+      'NUXT_PUBLIC_APP_URL must not be "*" — that allows every origin to call the API. '
+      + 'Set it to the deployment\'s own URL.',
+    )
+  }
+
+  let url: URL
+  try {
+    url = new URL(value)
+  }
+  catch {
+    throw new Error(
+      `NUXT_PUBLIC_APP_URL must be an absolute URL, got ${JSON.stringify(value)}.`,
+    )
+  }
+
+  // A lone "/" is the trailing slash people naturally type, and dropping it is
+  // the whole point. Anything past it means the value is a page, not an origin.
+  if ((url.pathname !== '' && url.pathname !== '/') || url.search || url.hash) {
+    throw new Error(
+      `NUXT_PUBLIC_APP_URL must be a bare origin with no path, got ${JSON.stringify(value)}. `
+      + `Use "${url.origin}".`,
+    )
+  }
+
+  return url.origin
+}
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -215,12 +260,9 @@ export default defineNuxtConfig({
           // Restrict CORS to the known web origin; native iOS apps don't send Origin headers
           // so these headers are a no-op for them. Never allow *.
           //
-          // Normalised because an Origin is a scheme+host+port with no path —
-          // a browser compares it byte for byte, so a NUXT_PUBLIC_APP_URL
-          // entered as `https://example.com/` yields a header that can never
-          // match. `app/pages/index.vue` strips the same value the same way for
-          // the canonical and OG URLs.
-          'Access-Control-Allow-Origin': (process.env.NUXT_PUBLIC_APP_URL ?? '').replace(/\/+$/, ''),
+          // `corsOrigin` normalises and validates — see its comment for why a
+          // path or a wildcard fails the build rather than shipping.
+          'Access-Control-Allow-Origin': corsOrigin(process.env.NUXT_PUBLIC_APP_URL),
           'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Type',
           'Access-Control-Max-Age': '86400',

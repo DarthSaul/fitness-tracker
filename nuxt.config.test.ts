@@ -31,22 +31,32 @@ const APPLE_ENV = [
   'NUXT_OAUTH_APPLE_REDIRECT_URL',
 ] as const
 
+/**
+ * Baseline applied on every load. NUXT_PUBLIC_APP_URL is pinned to a valid
+ * value because the config now *throws* on a bad one — without this, a CORS
+ * rejection case would leak its env into whichever test loaded next.
+ */
+const BASE_ENV: Record<string, string | undefined> = {
+  NUXT_PUBLIC_APP_URL: 'https://example.com/', // deliberately trailing-slashed
+}
+
 /** Re-imports the config with a fresh module registry so env changes apply. */
-async function loadConfig(env: Record<string, string | undefined>): Promise<NuxtConfig> {
+async function loadConfig(env: Record<string, string | undefined> = {}): Promise<NuxtConfig> {
   vi.resetModules()
-  for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value)
+  for (const [key, value] of Object.entries({ ...BASE_ENV, ...env })) vi.stubEnv(key, value)
   return (await import('./nuxt.config')).default as unknown as NuxtConfig
+}
+
+/** The header under test, or undefined if the rule ever loses it. */
+function allowOrigin(c: NuxtConfig): string | undefined {
+  return c.nitro.routeRules['/api/**']?.headers?.['Access-Control-Allow-Origin']
 }
 
 let config: NuxtConfig
 
 beforeAll(async () => {
   vi.stubGlobal('defineNuxtConfig', (c: unknown) => c)
-  // Deliberately trailing-slashed: this is exactly how the value was entered in
-  // Vercel, and the config is expected to normalise it rather than trust it.
-  vi.stubEnv('NUXT_PUBLIC_APP_URL', 'https://example.com/')
-
-  config = (await import('./nuxt.config')).default as unknown as NuxtConfig
+  config = await loadConfig()
 })
 
 afterAll(() => {
@@ -76,22 +86,52 @@ describe('payload extraction', () => {
 
 describe('API CORS headers', () => {
   test('allow-origin carries no trailing slash', () => {
-    const origin = config.nitro.routeRules['/api/**']?.headers?.[
-      'Access-Control-Allow-Origin'
-    ]
-
     // Browsers compare origins exactly and an Origin header never has a
     // trailing slash, so `https://example.com/` can never match.
-    expect(origin).toBe('https://example.com')
-    expect(origin).not.toMatch(/\/$/)
+    expect(allowOrigin(config)).toBe('https://example.com')
+    expect(allowOrigin(config)).not.toMatch(/\/$/)
   })
 
   test('allow-origin is never the wildcard', () => {
-    const origin = config.nitro.routeRules['/api/**']?.headers?.[
-      'Access-Control-Allow-Origin'
-    ]
+    expect(allowOrigin(config)).not.toBe('*')
+  })
 
-    expect(origin).not.toBe('*')
+  test('a bare origin passes through unchanged', async () => {
+    const fresh = await loadConfig({ NUXT_PUBLIC_APP_URL: 'https://example.com' })
+
+    expect(allowOrigin(fresh)).toBe('https://example.com')
+  })
+
+  test('a non-default port is preserved', async () => {
+    // Dropping the port would silently widen the origin to every port on the host.
+    const fresh = await loadConfig({ NUXT_PUBLIC_APP_URL: 'http://localhost:3000/' })
+
+    expect(allowOrigin(fresh)).toBe('http://localhost:3000')
+  })
+
+  test('an unset value yields no origin rather than failing the build', async () => {
+    // Local and CI builds have no web origin and must still build.
+    const fresh = await loadConfig({ NUXT_PUBLIC_APP_URL: undefined })
+
+    expect(allowOrigin(fresh)).toBe('')
+  })
+
+  test('rejects the wildcard', async () => {
+    // CLAUDE.md forbids `*` outright — it would let any site call the API with
+    // the user's cookies. Fail the build rather than ship it.
+    await expect(loadConfig({ NUXT_PUBLIC_APP_URL: '*' })).rejects.toThrow(/must not be "\*"/)
+  })
+
+  test('rejects a URL carrying a path', async () => {
+    // Silently dropping the path would hide the misconfiguration; the message
+    // names the origin the author almost certainly meant.
+    await expect(loadConfig({ NUXT_PUBLIC_APP_URL: 'https://example.com/app' }))
+      .rejects.toThrow(/bare origin with no path/)
+  })
+
+  test('rejects a value that is not an absolute URL', async () => {
+    await expect(loadConfig({ NUXT_PUBLIC_APP_URL: 'fitness-app.me' }))
+      .rejects.toThrow(/must be an absolute URL/)
   })
 })
 
