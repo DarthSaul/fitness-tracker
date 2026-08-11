@@ -38,39 +38,13 @@ watch(() => props.open, async (opened) => {
   }
 })
 
-// --- Sparkline chart (same logic as analytics.vue) ---
-
-const CHART_PAD_X = 16
-const CHART_PAD_Y = 8
-const PLOT_WIDTH = 268
-const PLOT_HEIGHT = 64
+// --- Sparkline chart (geometry shared with the analytics page) ---
 
 const selectedPoint = ref<number | null>(null)
 
-const chartPoints = computed(() => {
-  if (!history.value) return []
-  return history.value.history.filter(s => s.bestE1rm !== null)
-})
+const sparklinePoints = computed(() => buildSparkline(history.value?.history ?? []))
 
-const sparklinePoints = computed(() => {
-  const pts = chartPoints.value
-  if (pts.length === 0) return []
-  const e1rms = pts.map(p => p.bestE1rm as number)
-  const minE1rm = Math.min(...e1rms)
-  const maxE1rm = Math.max(...e1rms)
-  const range = maxE1rm - minE1rm
-  return pts.map((p, i) => {
-    const x = CHART_PAD_X + (pts.length === 1 ? PLOT_WIDTH / 2 : (i / (pts.length - 1)) * PLOT_WIDTH)
-    const y = range === 0
-      ? CHART_PAD_Y + PLOT_HEIGHT / 2
-      : CHART_PAD_Y + PLOT_HEIGHT - (((p.bestE1rm as number) - minE1rm) / range) * PLOT_HEIGHT
-    return { x, y, session: p }
-  })
-})
-
-const polylinePointsStr = computed(() =>
-  sparklinePoints.value.map(p => `${p.x},${p.y}`).join(' '),
-)
+const polylinePointsStr = computed(() => toPolylinePoints(sparklinePoints.value))
 
 function handleChartPointClick(index: number): void {
   selectedPoint.value = selectedPoint.value === index ? null : index
@@ -82,18 +56,6 @@ const displayHistory = computed(() => {
   if (!history.value) return []
   return [...history.value.history].reverse()
 })
-
-function formatVolume(lbs: number): string {
-  return lbs >= 1000 ? `${(lbs / 1000).toFixed(1)}k` : lbs.toFixed(0)
-}
-
-function formatE1rm(e1rm: number): string {
-  return `${Math.round(e1rm)} lbs`
-}
-
-function formatSessionDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
 </script>
 
 <template>
@@ -102,9 +64,9 @@ function formatSessionDate(iso: string): string {
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4" @click="e1rmInfoOpen = false">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">Trend</h3>
+          <h3 class="text-lg font-semibold text-label">Trend</h3>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close"
             @click="emit('close')"
           >
@@ -114,21 +76,21 @@ function formatSessionDate(iso: string): string {
 
         <!-- Loading -->
         <div v-if="status === 'pending'" class="flex flex-col items-center gap-3 py-10">
-          <div class="size-6 animate-spin rounded-full border-2 border-slate-600 border-t-violet-400" />
-          <p class="text-sm text-slate-400">
-            Retrieving your trends for <strong class="text-white">{{ exerciseName }}</strong>
+          <div class="size-6 animate-spin rounded-full border-2 border-separator border-t-tint" />
+          <p class="text-sm text-label-secondary">
+            Retrieving your trends for <strong class="text-label">{{ exerciseName }}</strong>
           </p>
         </div>
 
         <!-- Error -->
-        <div v-else-if="status === 'error'" class="py-10 text-center text-sm text-red-400">
+        <div v-else-if="status === 'error'" class="py-10 text-center text-sm text-ios-red">
           Failed to load trend data. Please close and try again.
         </div>
 
         <!-- No history -->
         <div
           v-else-if="status === 'success' && history && history.history.length === 0"
-          class="py-10 text-center text-sm text-slate-400"
+          class="py-10 text-center text-sm text-label-secondary"
         >
           No completed sessions found for this exercise yet.
         </div>
@@ -137,18 +99,18 @@ function formatSessionDate(iso: string): string {
         <template v-else-if="status === 'success' && history">
           <!-- e1RM sparkline chart -->
           <div
-            v-if="chartPoints.length > 0"
-            class="mb-3 rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-3"
+            v-if="sparklinePoints.length > 0"
+            class="mb-3 rounded-tile bg-surface px-4 py-3"
           >
             <div class="mb-2 flex items-center gap-1.5">
-              <p class="text-xs text-slate-400">
+              <p class="text-xs text-label-secondary">
                 e1RM Trend
               </p>
               <div class="relative">
                 <button
                   type="button"
                   aria-label="What is e1RM?"
-                  class="text-slate-600 transition-colors hover:text-slate-400"
+                  class="text-label-tertiary transition-colors hover:text-label-secondary"
                   @click.stop="e1rmInfoOpen = !e1rmInfoOpen"
                 >
                   <UIcon name="i-lucide-info" class="size-3" />
@@ -163,9 +125,9 @@ function formatSessionDate(iso: string): string {
                 >
                   <div
                     v-if="e1rmInfoOpen"
-                    class="absolute left-0 top-5 z-50 w-56 origin-top-left rounded-lg border border-slate-600/50 bg-slate-800 p-3 shadow-xl"
+                    class="absolute left-0 top-5 z-50 w-56 origin-top-left rounded-tile bg-fill p-3 shadow-chip"
                   >
-                    <p class="text-xs leading-relaxed text-slate-300">
+                    <p class="text-xs leading-relaxed text-label">
                       Estimated 1-Rep Max (e1RM) is a way to estimate the maximum weight you could lift for a single rep, based on any set you actually performed.
                     </p>
                   </div>
@@ -218,21 +180,21 @@ function formatSessionDate(iso: string): string {
             <div
               v-for="session in displayHistory"
               :key="session.sessionId"
-              class="rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-3"
+              class="rounded-tile bg-surface px-4 py-3"
             >
               <div class="flex items-start justify-between gap-2">
-                <p class="text-sm font-medium text-white">
+                <p class="text-sm font-medium text-label">
                   {{ formatSessionDate(session.completedAt) }}
                 </p>
-                <span class="shrink-0 text-xs text-slate-400">
+                <span class="shrink-0 text-xs text-label-secondary">
                   {{ session.sets.length }} {{ session.sets.length === 1 ? 'set' : 'sets' }}
                 </span>
               </div>
               <div class="mt-1 flex items-center gap-3">
-                <span class="text-xs text-violet-400">
+                <span class="text-xs text-tint">
                   e1RM: {{ session.bestE1rm !== null ? formatE1rm(session.bestE1rm) : '—' }}
                 </span>
-                <span class="text-xs text-slate-400">
+                <span class="text-xs text-label-secondary">
                   Vol: {{ session.totalVolume !== null ? `${formatVolume(session.totalVolume)} lbs` : '—' }}
                 </span>
               </div>

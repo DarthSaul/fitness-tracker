@@ -117,9 +117,6 @@ vi.stubGlobal('supabase', {
 })
 
 // ── Server utility auto-imports (server/utils/) ──────────────────────────────
-// Default: allow all emails so existing tests pass unmodified.
-// Override per-test with mockReturnValueOnce(false) to exercise blocking paths.
-vi.stubGlobal('isEmailAllowed', vi.fn(() => true))
 // Account-linking helper — default to a no-op vi.fn(); each route test overrides
 // with a resolved User. Real logic is exercised by server/utils/auth.test.ts.
 vi.stubGlobal('findOrLinkUser', vi.fn())

@@ -1,16 +1,298 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 1. Palette ramps consumed by @nuxt/ui's runtime colour plugin.
+ *
+ *    The plugin (node_modules/@nuxt/ui/dist/runtime/plugins/colors.js) injects
+ *    `--ui-color-primary-500: var(--color-ios-blue-500, )` from a runtime
+ *    <style> tag that Tailwind's class scanner never sees. `@theme static` is
+ *    therefore REQUIRED — a plain @theme block would tree-shake these away.
+ *    (@nuxt/ui declares its own --color-old-neutral-* the same way.)
+ *
+ *    The plugin resolves --ui-<key> to shade 500 in light and shade 400 in
+ *    dark, which lines up exactly with Apple's light/dark semantic pairs:
+ *    500 = the light value, 400 = the dark value. Only those two shades are
+ *    Apple-exact; the rest are interpolations feeding @nuxt/ui's soft/subtle
+ *    component variants.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@theme static {
+  /* systemBlue — the app tint */
+  --color-ios-blue-50: #ebf5ff;
+  --color-ios-blue-100: #d6eaff;
+  --color-ios-blue-200: #add5ff;
+  --color-ios-blue-300: #70b5ff;
+  --color-ios-blue-400: #0a84ff;
+  --color-ios-blue-500: #007aff;
+  --color-ios-blue-600: #0066d6;
+  --color-ios-blue-700: #0051ab;
+  --color-ios-blue-800: #003c80;
+  --color-ios-blue-900: #002855;
+  --color-ios-blue-950: #001a38;
+
+  /* Apple's grey scale is symmetric about systemGray, so one ramp serves both
+     schemes: 50→400 are systemGray6…systemGray2 in LIGHT, 600→950 are
+     systemGray2…systemGray6 in DARK. */
+  --color-ios-gray-50: #f2f2f7;
+  --color-ios-gray-100: #e5e5ea;
+  --color-ios-gray-200: #d1d1d6;
+  --color-ios-gray-300: #c7c7cc;
+  --color-ios-gray-400: #aeaeb2;
+  --color-ios-gray-500: #8e8e93;
+  --color-ios-gray-600: #636366;
+  --color-ios-gray-700: #48484a;
+  --color-ios-gray-800: #3a3a3c;
+  --color-ios-gray-900: #2c2c2e;
+  --color-ios-gray-950: #1c1c1e;
+
+  /* systemGreen — logged sets, completion */
+  --color-ios-green-50: #ebfaef;
+  --color-ios-green-100: #d4f5dd;
+  --color-ios-green-200: #a8ebbb;
+  --color-ios-green-300: #6bdd8c;
+  --color-ios-green-400: #30d158;
+  --color-ios-green-500: #34c759;
+  --color-ios-green-600: #28a046;
+  --color-ios-green-700: #1e7a35;
+  --color-ios-green-800: #155424;
+  --color-ios-green-900: #0d3316;
+  --color-ios-green-950: #07200e;
+
+  /* systemRed — destructive, errors */
+  --color-ios-red-50: #ffedec;
+  --color-ios-red-100: #ffdad8;
+  --color-ios-red-200: #ffb3ae;
+  --color-ios-red-300: #ff7a72;
+  --color-ios-red-400: #ff453a;
+  --color-ios-red-500: #ff3b30;
+  --color-ios-red-600: #d62b21;
+  --color-ios-red-700: #a81f17;
+  --color-ios-red-800: #7a1610;
+  --color-ios-red-900: #4d0d0a;
+  --color-ios-red-950: #2e0806;
+
+  /* systemOrange — extra sets, swapped, in-progress, beta */
+  --color-ios-orange-50: #fff6e6;
+  --color-ios-orange-100: #ffeccc;
+  --color-ios-orange-200: #ffd999;
+  --color-ios-orange-300: #ffbf52;
+  --color-ios-orange-400: #ff9f0a;
+  --color-ios-orange-500: #ff9500;
+  --color-ios-orange-600: #d67d00;
+  --color-ios-orange-700: #a86200;
+  --color-ios-orange-800: #7a4700;
+  --color-ios-orange-900: #4d2d00;
+  --color-ios-orange-950: #2e1b00;
+
+  /* systemPurple — brand secondary (gradient rail start, avatar) */
+  --color-ios-purple-50: #f7eefd;
+  --color-ios-purple-100: #eedcfa;
+  --color-ios-purple-200: #dcb9f5;
+  --color-ios-purple-300: #cd8af4;
+  --color-ios-purple-400: #bf5af2;
+  --color-ios-purple-500: #af52de;
+  --color-ios-purple-600: #9038bc;
+  --color-ios-purple-700: #6f2a92;
+  --color-ios-purple-800: #4e1d68;
+  --color-ios-purple-900: #2e113d;
+  --color-ios-purple-950: #1b0a24;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 2. iOS semantic tokens — the single source of truth for the light/dark flip.
+ *
+ *    Plain custom properties (NOT @theme), written outside any @layer so they
+ *    outrank @nuxt/ui's `@layer theme` defaults: unlayered CSS beats layered
+ *    CSS unconditionally, no !important needed. `.dark` and `:root` have equal
+ *    specificity and both match <html>, so source order decides — the same
+ *    mechanism @nuxt/ui itself relies on.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --ios-bg: #ffffff;                  /* systemBackground */
+  --ios-bg-grouped: #f2f2f7;          /* systemGroupedBackground */
+  --ios-surface: #f2f2f7;             /* secondarySystemBackground — EVERY card */
+  --ios-surface-grouped: #ffffff;     /* secondarySystemGroupedBackground — list rows */
+  --ios-surface-elevated: #ffffff;    /* tertiarySystemBackground */
+
+  --ios-label: #000000;
+  --ios-label-secondary: rgb(60 60 67 / 0.6);
+  --ios-label-tertiary: rgb(60 60 67 / 0.3);
+  --ios-separator: rgb(60 60 67 / 0.29);
+  --ios-fill: rgb(118 118 128 / 0.12); /* tertiarySystemFill — input fill */
+
+  --ios-tint: #007aff;
+  --ios-green: #34c759;
+  --ios-red: #ff3b30;
+  --ios-orange: #ff9500;
+  --ios-purple: #af52de;
+  --ios-pink: #ff2d55;
+  --ios-mint: #00c7be;
+  --ios-gray: #8e8e93;
+
+  --ios-material: rgb(255 255 255 / 0.72); /* SwiftUI .regularMaterial */
+}
+
+.dark {
+  --ios-bg: #000000;
+  --ios-bg-grouped: #000000;
+  --ios-surface: #1c1c1e;
+  --ios-surface-grouped: #1c1c1e;
+  --ios-surface-elevated: #2c2c2e;
+
+  --ios-label: #ffffff;
+  --ios-label-secondary: rgb(235 235 245 / 0.6);
+  --ios-label-tertiary: rgb(235 235 245 / 0.3);
+  --ios-separator: rgb(84 84 88 / 0.65);
+  --ios-fill: rgb(118 118 128 / 0.24);
+
+  --ios-tint: #0a84ff;
+  --ios-green: #30d158;
+  --ios-red: #ff453a;
+  --ios-orange: #ff9f0a;
+  --ios-purple: #bf5af2;
+  --ios-pink: #ff375f;
+  --ios-mint: #63e6e2;
+  --ios-gray: #8e8e93;
+
+  --ios-material: rgb(28 28 30 / 0.72);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 3. Retarget @nuxt/ui's semantic layer at the iOS tokens.
+ *
+ *    One block covers both schemes: every value is a var() that already flips
+ *    on .dark, so there is no `.dark { --ui-* }` counterpart to keep in sync.
+ *    This is what makes UButton / UInput / UDrawer / UModal / UCard / UBadge
+ *    inherit the iOS palette with no per-component work.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* 0.5rem → rounded-xs 4 · sm 8 · md 12 · lg 16 · xl 24. 8 is the iOS radius
+     for chips, inputs and auth buttons; 12 for panels. Cards use 14, which is
+     off the geometric scale and so gets its own --radius-card token below. */
+  --ui-radius: 0.5rem;
+
+  --ui-bg: var(--ios-bg);
+  --ui-bg-muted: var(--ios-bg-grouped);
+  --ui-bg-elevated: var(--ios-surface);
+  --ui-bg-accented: var(--ios-surface-elevated);
+  --ui-bg-inverted: var(--ios-label);
+
+  --ui-border: var(--ios-separator);
+  --ui-border-muted: var(--ios-separator);
+  --ui-border-accented: var(--ios-separator);
+  --ui-border-inverted: var(--ios-label);
+
+  --ui-text: var(--ios-label);
+  --ui-text-highlighted: var(--ios-label);
+  --ui-text-toned: var(--ios-label-secondary);
+  --ui-text-muted: var(--ios-label-secondary);
+  --ui-text-dimmed: var(--ios-label-tertiary);
+  --ui-text-inverted: var(--ios-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 4. Utility namespace — bg-surface, text-label-secondary, rounded-card,
+ *    text-headline, shadow-chip, ease-snappy.
+ *
+ *    `inline` compiles `bg-surface` straight to
+ *    `background-color: var(--ios-surface)`, so the §2 flip drives it with no
+ *    dead intermediate variable. Safe to tree-shake, because the scanner CAN
+ *    see these class names in .vue files.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@theme inline {
+  /* SF Pro on Apple platforms; the closest system UI face elsewhere. The iOS
+     app registers no custom fonts, so neither do we. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable",
+    "Segoe UI", system-ui, Roboto, sans-serif;
+
+  /* Surfaces & labels */
+  --color-canvas: var(--ios-bg);
+  --color-canvas-grouped: var(--ios-bg-grouped);
+  --color-surface: var(--ios-surface);
+  --color-surface-grouped: var(--ios-surface-grouped);
+  --color-surface-elevated: var(--ios-surface-elevated);
+  --color-label: var(--ios-label);
+  --color-label-secondary: var(--ios-label-secondary);
+  --color-label-tertiary: var(--ios-label-tertiary);
+  --color-separator: var(--ios-separator);
+  --color-fill: var(--ios-fill);
+  --color-material: var(--ios-material);
+
+  /* Named tints. `tint` rather than `accent` to avoid colliding with
+     @nuxt/ui's existing bg-accented / --ui-bg-accented. */
+  --color-tint: var(--ios-tint);
+  --color-ios-green: var(--ios-green);
+  --color-ios-red: var(--ios-red);
+  --color-ios-orange: var(--ios-orange);
+  --color-ios-purple: var(--ios-purple);
+  --color-ios-pink: var(--ios-pink);
+  --color-ios-mint: var(--ios-mint);
+  --color-ios-gray: var(--ios-gray);
+
+  /* Radii. 14 is the signature card radius and is not on the --ui-radius
+     geometric scale, so it is declared explicitly. */
+  --radius-card: 14px;
+  --radius-panel: 12px;
+  --radius-tile: 10px;
+  --radius-chip: 8px;
+
+  /* iOS text styles at the default Dynamic Type size → text-headline,
+     text-subheadline, text-caption2, … Additive: Tailwind's text-xs/sm/base
+     are untouched, so unmigrated screens keep rendering. */
+  --text-large-title: 34px;
+  --text-large-title--line-height: 41px;
+  --text-large-title--font-weight: 700;
+  --text-title: 28px;
+  --text-title--line-height: 34px;
+  --text-title--font-weight: 700;
+  --text-title2: 22px;
+  --text-title2--line-height: 28px;
+  --text-title3: 20px;
+  --text-title3--line-height: 25px;
+  --text-title3--font-weight: 600;
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-headline--font-weight: 600;
+  --text-body: 17px;
+  --text-body--line-height: 22px;
+  --text-subheadline: 15px;
+  --text-subheadline--line-height: 20px;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption2: 11px;
+  --text-caption2--line-height: 13px;
+
+  /* The only shadow in the entire iOS app: the floating scroll-title chip. */
+  --shadow-chip: 0 2px 6px rgb(0 0 0 / 0.12);
+
+  --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 5. Document chrome.
+ *
+ *    @nuxt/ui's base layer already applies `antialiased text-default bg-default
+ *    scheme-light dark:scheme-dark` to <body> (see .nuxt/ui.css). The hardcoded
+ *    purple gradient and `@apply text-white` that used to live here were
+ *    fighting it — removing them is what makes a light scheme possible.
+ * ═══════════════════════════════════════════════════════════════════════════ */
 html {
-  background-color: #020617; /* slate-950: matches gradient edge, prevents white overscroll flash */
+  /* Prevents the overscroll flash, and tracks the scheme instead of being
+     pinned to a single dark value. */
+  background-color: var(--ios-bg);
 }
 
 body {
-  @apply text-white;
-
-  background: radial-gradient(ellipse at 50% 40%, #1e0a3a 0%, #150525 25%, #0f172a 55%, #020617 100%);
-  background-attachment: fixed;
   min-height: 100dvh;
+}
+
+/* Tabular figures for every numeric cell — set grids, timers, progress rings,
+   stat tiles. Mirrors SwiftUI's `.monospacedDigit()`, which the set grid's
+   column alignment visibly depends on. */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
 @media (display-mode: standalone) {

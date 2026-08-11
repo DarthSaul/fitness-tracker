@@ -22,21 +22,19 @@ defineRouteMeta({
       200: { description: 'Session established', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       400: { description: 'Email and password are required' },
       401: { description: 'Invalid credentials' },
-      403: { description: 'Email not on allow-list' },
+      429: { description: 'Too many requests' },
       500: { description: 'Internal server error' },
     },
   },
 })
 
 export default defineEventHandler(async (event) => {
+  await rateLimitByIp(event)
+
   const body = await readBody<{ email?: string, password?: string }>(event)
 
   if (!body.email || !body.password) {
     throw createError({ statusCode: 400, statusMessage: 'Email and password are required.' })
-  }
-
-  if (!isEmailAllowed(body.email)) {
-    throw createError({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({

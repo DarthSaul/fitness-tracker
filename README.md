@@ -1,11 +1,11 @@
-# Fitness Tracker
+# DR. DUMBBELL
 
 A mobile-first workout tracker for structured training programs. The project ships as two clients backed by a single Nuxt 4 / Nitro server:
 
 - **Web PWA** — installable on desktop and mobile browsers at [fitness-app.me](https://fitness-app.me).
 - **Native iOS app** — SwiftUI client in a separate repo: [DarthSaul/fitness-tracker-mobile-app](https://github.com/DarthSaul/fitness-tracker-mobile-app).
 
-> **Status:** Private, invite-only. Sign-in is gated by an email allow-list; this repo is published for portfolio and reference purposes, not for self-hosting.
+> **Status:** Registration is open — anyone can create an account with Google, Apple, or email. This repo is published for portfolio and reference purposes, not for self-hosting.
 
 > **Current phase:** Phase 3.5 — Native iOS Client. See [`CLAUDE.md`](./CLAUDE.md) for the full roadmap.
 

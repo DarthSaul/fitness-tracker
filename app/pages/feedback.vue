@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Feedback', style: 'inline' } })
 
 type FeedbackItem = {
   id: string
@@ -104,10 +104,7 @@ function formatDate(iso: string) {
 
 <template>
   <div class="space-y-6 pt-2">
-    <div>
-      <h2 class="text-xl font-semibold text-white">Feedback</h2>
-      <p class="mt-1 text-sm text-slate-400">Jot down thoughts while you're using the app.</p>
-    </div>
+    <p class="text-subheadline text-label-secondary">Jot down thoughts while you're using the app.</p>
 
     <!-- Submit form -->
     <div class="space-y-3">
@@ -115,24 +112,24 @@ function formatDate(iso: string) {
         v-model="content"
         rows="4"
         placeholder="What's on your mind?"
-        class="w-full resize-none rounded-xl bg-slate-800 px-4 py-3 text-base text-white placeholder-slate-500 outline-none ring-1 ring-slate-700 focus:ring-violet-500 transition-colors"
+        class="w-full resize-none rounded-card bg-fill px-4 py-3 text-base text-label placeholder-label-tertiary outline-none ring-1 ring-separator focus:ring-tint transition-colors"
       />
 
       <!-- Screenshot picker -->
       <div class="space-y-2">
-        <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors">
+        <label class="flex cursor-pointer items-center gap-2 text-sm text-label-secondary hover:text-label transition-colors">
           <input ref="fileInputRef" type="file" accept="image/*" class="sr-only" @change="onFileChange" />
           <span>📎</span>
-          <span v-if="screenshot" class="max-w-[240px] truncate text-violet-400">{{ screenshot.name }}</span>
+          <span v-if="screenshot" class="max-w-[240px] truncate text-tint">{{ screenshot.name }}</span>
           <span v-else>Attach screenshot</span>
         </label>
 
         <!-- Thumbnail preview -->
         <div v-if="screenshotPreview" class="relative inline-block">
-          <img :src="screenshotPreview" class="max-h-32 w-auto rounded-lg" alt="Screenshot preview" />
+          <img :src="screenshotPreview" class="max-h-32 w-auto rounded-tile" alt="Screenshot preview" />
           <button
             type="button"
-            class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-xs text-slate-300 hover:bg-slate-600"
+            class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-label-secondary/15 text-xs text-label hover:bg-label-secondary/20"
             aria-label="Remove screenshot"
             @click="clearScreenshot"
           >
@@ -144,17 +141,17 @@ function formatDate(iso: string) {
       <button
         type="button"
         :disabled="!content.trim() || submitting"
-        class="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
+        class="w-full rounded-card bg-tint py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-40"
         @click="submit"
       >
         {{ submitting ? 'Saving…' : 'Submit' }}
       </button>
 
-      <p v-if="success" class="text-center text-sm text-green-400">Feedback saved</p>
-      <p v-if="error" class="text-center text-sm text-red-400">{{ error }}</p>
+      <p v-if="success" class="text-center text-sm text-ios-green">Feedback saved</p>
+      <p v-if="error" class="text-center text-sm text-ios-red">{{ error }}</p>
     </div>
 
-    <hr class="border-slate-700" />
+    <hr class="border-separator" />
 
     <!-- Filter tabs -->
     <div class="flex gap-2">
@@ -163,7 +160,7 @@ function formatDate(iso: string) {
         :key="opt"
         type="button"
         class="rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors"
-        :class="filter === opt ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-400'"
+        :class="filter === opt ? 'bg-tint text-white' : 'bg-fill text-label-secondary'"
         @click="filter = opt"
       >
         {{ opt }}
@@ -172,10 +169,10 @@ function formatDate(iso: string) {
 
     <!-- Feedback list -->
     <div v-if="status === 'pending'" class="space-y-3">
-      <div v-for="i in 3" :key="i" class="h-16 animate-pulse rounded-xl bg-slate-800" />
+      <AppSkeleton :height="64" :count="3" radius="card" />
     </div>
 
-    <div v-else-if="filtered.length === 0" class="py-4 text-center text-sm text-slate-500">
+    <div v-else-if="filtered.length === 0" class="py-4 text-center text-sm text-label-secondary">
       No feedback yet.
     </div>
 
@@ -183,11 +180,11 @@ function formatDate(iso: string) {
       <div
         v-for="item in filtered"
         :key="item.id"
-        class="flex items-start gap-3 rounded-xl bg-slate-800 px-4 py-3"
+        class="flex items-start gap-3 rounded-card bg-fill px-4 py-3"
       >
         <div class="min-w-0 flex-1">
-          <p class="text-xs font-medium text-violet-400">{{ firstName(item.user.name) }}</p>
-          <p class="mt-0.5 text-sm text-white whitespace-pre-wrap">{{ item.content }}</p>
+          <p class="text-xs font-medium text-tint">{{ firstName(item.user.name) }}</p>
+          <p class="mt-0.5 text-sm text-label whitespace-pre-wrap">{{ item.content }}</p>
           <a
             v-if="item.screenshotUrl"
             :href="item.screenshotUrl"
@@ -195,9 +192,9 @@ function formatDate(iso: string) {
             rel="noopener noreferrer"
             class="mt-2 block"
           >
-            <img :src="item.screenshotUrl" class="max-h-48 w-auto rounded-lg" alt="Attached screenshot" />
+            <img :src="item.screenshotUrl" class="max-h-48 w-auto rounded-tile" alt="Attached screenshot" />
           </a>
-          <p class="mt-1 text-xs text-slate-500">{{ formatDate(item.createdAt) }}</p>
+          <p class="mt-1 text-xs text-label-secondary">{{ formatDate(item.createdAt) }}</p>
         </div>
         <button
           type="button"

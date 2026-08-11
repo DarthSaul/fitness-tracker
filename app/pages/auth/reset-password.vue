@@ -55,10 +55,10 @@ async function handleSubmit() {
   <div class="flex min-h-dvh items-center justify-center px-4">
     <div class="w-full max-w-sm space-y-6">
       <div class="text-center">
-        <h1 class="text-2xl font-bold tracking-tight text-white">
+        <h1 class="text-2xl font-bold tracking-tight text-label">
           Reset Password
         </h1>
-        <p class="mt-2 text-sm text-slate-400">
+        <p class="mt-2 text-sm text-label-secondary">
           Enter your new password below
         </p>
       </div>
@@ -105,7 +105,7 @@ async function handleSubmit() {
           icon="i-lucide-alert-circle"
         />
 
-        <div class="rounded-xl bg-slate-900 p-6">
+        <div class="rounded-card bg-canvas p-6">
           <form @submit.prevent="handleSubmit" class="space-y-3">
             <UInput
               v-model="newPassword"

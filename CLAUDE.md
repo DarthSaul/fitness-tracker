@@ -1,6 +1,6 @@
-# Workout Tracker
+# DR. DUMBBELL
 
-A mobile-first PWA for tracking structured workout programs. Also consumed by a native iOS client. Private use (invite-only).
+A mobile-first PWA for tracking structured workout programs. Also consumed by a native iOS client. Registration is open — anyone can sign up with Google, Apple, or email.
 
 ## Tech Stack
 
@@ -37,8 +37,7 @@ workout-tracker/
 │       ├── jwt.ts             # Sign/verify HS256 access + refresh tokens
 │       ├── jwks.ts            # Apple/Google JWKS verification for native sign-in
 │       ├── apns.ts            # APNs push notification utility
-│       ├── rate-limit.ts      # Upstash rate limiting (no-op when KV not configured)
-│       └── allowList.ts       # Email allow-list helper
+│       └── rate-limit.ts      # Upstash rate limiting (no-op when KV not configured)
 ├── app/
 │   ├── pages/                 # File-based routing (Vue pages)
 │   ├── components/            # Reusable Vue components
@@ -94,7 +93,8 @@ The API supports two authentication paths that share a single `server/middleware
 ## API Security
 
 - **CORS:** Restricted to `NUXT_PUBLIC_APP_URL` origin (never `*`). Native iOS apps don't send `Origin` headers so CORS doesn't apply to them. OPTIONS preflights are handled without auth.
-- **Rate limiting:** Auth endpoints (`/api/auth/native/*`, `/api/auth/refresh`) use Upstash sliding window (10 req/min per IP). No-ops when `UPSTASH_REDIS_REST_URL` is absent (dev mode).
+- **Registration is open:** any Google, Apple, or email account can sign up. There is no allow-list or invite gate — do not reintroduce one.
+- **Rate limiting:** Auth endpoints (`/api/auth/native/*`, `/api/auth/refresh`, `/api/auth/email/{signup,signin,reset-password}`) use Upstash sliding window (10 req/min per IP). No-ops when `UPSTASH_REDIS_REST_URL` is absent (dev mode). Every unauthenticated auth route must call `rateLimitByIp(event)` as its first statement — before `readBody` — since open registration makes them internet-facing.
 - **Error responses:** All routes return generic error messages — no stack traces or Prisma error details exposed.
 - **Input validation:** Manual inline validation on all routes (same pattern as existing API); Zod is not used.
 
@@ -126,9 +126,41 @@ UPSTASH_REDIS_REST_TOKEN=    # Optional — enables rate limiting
 ### Loading Skeletons
 
 - Every UI area that fetches data from an API must display a loading skeleton while the request is pending.
-- Use the established pattern: `<div class="h-[SIZE] animate-pulse rounded-lg bg-slate-800" />` with an appropriate height.
-- For lists, render multiple skeleton items (e.g., `v-for="i in 3"`).
+- Use `<AppSkeleton>` (`app/components/ios/Skeleton.vue`) — do not hand-roll `animate-pulse` divs.
+- Size each one to approximate the content it stands in for (`:height="64"` for a
+  list row, `:height="128"` for a card) rather than a fixed value; a placeholder
+  that reflows on load is worse than none.
+- For lists, pass `:count="3"` rather than wrapping it in a `v-for`.
 - Guard skeletons with the `useFetch` status: `v-if="status === 'pending'"`.
+
+### Design System
+
+The web client mirrors the SwiftUI app's design language, which is Apple's
+semantic palette rather than a bespoke theme. See `app/assets/css/main.css`.
+
+- **Never hardcode a colour class.** Use the semantic tokens: `bg-canvas`,
+  `bg-surface`, `text-label`, `text-label-secondary`, `text-label-tertiary`,
+  `border-separator`, `bg-fill`, `text-tint`, and the named accents
+  `text-ios-green` / `ios-orange` / `ios-red` / `ios-purple` / `ios-pink` /
+  `ios-mint`. Literal `slate-*` / `violet-*` / `emerald-*` classes are legacy
+  and are being removed — light mode cannot ship until they are all gone.
+- **Colour is semantic, not decorative:** green = logged or complete, orange =
+  extra set / swapped / in-progress / beta, tint (blue) = navigation and
+  primary action, red = destructive, purple→pink = the brand gradient rail,
+  gray = inert.
+- **Type scale** mirrors iOS text styles: `text-large-title`, `text-title`,
+  `text-title2`, `text-title3`, `text-headline`, `text-body`,
+  `text-subheadline`, `text-footnote`, `text-caption`, `text-caption2`.
+- **Radii:** `rounded-card` (14px, the signature surface), `rounded-panel` (12),
+  `rounded-tile` (10), `rounded-chip` (8), `rounded-full`.
+- Cards have **no border and no shadow**. The only shadow in the app is
+  `shadow-chip`, on the floating scroll-title chip.
+- Add `tnum` to any element rendering numbers so digits align, matching
+  SwiftUI's `.monospacedDigit()`.
+- Reuse the primitives in `app/components/ios/` — `<AppCard>`,
+  `<AppActionPill>`, `<AppChip>`, `<AppStatusBadge>`, `<AppStatTile>`,
+  `<AppScreenHeader>`, `<AppProgressRing>`, `<AppSheet>`, `<AppSkeleton>` —
+  before writing new markup.
 
 ### Nitro API Routes
 
@@ -194,7 +226,7 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 
 ## Roadmap
 
-**Current phase: Phase 3.5 — Native iOS Client**
+**Current phase: Phase 6 — Web client parity with the iOS app**
 
 ### Phase 0 — Init ✅
 - [x] Scaffold Nuxt 4 PWA (TypeScript, pnpm, Vercel deploy target)
@@ -235,7 +267,8 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - [x] CORS config (restricted to known web origin)
 - [x] Upstash rate limiting on auth endpoints
 - [ ] Wire up push notification triggers (e.g., workout reminders)
-- [ ] Apple web OAuth configuration (backlog — web frontend not yet built)
+- [ ] Apple web OAuth configuration — Services ID + key. The login screen
+      hides the Apple button until `NUXT_OAUTH_APPLE_CLIENT_ID` is set.
 
 ### Phase 4 — Observability
 - [x] pino structured logging middleware
@@ -244,11 +277,34 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - [x] `/api/health` endpoint
 
 ### Phase 5 — Polish & Iteration
-- [ ] Workout history views
+- [x] Workout history views
 - [ ] Additional programs seeded
 - [ ] Offline support (service worker caching)
-- [ ] Invite system
+- [x] ~~Invite system~~ — dropped; registration is open
 - [ ] Accessibility review (aria-labels, aria-pressed, keyboard nav, screen reader testing)
+
+### Phase 6 — Web client parity with the iOS app
+- [x] Open registration (email allow-list removed, rate limiting extended)
+- [x] iOS semantic token layer (`app/assets/css/main.css`) + light/dark/system
+- [x] Design-system primitives (`app/components/ios/`)
+- [x] Five-tab shell with per-page headers, scroll title chip, resume banner
+- [x] DR. DUMBBELL branding, login hero, app icons
+- [x] History tab + session detail screens
+- [x] Real Settings screen (replaces the drawer and the stub page)
+- [x] Strength on the Go (library, detail, live session)
+- [x] Between-sets rest timer
+- [ ] **Exercise skip UI** — `POST|DELETE /api/workouts/:id/exercises/:peId/skip`
+      exist and are tested server-side, but nothing calls them from the web
+      client. Needs `useWorkoutSession` actions plus a control on
+      `WorkoutExerciseCard`, and skipped exercises must drop out of the
+      progress denominator.
+- [ ] **Core workouts (Beta)** — `GET /api/exercises/core`,
+      `PUT|DELETE /api/workouts/:id/core-workout`,
+      `PATCH …/core-workout/complete`. Needs the setup form and the
+      full-screen interval timer (84px countdown, green/blue phase wash).
+      Largest remaining surface; still flagged Beta on iOS.
+- [ ] Home "today" card polish — the resume/start/no-program cards still
+      predate `AppCard`; they work but hand-roll their chrome.
 
 ### Backlog
 - [ ] Configure Apple OAuth (web redirect flow — needed only when web frontend is built)

@@ -43,9 +43,9 @@ function formatMeasure(exercise: PtRoutineExercise): string {
       <div class="mx-auto max-h-[75dvh] w-full max-w-lg overflow-y-auto px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">PT Routines</h3>
+          <h3 class="text-lg font-semibold text-label">PT Routines</h3>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close"
             @click="isOpen = false"
           >
@@ -61,13 +61,13 @@ function formatMeasure(exercise: PtRoutineExercise): string {
             type="button"
             data-testid="routine-pill"
             class="whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-            :class="routine.id === selectedRoutine?.id ? 'bg-violet-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'"
+            :class="routine.id === selectedRoutine?.id ? 'bg-tint text-white' : 'bg-fill text-label hover:bg-label-secondary/15'"
             @click="selectedId = routine.id"
           >
             {{ routine.name }}
           </button>
         </div>
-        <p v-else-if="selectedRoutine" class="mb-4 text-sm font-medium text-slate-300">
+        <p v-else-if="selectedRoutine" class="mb-4 text-sm font-medium text-label">
           {{ selectedRoutine.name }}
         </p>
 
@@ -76,11 +76,11 @@ function formatMeasure(exercise: PtRoutineExercise): string {
           <li
             v-for="(exercise, index) in selectedRoutine.exercises"
             :key="exercise.id"
-            class="flex items-baseline gap-2 rounded-lg bg-slate-800/60 px-3 py-2.5"
+            class="flex items-baseline gap-2 rounded-tile bg-surface px-3 py-2.5"
           >
-            <span class="text-sm font-semibold text-violet-400">{{ index + 1 }}.</span>
-            <span class="flex-1 text-sm text-white">{{ exercise.title }}</span>
-            <span class="text-sm text-slate-400">{{ formatMeasure(exercise) }}</span>
+            <span class="text-sm font-semibold text-tint">{{ index + 1 }}.</span>
+            <span class="flex-1 text-sm text-label">{{ exercise.title }}</span>
+            <span class="text-sm text-label-secondary">{{ formatMeasure(exercise) }}</span>
           </li>
         </ol>
       </div>

@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { PtRoutine, PtRoutineExerciseInput } from '~/types/pt-routine'
 
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'PT Routines', style: 'inline' } })
 
 const { routines, status, saving, createRoutine, updateRoutine, deleteRoutine, isDeleting } = usePtRoutines()
 
@@ -71,17 +71,7 @@ async function confirmDelete(): Promise<void> {
 
 <template>
   <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex items-center gap-3">
-      <NuxtLink to="/">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-        />
-      </NuxtLink>
-      <h2 class="flex-1 text-lg font-semibold text-white">PT Routines</h2>
+    <div class="flex justify-end">
       <UButton
         icon="i-lucide-plus"
         color="primary"
@@ -103,14 +93,14 @@ async function confirmDelete(): Promise<void> {
 
     <!-- Loading skeletons -->
     <div v-if="status === 'pending'" class="space-y-3">
-      <div v-for="i in 3" :key="i" class="h-20 animate-pulse rounded-lg bg-slate-800" />
+      <AppSkeleton :height="80" :count="3" />
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="!routines?.length" class="rounded-lg bg-slate-800/40 px-4 py-10 text-center">
-      <UIcon name="i-lucide-clipboard-list" class="mx-auto size-8 text-slate-600" />
-      <p class="mt-3 text-sm text-slate-400">No PT routines yet.</p>
-      <p class="mt-1 text-xs text-slate-500">Create a routine to keep your PT exercises alongside your workouts.</p>
+    <div v-else-if="!routines?.length" class="rounded-tile bg-surface px-4 py-10 text-center">
+      <UIcon name="i-lucide-clipboard-list" class="mx-auto size-8 text-label-tertiary" />
+      <p class="mt-3 text-sm text-label-secondary">No PT routines yet.</p>
+      <p class="mt-1 text-xs text-label-secondary">Create a routine to keep your PT exercises alongside your workouts.</p>
       <UButton color="primary" size="sm" class="mt-4" @click="openCreate">
         Create your first routine
       </UButton>
@@ -121,11 +111,11 @@ async function confirmDelete(): Promise<void> {
       <div
         v-for="routine in routines"
         :key="routine.id"
-        class="flex items-center gap-3 rounded-lg bg-slate-800/60 px-4 py-3.5 ring-1 ring-slate-800"
+        class="flex items-center gap-3 rounded-tile bg-surface px-4 py-3.5"
       >
         <div class="min-w-0 flex-1">
-          <p class="truncate text-sm font-semibold text-white">{{ routine.name }}</p>
-          <p class="mt-0.5 text-xs text-slate-400">
+          <p class="truncate text-sm font-semibold text-label">{{ routine.name }}</p>
+          <p class="mt-0.5 text-xs text-label-secondary">
             {{ routine.exercises.length }} {{ routine.exercises.length === 1 ? 'exercise' : 'exercises' }}
           </p>
         </div>

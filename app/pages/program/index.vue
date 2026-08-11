@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Manage Program', style: 'inline' } })
 
 const router = useRouter()
 
@@ -58,34 +58,19 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
 
 <template>
   <div class="space-y-4">
-    <!-- Header -->
-    <div class="flex items-center gap-3">
-      <NuxtLink to="/">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-        />
-      </NuxtLink>
-      <h2 class="text-lg font-semibold text-white">
-        Manage Program
-      </h2>
-    </div>
-
     <!-- Loading skeleton -->
     <template v-if="isLoading">
-      <div class="h-6 w-40 animate-pulse rounded bg-slate-800" />
+      <AppSkeleton :height="24" :width="160" />
       <div v-for="i in 3" :key="i" class="space-y-2">
-        <div class="h-12 animate-pulse rounded-lg bg-slate-800" />
+        <AppSkeleton :height="48" />
       </div>
     </template>
 
     <!-- No active program -->
     <UCard v-else-if="!activeProgram" class="py-1">
-      <div class="text-center text-slate-400">
+      <div class="text-center text-label-secondary">
         <p>No active program.</p>
-        <NuxtLink to="/programs" class="mt-1 inline-block text-sm text-violet-400 hover:text-violet-300">
+        <NuxtLink to="/programs" class="mt-1 inline-block text-sm text-tint hover:text-tint">
           Browse programs to get started.
         </NuxtLink>
       </div>
@@ -93,7 +78,7 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
 
     <!-- Program overview -->
     <template v-else>
-      <p class="text-sm text-slate-400">
+      <p class="text-sm text-label-secondary">
         {{ activeProgram.program.name }}
       </p>
 
@@ -103,16 +88,16 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
           <!-- Week header -->
           <button
             v-wave
-            class="flex w-full items-center justify-between rounded-lg bg-slate-800/50 px-4 py-3 overflow-hidden"
+            class="flex w-full items-center justify-between rounded-tile bg-surface px-4 py-3 overflow-hidden"
             @click="toggleWeek(week.weekNumber)"
           >
             <div class="flex items-center gap-2">
-              <span class="font-medium text-white">Week {{ week.weekNumber }}</span>
-              <span class="text-xs text-slate-500">{{ week.days.length }} days</span>
+              <span class="font-medium text-label">Week {{ week.weekNumber }}</span>
+              <span class="text-xs text-label-secondary">{{ week.days.length }} days</span>
             </div>
             <UIcon
               :name="expandedWeeks.has(week.weekNumber) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-              class="size-5 text-slate-400"
+              class="size-5 text-label-secondary"
             />
           </button>
 
@@ -127,10 +112,10 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
                   v-for="dayItem in week.days"
                   :key="dayItem.id"
                   v-wave
-                  class="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left overflow-hidden transition-colors"
+                  class="flex w-full items-center gap-3 rounded-tile px-4 py-3 text-left overflow-hidden transition-colors"
                   :class="isActiveWorkoutDay(week.weekNumber, dayItem.dayNumber)
-                    ? 'bg-slate-800/20 opacity-50 cursor-not-allowed'
-                    : 'bg-slate-800/30 hover:bg-slate-800/60 active:bg-slate-700/50'"
+                    ? 'bg-surface opacity-50 cursor-not-allowed'
+                    : 'bg-surface hover:bg-label-secondary/10 active:bg-label-secondary/20'"
                   :disabled="isActiveWorkoutDay(week.weekNumber, dayItem.dayNumber)"
                   @click="navigateToDay(week.weekNumber, dayItem.dayNumber)"
                 >
@@ -138,46 +123,46 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
                   <div
                     class="flex size-6 shrink-0 items-center justify-center rounded-full"
                     :class="{
-                      'bg-emerald-500/20': dayStatus(week.weekNumber, dayItem.dayNumber) === 'completed',
-                      'bg-amber-500/20': dayStatus(week.weekNumber, dayItem.dayNumber) === 'in-progress',
-                      'bg-violet-500/20': dayStatus(week.weekNumber, dayItem.dayNumber) === 'current',
-                      'bg-slate-700': dayStatus(week.weekNumber, dayItem.dayNumber) === 'upcoming',
+                      'bg-ios-green/20': dayStatus(week.weekNumber, dayItem.dayNumber) === 'completed',
+                      'bg-ios-orange/20': dayStatus(week.weekNumber, dayItem.dayNumber) === 'in-progress',
+                      'bg-tint/20': dayStatus(week.weekNumber, dayItem.dayNumber) === 'current',
+                      'bg-label-secondary/15': dayStatus(week.weekNumber, dayItem.dayNumber) === 'upcoming',
                     }"
                   >
                     <UIcon
                       v-if="dayStatus(week.weekNumber, dayItem.dayNumber) === 'completed'"
                       name="i-lucide-check"
-                      class="size-3.5 text-emerald-400"
+                      class="size-3.5 text-ios-green"
                     />
                     <div
                       v-else-if="dayStatus(week.weekNumber, dayItem.dayNumber) === 'in-progress'"
-                      class="size-2 rounded-full bg-amber-400"
+                      class="size-2 rounded-full bg-ios-orange"
                     />
                     <div
                       v-else-if="dayStatus(week.weekNumber, dayItem.dayNumber) === 'current'"
-                      class="size-2 rounded-full bg-violet-400"
+                      class="size-2 rounded-full bg-tint"
                     />
                     <div
                       v-else
-                      class="size-2 rounded-full bg-slate-500"
+                      class="size-2 rounded-full bg-label-secondary"
                     />
                   </div>
 
                   <!-- Day info -->
                   <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium text-white">
+                    <p class="text-sm font-medium text-label">
                       Day {{ dayItem.dayNumber }}
-                      <span v-if="dayItem.name" class="text-slate-400"> — {{ dayItem.name }}</span>
+                      <span v-if="dayItem.name" class="text-label-secondary"> — {{ dayItem.name }}</span>
                     </p>
                     <p
                       v-if="isActiveWorkoutDay(week.weekNumber, dayItem.dayNumber)"
-                      class="text-xs text-amber-400"
+                      class="text-xs text-ios-orange"
                     >
                       Workout in progress — complete or discard it first
                     </p>
                     <p
                       v-else-if="getSessionForDay(week.weekNumber, dayItem.dayNumber)"
-                      class="text-xs text-slate-500"
+                      class="text-xs text-label-secondary"
                     >
                       {{ getSessionForDay(week.weekNumber, dayItem.dayNumber)?._count.completedSets }} / {{ getTotalSetsForDay(week.weekNumber, dayItem.dayNumber) }} sets
                     </p>
@@ -186,12 +171,12 @@ function navigateToDay(weekNumber: number, dayNumber: number): void {
                   <UIcon
                     v-if="!isActiveWorkoutDay(week.weekNumber, dayItem.dayNumber)"
                     name="i-lucide-chevron-right"
-                    class="size-4 shrink-0 text-slate-600"
+                    class="size-4 shrink-0 text-label-tertiary"
                   />
                   <UIcon
                     v-else
                     name="i-lucide-lock"
-                    class="size-4 shrink-0 text-amber-500/50"
+                    class="size-4 shrink-0 text-ios-orange/50"
                   />
                 </button>
               </div>

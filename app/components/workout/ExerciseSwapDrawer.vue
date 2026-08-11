@@ -115,9 +115,9 @@ function confirmSwap(): void {
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">Swap Exercise</h3>
+          <h3 class="text-lg font-semibold text-label">Swap Exercise</h3>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close"
             @click="emit('close')"
           >
@@ -126,13 +126,13 @@ function confirmSwap(): void {
         </div>
 
         <!-- Current exercise -->
-        <p class="mb-4 text-sm text-slate-400">
-          Replacing: <span class="font-medium text-slate-200">{{ currentExerciseName }}</span>
+        <p class="mb-4 text-sm text-label-secondary">
+          Replacing: <span class="font-medium text-label">{{ currentExerciseName }}</span>
         </p>
 
         <!-- Confirmation warning -->
-        <div v-if="pendingSelection" class="mb-4 rounded-lg bg-amber-500/10 p-4">
-          <p class="mb-3 text-sm text-amber-300">
+        <div v-if="pendingSelection" class="mb-4 rounded-tile bg-ios-orange/15 p-4">
+          <p class="mb-3 text-sm text-ios-orange">
             Swapping to <strong>{{ pendingSelection.name }}</strong> will delete
             {{ loggedSetCount }} logged set{{ loggedSetCount === 1 ? '' : 's' }} for
             <strong>{{ currentExerciseName }}</strong>. This cannot be undone.
@@ -159,7 +159,7 @@ function confirmSwap(): void {
 
         <!-- Swap in progress -->
         <div v-else-if="confirmLoading" class="space-y-2">
-          <div v-for="n in 3" :key="n" class="h-10 animate-pulse rounded-lg bg-slate-800" />
+          <AppSkeleton :height="40" :count="3" />
         </div>
 
         <!-- Search + exercise list -->
@@ -170,14 +170,14 @@ function confirmSwap(): void {
             type="text"
             inputmode="search"
             placeholder="Search exercises..."
-            class="mb-3 w-full rounded-lg bg-slate-800 px-4 py-3 text-base text-white placeholder-slate-500 outline-none ring-1 ring-slate-700 focus:ring-violet-500"
+            class="mb-3 w-full rounded-tile bg-fill px-4 py-3 text-base text-label placeholder-label-tertiary outline-none ring-1 ring-separator focus:ring-tint"
           >
 
           <!-- Exercise list -->
           <div v-if="exercisesLoading" class="space-y-2">
-            <div v-for="n in 5" :key="n" class="h-10 animate-pulse rounded-lg bg-slate-800" />
+            <AppSkeleton :height="40" :count="5" />
           </div>
-          <div v-else-if="exercisesError" class="py-8 text-center text-sm text-red-400">
+          <div v-else-if="exercisesError" class="py-8 text-center text-sm text-ios-red">
             Failed to load exercises. Please close and try again.
           </div>
           <div v-else class="max-h-64 overflow-y-auto space-y-1">
@@ -185,12 +185,12 @@ function confirmSwap(): void {
               v-for="exercise in filteredExercises"
               :key="exercise.id"
               type="button"
-              class="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-white transition-colors hover:bg-slate-700/60 active:bg-slate-700"
+              class="w-full rounded-tile px-3 py-2.5 text-left text-sm font-medium text-label transition-colors hover:bg-label-secondary/15 active:bg-label-secondary/20"
               @click="selectExercise(exercise)"
             >
               {{ exercise.name }}
             </button>
-            <p v-if="filteredExercises.length === 0" class="py-4 text-center text-sm text-slate-500">
+            <p v-if="filteredExercises.length === 0" class="py-4 text-center text-sm text-label-secondary">
               No exercises found
             </p>
           </div>

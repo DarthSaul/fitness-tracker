@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'app' })
+definePageMeta({ layout: 'app', header: { title: 'Program', style: 'inline' } })
 
 import type { ProgramDetail, ProgramWeekSummary, ProgramDayDetail, ExerciseSetDetail } from '~/types/program'
 
@@ -86,15 +86,7 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center gap-3">
-      <NuxtLink to="/programs">
-        <UButton
-          icon="i-lucide-arrow-left"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-        />
-      </NuxtLink>
-      <h2 class="text-lg font-semibold text-white">
+      <h2 class="text-title3 font-semibold">
         <template v-if="program">{{ program.name }}</template>
         <template v-else>Program</template>
       </h2>
@@ -125,13 +117,13 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
 
     <!-- Loading state -->
     <div v-if="status === 'pending'" class="space-y-4">
-      <div class="h-20 animate-pulse rounded-lg bg-slate-800" />
-      <div class="h-32 animate-pulse rounded-lg bg-slate-800" />
+      <AppSkeleton :height="80" />
+      <AppSkeleton :height="128" />
     </div>
 
     <!-- Error state -->
     <UCard v-else-if="status === 'error'">
-      <div class="text-center text-red-400">
+      <div class="text-center text-ios-red">
         <p>Failed to load program.</p>
         <p class="mt-1 text-sm">
           Please try again later.
@@ -142,16 +134,16 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
     <!-- Program detail -->
     <template v-else-if="program">
       <!-- Description -->
-      <p v-if="program.description" class="text-sm text-slate-400">
+      <p v-if="program.description" class="text-sm text-label-secondary">
         {{ program.description }}
       </p>
-      <p v-else class="text-sm text-slate-500 italic">
+      <p v-else class="text-sm text-label-secondary italic">
         No description available.
       </p>
 
       <!-- Weeks -->
       <div class="space-y-4">
-        <h3 class="text-sm font-medium text-slate-300">
+        <h3 class="text-sm font-medium text-label">
           Schedule
         </h3>
         <UCard
@@ -161,20 +153,20 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
           role="button"
           tabindex="0"
           :aria-label="`View Week ${week.weekNumber}`"
-          class="overflow-hidden cursor-pointer transition-colors hover:bg-slate-800/50"
+          class="overflow-hidden cursor-pointer transition-colors hover:bg-label-secondary/10"
           @click="openWeek(week)"
           @keydown="onCardKeydown(week, $event)"
         >
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="font-semibold text-white">
+              <h4 class="font-semibold text-label">
                 Week {{ week.weekNumber }}
               </h4>
-              <p class="mt-1 text-sm text-slate-400">
+              <p class="mt-1 text-sm text-label-secondary">
                 {{ week.days.length }} {{ week.days.length === 1 ? 'day' : 'days' }}
               </p>
             </div>
-            <UIcon name="i-lucide-chevron-right" class="size-5 text-slate-500" />
+            <UIcon name="i-lucide-chevron-right" class="size-5 text-label-secondary" />
           </div>
         </UCard>
       </div>
@@ -189,7 +181,7 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
       <template #body>
         <!-- Loading days -->
         <div v-if="loadingDays" class="space-y-4">
-          <div v-for="n in (selectedWeek?.days.length ?? 2)" :key="n" class="h-24 animate-pulse rounded-lg bg-slate-800" />
+          <AppSkeleton :height="96" :count="(selectedWeek?.days.length ?? 2)" />
         </div>
 
         <!-- Day details -->
@@ -197,20 +189,20 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
           <div
             v-for="day in weekDays"
             :key="day.id"
-            class="rounded-lg transition-colors duration-200"
-            :class="expandedDays.has(day.id) ? '' : 'bg-slate-800/40'"
+            class="rounded-tile transition-colors duration-200"
+            :class="expandedDays.has(day.id) ? '' : 'bg-surface'"
           >
             <!-- Day header (toggle) -->
             <button
-              class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-slate-800/50"
+              class="flex w-full items-center gap-3 rounded-tile px-3 py-2.5 text-left transition-colors hover:bg-label-secondary/10"
               @click="toggleDay(day.id)"
             >
-              <h4 class="min-w-0 flex-1 text-base font-semibold text-white">
-                Day {{ day.dayNumber }}<span v-if="day.name" class="text-slate-400"> — {{ day.name }}</span>
+              <h4 class="min-w-0 flex-1 text-base font-semibold text-label">
+                Day {{ day.dayNumber }}<span v-if="day.name" class="text-label-secondary"> — {{ day.name }}</span>
               </h4>
               <UIcon
                 :name="expandedDays.has(day.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                class="size-5 shrink-0 text-slate-400"
+                class="size-5 shrink-0 text-label-secondary"
               />
             </button>
 
@@ -226,37 +218,37 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
                     v-for="group in day.exerciseGroups"
                     :key="group.id"
                     :class="group.type === 'SUPERSET'
-                      ? 'relative rounded-xl border border-indigo-500/25 p-3 pt-4'
-                      : 'rounded-lg bg-slate-800/50 p-3'"
+                      ? 'relative rounded-card border border-tint/30 p-3 pt-4'
+                      : 'rounded-tile bg-surface p-3'"
                   >
                     <span
                       v-if="group.type === 'SUPERSET'"
-                      class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-indigo-500/40 bg-slate-950 text-[8px] font-semibold text-indigo-300"
+                      class="absolute -left-2 -top-2 flex size-5 items-center justify-center rounded-full border border-tint/50 bg-canvas text-caption2 font-semibold text-tint"
                     >SS</span>
 
                     <!-- Exercises in group -->
                     <div
                       v-for="(ex, exIdx) in group.exercises"
                       :key="ex.id"
-                      :class="{ 'mt-3 border-t border-slate-700 pt-3': exIdx > 0 }"
+                      :class="{ 'mt-3 border-t border-separator pt-3': exIdx > 0 }"
                     >
-                      <p class="font-medium text-white">{{ ex.exercise.name }}</p>
-                      <p v-if="ex.exercise.description" class="mt-0.5 text-xs text-slate-500">
+                      <p class="font-medium text-label">{{ ex.exercise.name }}</p>
+                      <p v-if="ex.exercise.description" class="mt-0.5 text-xs text-label-secondary">
                         {{ ex.exercise.description }}
                       </p>
 
                       <!-- Sets summary -->
                       <div v-if="ex.sets.length" class="mt-2 flex flex-wrap gap-2 text-xs">
-                        <span class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                        <span class="rounded-chip bg-label-secondary/15 px-2 py-0.5 text-label">
                           {{ ex.sets.length }} {{ ex.sets.length === 1 ? 'set' : 'sets' }}
                         </span>
-                        <span v-if="repsRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                        <span v-if="repsRange(ex.sets)" class="rounded-chip bg-label-secondary/15 px-2 py-0.5 text-label">
                           {{ repsRange(ex.sets) }} reps
                         </span>
-                        <span v-if="weightRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                        <span v-if="weightRange(ex.sets)" class="rounded-chip bg-label-secondary/15 px-2 py-0.5 text-label">
                           {{ weightRange(ex.sets) }}
                         </span>
-                        <span v-if="rpeRange(ex.sets)" class="rounded-md bg-slate-700/60 px-2 py-0.5 text-slate-300">
+                        <span v-if="rpeRange(ex.sets)" class="rounded-chip bg-label-secondary/15 px-2 py-0.5 text-label">
                           RPE {{ rpeRange(ex.sets) }}
                         </span>
                       </div>

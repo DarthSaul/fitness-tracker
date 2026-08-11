@@ -23,6 +23,16 @@ function startEditing(): void {
   emit('edit')
 }
 
+/**
+ * Read-only rows (retroactive logging, completed sessions) must not advertise
+ * a tap target they don't have.
+ */
+const interactiveClass = computed(() =>
+  props.editable
+    ? 'cursor-pointer hover:bg-label-secondary/10 active:bg-label-secondary/20'
+    : '',
+)
+
 function formatWeight(w: number | null | undefined): string {
   if (w == null) return '—'
   return `${w}`
@@ -36,21 +46,25 @@ function formatEffort(effortTarget: string | null | undefined): string {
 </script>
 
 <template>
-  <!-- Completed set -->
+  <!-- Completed set — logged values read green throughout, per the iOS card -->
   <div
     v-if="completedSet"
     data-testid="set-row"
-    class="set-row select-none cursor-pointer text-sm transition-colors hover:bg-slate-700/50 active:bg-slate-700"
-    :class="{ 'opacity-50': loading }"
+    class="grid grid-cols-5 select-none items-center py-2 text-subheadline tnum transition-colors"
+    :class="[interactiveClass, { 'opacity-50': loading }]"
+    :role="editable ? 'button' : undefined"
+    :tabindex="editable ? 0 : undefined"
     @click="startEditing"
+    @keydown.enter="startEditing"
+    @keydown.space.prevent="startEditing"
     @contextmenu.prevent
   >
-    <span class="text-center text-xs font-medium text-emerald-400">{{ set.setNumber }}</span>
-    <span class="text-center text-emerald-300">{{ formatWeight(completedSet.weight) }}</span>
-    <span class="text-center text-emerald-300">{{ completedSet.reps ?? '—' }}</span>
-    <span class="text-center text-xs text-emerald-300/70">{{ formatEffort(set.effortTarget) }}</span>
+    <span class="text-center text-caption font-medium text-ios-green">{{ set.setNumber }}</span>
+    <span class="text-center text-ios-green">{{ formatWeight(completedSet.weight) }}</span>
+    <span class="text-center text-ios-green">{{ completedSet.reps ?? '—' }}</span>
+    <span class="text-center text-caption text-label-tertiary">{{ formatEffort(set.effortTarget) }}</span>
     <span class="flex items-center justify-center">
-      <UIcon name="i-lucide-check" class="size-4 text-emerald-400" />
+      <UIcon name="i-lucide-check" class="size-4 text-ios-green" />
     </span>
   </div>
 
@@ -58,25 +72,21 @@ function formatEffort(effortTarget: string | null | undefined): string {
   <div
     v-else
     data-testid="set-row"
-    class="set-row cursor-pointer text-sm transition-colors hover:bg-slate-700/50 active:bg-slate-700"
-    :class="{ 'opacity-50': loading }"
+    class="grid grid-cols-5 items-center py-2 text-subheadline tnum transition-colors"
+    :class="[interactiveClass, { 'opacity-50': loading }]"
+    :role="editable ? 'button' : undefined"
+    :tabindex="editable ? 0 : undefined"
     @click="startEditing"
+    @keydown.enter="startEditing"
+    @keydown.space.prevent="startEditing"
   >
-    <span class="text-center text-xs font-medium text-slate-500">{{ set.setNumber }}</span>
-    <span class="text-center text-slate-300">{{ isSwapped ? '—' : formatWeight(set.weight) }}</span>
-    <span class="text-center text-slate-300">{{ isSwapped ? '—' : (set.reps ?? '—') }}</span>
-    <span class="text-center text-xs text-slate-400">{{ isSwapped ? '—' : formatEffort(set.effortTarget) }}</span>
-    <span class="flex items-center justify-center">
-      <span v-if="set.notes" class="text-xs text-slate-600" :title="set.notes">*</span>
+    <span class="text-center text-caption font-medium text-label-secondary">{{ set.setNumber }}</span>
+    <span class="text-center text-label">{{ isSwapped ? '—' : formatWeight(set.weight) }}</span>
+    <span class="text-center text-label">{{ isSwapped ? '—' : (set.reps ?? '—') }}</span>
+    <span class="text-center text-caption text-label-tertiary">{{ isSwapped ? '—' : formatEffort(set.effortTarget) }}</span>
+    <span class="flex items-center justify-center gap-0.5">
+      <UIcon name="i-lucide-circle-dashed" class="size-4 text-label-tertiary" />
+      <span v-if="set.notes" class="text-caption text-label-tertiary" :title="set.notes">*</span>
     </span>
   </div>
 </template>
-
-<style scoped>
-.set-row {
-  display: grid;
-  grid-template-columns: 0.5fr 1.5fr 1fr 1.5fr 0.75fr;
-  align-items: center;
-  padding: 0.5rem 0;
-}
-</style>

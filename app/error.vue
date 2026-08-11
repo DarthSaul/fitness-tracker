@@ -13,11 +13,11 @@ function handleError() {
 </script>
 
 <template>
-  <div class="flex min-h-dvh flex-col items-center justify-center bg-neutral-950 px-4">
-    <h1 class="text-6xl font-bold text-white">
+  <div class="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4">
+    <h1 class="text-6xl font-bold text-label">
       {{ error.statusCode }}
     </h1>
-    <p class="mt-4 text-neutral-400">
+    <p class="mt-4 text-label-secondary">
       {{ error.statusMessage || 'Something went wrong' }}
     </p>
     <UButton

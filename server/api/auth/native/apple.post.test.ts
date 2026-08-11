@@ -4,7 +4,6 @@ import handler from './apple.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockVerifyAppleIdentityToken = verifyAppleIdentityToken as ReturnType<typeof vi.fn>
-const mockIsEmailAllowed = isEmailAllowed as ReturnType<typeof vi.fn>
 const mockSignAccessToken = signAccessToken as ReturnType<typeof vi.fn>
 const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
@@ -30,7 +29,6 @@ describe('POST /api/auth/native/apple', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    mockIsEmailAllowed.mockReturnValue(true)
     mockSignAccessToken.mockResolvedValue('access-token-abc')
     mockGetHeader.mockReturnValue('TestApp/1.0')
     mockFindOrLinkUser.mockResolvedValue(mockDbUser)
@@ -101,15 +99,6 @@ describe('POST /api/auth/native/apple', () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-token' })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce({ sub: 'apple-sub-001' })
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 401, statusMessage: 'Invalid Apple identity token' })
-    })
-  })
-
-  describe('allow-list check', () => {
-    test('throws 403 when email is not on the allow-list', async () => {
-      mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-token' })
-      mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
-      mockIsEmailAllowed.mockReturnValueOnce(false)
-      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
     })
   })
 
@@ -245,11 +234,16 @@ describe('POST /api/auth/native/apple', () => {
       expect(logger.error).toHaveBeenCalledWith({ err: expect.any(Error), route: 'POST /api/auth/native/apple' }, '[POST /api/auth/native/apple] Failed')
     })
 
+    // 4xx thrown from inside the try block must surface unchanged and unlogged —
+    // sentry.server.config.ts filters client errors, and wrapping one as a 500
+    // would both mislead the caller and pollute the dashboard.
     test('re-throws H3 errors without wrapping', async () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: 'valid-identity-token' })
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
-      mockIsEmailAllowed.mockReturnValueOnce(false)
-      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 403 })
+      mockFindOrLinkUser.mockRejectedValueOnce(
+        createError({ statusCode: 409, statusMessage: 'Identity already linked to another account.' }),
+      )
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 409 })
       expect(logger.error).not.toHaveBeenCalled()
     })
   })

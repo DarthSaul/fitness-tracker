@@ -97,14 +97,14 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
 </script>
 
 <template>
-  <div class="rounded-2xl bg-slate-800/30 p-4">
+  <div class="rounded-card bg-surface p-4">
     <!-- Loading skeleton -->
     <template v-if="loading || weekDays.length === 0">
       <div class="mb-3 flex items-center justify-between">
-        <div class="h-5 w-32 animate-pulse rounded bg-slate-800" />
+        <AppSkeleton :height="20" :width="128" />
         <div class="flex gap-1">
-          <div class="h-8 w-8 animate-pulse rounded-lg bg-slate-800" />
-          <div class="h-8 w-8 animate-pulse rounded-lg bg-slate-800" />
+          <AppSkeleton :height="32" :width="32" />
+          <AppSkeleton :height="32" :width="32" />
         </div>
       </div>
       <div class="flex justify-between">
@@ -113,8 +113,8 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
           :key="i"
           class="flex flex-col items-center gap-1"
         >
-          <div class="h-4 w-8 animate-pulse rounded bg-slate-800" />
-          <div class="h-10 w-10 animate-pulse rounded-lg bg-slate-800" />
+          <AppSkeleton :height="16" :width="32" />
+          <AppSkeleton :height="40" :width="40" />
         </div>
       </div>
     </template>
@@ -124,10 +124,10 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
       <!-- Header: Month Year + nav arrows -->
       <div class="mb-3 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="text-sm font-medium text-slate-300">{{ monthYear }}</span>
+          <span class="text-sm font-medium text-label">{{ monthYear }}</span>
           <button
             v-if="!isCurrentWeek"
-            class="rounded-md bg-slate-700/50 px-2 text-xs leading-5 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+            class="rounded-chip bg-label-secondary/15 px-2 text-xs leading-5 text-label-secondary transition-colors hover:bg-label-secondary/15 hover:text-label"
             aria-label="Go to today"
             @click="goToToday"
           >
@@ -136,14 +136,14 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
         </div>
         <div class="flex gap-1">
           <button
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-white"
+            class="flex h-8 w-8 items-center justify-center rounded-tile text-label-secondary transition-colors hover:bg-label-secondary/15 hover:text-label"
             aria-label="Previous week"
             @click="prevWeek"
           >
             <UIcon name="i-lucide-chevron-left" class="size-4" />
           </button>
           <button
-            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-white"
+            class="flex h-8 w-8 items-center justify-center rounded-tile text-label-secondary transition-colors hover:bg-label-secondary/15 hover:text-label"
             aria-label="Next week"
             @click="nextWeek"
           >
@@ -164,20 +164,20 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
         >
           <span
             class="text-xs"
-            :class="day.isToday || day.isSelected ? 'text-white font-semibold' : 'text-slate-400'"
+            :class="day.isToday || day.isSelected ? 'text-label font-semibold' : 'text-label-secondary'"
           >
             {{ day.dayName }}
           </span>
           <div
-            class="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-medium transition-colors"
+            class="flex h-10 w-10 items-center justify-center rounded-tile text-sm font-medium tnum transition-colors"
             :class="[
               day.isSelected && day.isToday
-                ? 'bg-violet-600 text-white'
+                ? 'bg-tint text-white'
                 : day.isSelected
-                  ? 'bg-violet-600/30 text-violet-300 ring-1 ring-violet-500'
+                  ? 'bg-tint/25 text-tint ring-1 ring-tint'
                   : day.isToday
-                    ? 'bg-violet-600/20 text-violet-400'
-                    : 'bg-slate-800 text-slate-400',
+                    ? 'bg-tint/15 text-tint'
+                    : 'bg-fill text-label-secondary',
             ]"
           >
             {{ day.dayNumber }}
@@ -186,7 +186,7 @@ const isCurrentWeek = computed(() => weekOffset.value === 0)
           <div class="h-1.5">
             <div
               v-if="day.hasScheduled"
-              class="h-1.5 w-1.5 rounded-full bg-emerald-400"
+              class="h-1.5 w-1.5 rounded-full bg-ios-green"
             />
           </div>
         </button>

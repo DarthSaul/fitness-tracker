@@ -4,7 +4,6 @@ import handler from './google.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockVerifyGoogleIdToken = verifyGoogleIdToken as ReturnType<typeof vi.fn>
-const mockIsEmailAllowed = isEmailAllowed as ReturnType<typeof vi.fn>
 const mockSignAccessToken = signAccessToken as ReturnType<typeof vi.fn>
 const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
@@ -36,7 +35,6 @@ describe('POST /api/auth/native/google', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    mockIsEmailAllowed.mockReturnValue(true)
     mockSignAccessToken.mockResolvedValue('access-token-xyz')
     mockGetHeader.mockReturnValue('TestApp/1.0')
     mockFindOrLinkUser.mockResolvedValue(mockDbUser)
@@ -95,15 +93,6 @@ describe('POST /api/auth/native/google', () => {
       const infraError = Object.assign(new Error('JWKS fetch timed out'), { code: 'ERR_JWKS_TIMEOUT' })
       mockVerifyGoogleIdToken.mockRejectedValueOnce(infraError)
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 500 })
-    })
-  })
-
-  describe('allow-list check', () => {
-    test('throws 403 when email is not on the allow-list', async () => {
-      mockReadBody.mockResolvedValueOnce({ idToken: 'valid-token' })
-      mockVerifyGoogleIdToken.mockResolvedValueOnce(mockGooglePayload)
-      mockIsEmailAllowed.mockReturnValueOnce(false)
-      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 403, statusMessage: 'You are not invited to use this app.' })
     })
   })
 
@@ -211,11 +200,16 @@ describe('POST /api/auth/native/google', () => {
       expect(logger.error).toHaveBeenCalledWith({ err: expect.any(Error), route: 'POST /api/auth/native/google' }, '[POST /api/auth/native/google] Failed')
     })
 
+    // 4xx thrown from inside the try block must surface unchanged and unlogged —
+    // sentry.server.config.ts filters client errors, and wrapping one as a 500
+    // would both mislead the caller and pollute the dashboard.
     test('re-throws H3 errors without wrapping', async () => {
       mockReadBody.mockResolvedValueOnce({ idToken: 'valid-id-token' })
       mockVerifyGoogleIdToken.mockResolvedValueOnce(mockGooglePayload)
-      mockIsEmailAllowed.mockReturnValueOnce(false)
-      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 403 })
+      mockFindOrLinkUser.mockRejectedValueOnce(
+        createError({ statusCode: 409, statusMessage: 'Identity already linked to another account.' }),
+      )
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 409 })
       expect(logger.error).not.toHaveBeenCalled()
     })
   })

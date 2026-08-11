@@ -1,3 +1,5 @@
+import { version } from './package.json'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -35,10 +37,45 @@ export default defineNuxtConfig({
     apnsTeamId: '',
     apnsKeyId: '',
     apnsPrivateKey: '',
+    public: {
+      // Surfaced on the Settings screen; single source of truth is package.json.
+      appVersion: version,
+      // Web Sign in with Apple needs a Services ID *and* the signing key the
+      // native iOS flow doesn't use. All four are required to mint the client
+      // secret, so a partial configuration fails just as hard as none at all —
+      // hide the button unless every one is present.
+      //
+      // Empty string rather than `false`: this is overridable at runtime via
+      // NUXT_PUBLIC_APPLE_AUTH_ENABLED, so the deployment can flip it without
+      // a rebuild. The default is computed from the build environment.
+      appleAuthEnabled: Boolean(
+        process.env.NUXT_OAUTH_APPLE_CLIENT_ID
+        && process.env.NUXT_OAUTH_APPLE_TEAM_ID
+        && process.env.NUXT_OAUTH_APPLE_KEY_ID
+        && process.env.NUXT_OAUTH_APPLE_PRIVATE_KEY,
+      ),
+    },
   },
+  components: [
+    // iOS design-system primitives register as <AppCard>, <AppChip>, … so they
+    // read distinctly from Nuxt UI's U-prefixed components.
+    { path: '~/components/ios', prefix: 'App', pathPrefix: false },
+    '~/components',
+  ],
   css: ['~/assets/css/main.css'],
+  ui: {
+    // @nuxt/ui auto-registers @nuxt/fonts. The design system is 100% system
+    // fonts (SF Pro on Apple platforms, system-ui elsewhere) to match the iOS
+    // client, so the webfont pipeline is dead weight — and it can misfire
+    // trying to resolve `-apple-system` as a downloadable family.
+    fonts: false,
+  },
   colorMode: {
-    preference: 'dark',
+    // Mirrors iOS `AppAppearance`: follow the system by default, with an
+    // explicit override available in Settings.
+    preference: 'system',
+    fallback: 'dark',
+    storageKey: 'appAppearance',
   },
   app: {
     head: {
@@ -48,8 +85,12 @@ export default defineNuxtConfig({
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
-        { name: 'apple-mobile-web-app-title', content: 'Workout' },
-        { name: 'theme-color', content: '#0f0a1e' },
+        { name: 'apple-mobile-web-app-title', content: 'Dr. Dumbbell' },
+        // Scoped per scheme so the browser chrome tracks systemBackground.
+        // These follow the OS setting rather than the in-app override, which
+        // is the most a static meta tag can do.
+        { name: 'theme-color', content: '#ffffff', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#000000', media: '(prefers-color-scheme: dark)' },
       ],
       link: [
         { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon-180.png' },
@@ -62,15 +103,17 @@ export default defineNuxtConfig({
       installPrompt: true,
     },
     manifest: {
-      name: 'Workout Tracker',
-      short_name: 'Workout',
+      name: 'DR. DUMBBELL',
+      short_name: 'Dr. Dumbbell',
       start_url: '/',
       scope: '/',
       id: '/',
       display: 'standalone',
       orientation: 'portrait',
-      theme_color: '#0f0a1e',
-      background_color: '#0f0a1e',
+      // Matches the dark systemBackground. The manifest colours are static per
+      // spec, so the light-scheme splash intentionally doesn't track them.
+      theme_color: '#000000',
+      background_color: '#000000',
       categories: ['fitness', 'health'],
       icons: [
         {
@@ -85,14 +128,16 @@ export default defineNuxtConfig({
           type: 'image/png',
           purpose: 'any',
         },
+        // Separate art for maskable: the OS crops to the centre 80%, which
+        // would otherwise cut the wordmark off the full-bleed icon.
         {
-          src: '/icons/icon-192.png',
+          src: '/icons/icon-192-maskable.png',
           sizes: '192x192',
           type: 'image/png',
           purpose: 'maskable',
         },
         {
-          src: '/icons/icon-512.png',
+          src: '/icons/icon-512-maskable.png',
           sizes: '512x512',
           type: 'image/png',
           purpose: 'maskable',
@@ -124,7 +169,7 @@ export default defineNuxtConfig({
     openAPI: {
       route: '/_openapi.json',
       meta: {
-        title: 'Workout Tracker API',
+        title: 'DR. DUMBBELL API',
         description: 'REST API for tracking structured workout programs',
         version: '0.2.0',
       },

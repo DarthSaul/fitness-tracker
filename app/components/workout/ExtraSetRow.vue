@@ -15,9 +15,9 @@ defineEmits<{
 
 <template>
   <div
-    class="extra-set-row transition-colors"
+    class="grid grid-cols-5 items-center py-2 tnum transition-colors"
     :class="[
-      editable ? 'cursor-pointer hover:bg-slate-700/40 active:bg-slate-700/60' : '',
+      editable ? 'cursor-pointer hover:bg-label-secondary/10 active:bg-label-secondary/20' : '',
       loading ? 'opacity-50' : '',
     ]"
     :role="editable ? 'button' : undefined"
@@ -26,21 +26,13 @@ defineEmits<{
     @keydown.enter="editable && $emit('edit')"
     @keydown.space.prevent="editable && $emit('edit')"
   >
-    <span class="text-center text-xs font-medium text-slate-500">{{ setNumber }}</span>
-    <span class="text-center text-sm font-semibold text-green-400">{{ completedSet.weight != null ? `${completedSet.weight}` : '—' }}</span>
-    <span class="text-center text-sm font-semibold text-green-400">{{ completedSet.reps != null ? completedSet.reps : '—' }}</span>
-    <span class="text-center text-xs text-slate-600">—</span>
+    <!-- Orange set number marks this as an extra set rather than a prescribed one -->
+    <span class="text-center text-caption font-medium text-ios-orange">{{ setNumber }}</span>
+    <span class="text-center text-subheadline font-semibold text-ios-green">{{ completedSet.weight != null ? `${completedSet.weight}` : '—' }}</span>
+    <span class="text-center text-subheadline font-semibold text-ios-green">{{ completedSet.reps != null ? completedSet.reps : '—' }}</span>
+    <span class="text-center text-caption text-label-tertiary">—</span>
     <span class="flex items-center justify-center">
-      <UIcon name="i-lucide-check-circle" class="size-4 text-green-500" />
+      <UIcon name="i-lucide-check" class="size-4 text-ios-green" />
     </span>
   </div>
 </template>
-
-<style scoped>
-.extra-set-row {
-  display: grid;
-  grid-template-columns: 0.5fr 1.5fr 1fr 1.5fr 0.75fr;
-  align-items: center;
-  padding: 0.5rem 0;
-}
-</style>

@@ -75,9 +75,9 @@ function formatTarget(): string {
       <div class="mx-auto w-full max-w-lg px-5 pb-8 pt-4">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold text-white">{{ set.setNumber != null ? `Set ${set.setNumber}` : 'Extra Set' }}</h3>
+          <h3 class="text-lg font-semibold text-label">{{ set.setNumber != null ? `Set ${set.setNumber}` : 'Extra Set' }}</h3>
           <button
-            class="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            class="rounded-full p-1.5 text-label-secondary transition-colors hover:bg-label-secondary/10 hover:text-label"
             aria-label="Close"
             @click="emit('close')"
           >
@@ -86,14 +86,14 @@ function formatTarget(): string {
         </div>
 
         <!-- Target context -->
-        <p v-if="formatTarget()" class="mb-5 text-sm text-slate-400">
+        <p v-if="formatTarget()" class="mb-5 text-sm text-label-secondary">
           Target: {{ formatTarget() }}
         </p>
 
         <!-- Inputs -->
         <div class="mb-5 flex gap-4">
           <div class="flex-1">
-            <label for="drawer-weight" class="mb-1.5 block text-sm font-medium text-slate-300">
+            <label for="drawer-weight" class="mb-1.5 block text-sm font-medium text-label">
               Weight (lbs)
             </label>
             <input
@@ -104,11 +104,11 @@ function formatTarget(): string {
               inputmode="decimal"
               step="any"
               placeholder="0"
-              class="w-full rounded-lg bg-slate-800 px-4 py-3 text-lg text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
+              class="w-full rounded-tile bg-fill px-4 py-3 text-lg text-label outline-none ring-1 ring-separator transition-shadow focus:ring-2 focus:ring-tint"
             >
           </div>
           <div class="flex-1">
-            <label for="drawer-reps" class="mb-1.5 block text-sm font-medium text-slate-300">
+            <label for="drawer-reps" class="mb-1.5 block text-sm font-medium text-label">
               Reps
             </label>
             <input
@@ -117,7 +117,7 @@ function formatTarget(): string {
               type="number"
               inputmode="numeric"
               :placeholder="!isSwapped && set.reps != null ? String(set.reps) : '0'"
-              class="w-full rounded-lg bg-slate-800 px-4 py-3 text-lg text-white outline-none ring-1 ring-slate-700 transition-shadow focus:ring-2 focus:ring-violet-500"
+              class="w-full rounded-tile bg-fill px-4 py-3 text-lg text-label outline-none ring-1 ring-separator transition-shadow focus:ring-2 focus:ring-tint"
             >
           </div>
         </div>
