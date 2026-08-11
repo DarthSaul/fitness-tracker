@@ -8,7 +8,7 @@
  *  - signUpWithEmail: POSTs to signup endpoint, refreshes session
  *  - signInWithEmail: POSTs to signin endpoint, refreshes session
  *  - resetPassword: POSTs to reset endpoint
- *  - signOut: POSTs to logout, refreshes session, navigates to /login — in that order
+ *  - signOut: POSTs to logout, refreshes session, navigates to / — in that order
  *  - signOut error propagation
  *
  * Nuxt globals (useUserSession, navigateTo, $fetch) are stubbed globally in
@@ -29,6 +29,7 @@ const mockFetchSession = vi.fn()
   user: { value: { id: 'u1', email: 'a@b.com', name: 'Alice', avatarUrl: null } },
   session: { value: { user: { id: 'u1' } } },
   fetch: mockFetchSession,
+  ready: { value: true },
 })
 
 describe('useAuth composable', () => {
@@ -43,6 +44,7 @@ describe('useAuth composable', () => {
       user: { value: { id: 'u1', email: 'a@b.com', name: 'Alice', avatarUrl: null } },
       session: { value: { user: { id: 'u1' } } },
       fetch: mockFetchSession,
+      ready: { value: true },
     })
   })
 
@@ -67,6 +69,13 @@ describe('useAuth composable', () => {
     test('exposes fetch from useUserSession', () => {
       const { fetch } = useAuth()
       expect(fetch).toBe(mockFetchSession)
+    })
+
+    // The landing page needs to know when the session has actually resolved,
+    // not merely that it is currently falsy.
+    test('exposes ready from useUserSession', () => {
+      const { ready } = useAuth()
+      expect(ready).toEqual({ value: true })
     })
 
     test('exposes signInWithGoogle as a function', () => {
@@ -222,10 +231,12 @@ describe('useAuth composable', () => {
       expect(mockFetchSession).toHaveBeenCalledOnce()
     })
 
-    test('navigates to /login after refreshing session state', async () => {
+    // The landing page, not the bare sign-in form: it has a Sign in CTA and is
+    // the page a departing user should land on.
+    test('navigates to / after refreshing session state', async () => {
       const { signOut } = useAuth()
       await signOut()
-      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
+      expect(mockNavigateTo).toHaveBeenCalledWith('/')
     })
 
     test('executes $fetch → fetchSession → navigateTo in that order', async () => {

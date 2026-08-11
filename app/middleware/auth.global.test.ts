@@ -2,13 +2,15 @@
  * Tests for app/middleware/auth.global.ts
  *
  * Coverage strategy:
- *  - Root path (/): unauthenticated redirects to /login; authenticated passes through
+ *  - Root path (/): public marketing page — anonymous visitors pass through,
+ *    signed-in visitors are sent on to the dashboard at /home
+ *  - /home protection: unauthenticated redirects to /login
  *  - /programs protection: unauthenticated redirects to /login
  *  - /programs sub-paths: unauthenticated redirects to /login
  *  - /programs does NOT redirect authenticated users
  *  - /workout protection: unauthenticated redirects to /login
  *  - /workout does NOT redirect authenticated users
- *  - /login redirect: authenticated users are sent to /
+ *  - /login redirect: authenticated users are sent to /home
  *  - /login is accessible to unauthenticated users (no redirect)
  *  - Unrelated public paths pass through without redirecting
  *
@@ -46,16 +48,37 @@ describe('app/middleware/auth.global', () => {
     mockUseUserSession.mockReturnValue({ loggedIn: { value } })
   }
 
+  // `/` is the public marketing page now; the dashboard lives at /home.
   describe('root path (/)', () => {
-    test('redirects unauthenticated users to /login', () => {
+    test('lets unauthenticated visitors through to the landing page', () => {
       setLoggedIn(false)
       ;(middleware as MiddlewareFn)(makeTo('/'))
+      expect(mockNavigateTo).not.toHaveBeenCalled()
+    })
+
+    test('sends authenticated visitors on to the dashboard', () => {
+      setLoggedIn(true)
+      ;(middleware as MiddlewareFn)(makeTo('/'))
+      expect(mockNavigateTo).toHaveBeenCalledWith('/home')
+    })
+  })
+
+  describe('/home route protection', () => {
+    test('redirects unauthenticated users on /home to /login', () => {
+      setLoggedIn(false)
+      ;(middleware as MiddlewareFn)(makeTo('/home'))
       expect(mockNavigateTo).toHaveBeenCalledWith('/login')
     })
 
-    test('does NOT redirect authenticated users on /', () => {
+    test('redirects unauthenticated users on /home sub-paths to /login', () => {
+      setLoggedIn(false)
+      ;(middleware as MiddlewareFn)(makeTo('/home/something'))
+      expect(mockNavigateTo).toHaveBeenCalledWith('/login')
+    })
+
+    test('does NOT redirect authenticated users on /home', () => {
       setLoggedIn(true)
-      ;(middleware as MiddlewareFn)(makeTo('/'))
+      ;(middleware as MiddlewareFn)(makeTo('/home'))
       expect(mockNavigateTo).not.toHaveBeenCalled()
     })
   })
@@ -93,10 +116,10 @@ describe('app/middleware/auth.global', () => {
   })
 
   describe('/login route behaviour', () => {
-    test('redirects authenticated users on /login to /', () => {
+    test('redirects authenticated users on /login to /home', () => {
       setLoggedIn(true)
       ;(middleware as MiddlewareFn)(makeTo('/login'))
-      expect(mockNavigateTo).toHaveBeenCalledWith('/')
+      expect(mockNavigateTo).toHaveBeenCalledWith('/home')
     })
 
     test('does NOT redirect unauthenticated users on /login', () => {
@@ -157,11 +180,18 @@ describe('app/middleware/auth.global', () => {
     })
   })
 
-  describe('prefix boundary — /programsother should not be protected', () => {
+  describe('prefix boundaries', () => {
     test('does not redirect unauthenticated users on a path that starts with /programs but is not /programs or /programs/', () => {
       setLoggedIn(false)
       // e.g., a hypothetical /programslist path must not be treated as /programs
       ;(middleware as MiddlewareFn)(makeTo('/programslist'))
+      expect(mockNavigateTo).not.toHaveBeenCalled()
+    })
+
+    // A future public /homepage must not inherit the dashboard's guard.
+    test('does not protect a path that merely starts with /home', () => {
+      setLoggedIn(false)
+      ;(middleware as MiddlewareFn)(makeTo('/homepage'))
       expect(mockNavigateTo).not.toHaveBeenCalled()
     })
   })
