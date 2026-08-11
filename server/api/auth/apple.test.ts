@@ -203,7 +203,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       })
     })
 
-    test('redirects to / after successful login', async () => {
+    test('redirects to /home after successful login', async () => {
       mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
@@ -212,7 +212,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
         payload: mockPayload,
       })
 
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/')
+      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/home')
     })
   })
 

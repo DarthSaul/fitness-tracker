@@ -89,7 +89,8 @@ function formatSet(set: { reps: number | null, weight: number | null, effortTarg
 </script>
 
 <template>
-  <div class="space-y-4 pb-24">
+  <!-- pb-24 clears the fixed CTA; unneeded once it rejoins the flow at lg -->
+  <div class="space-y-4 pb-24 lg:pb-0">
     <AppSkeleton v-if="status === 'pending'" :height="120" :count="3" />
 
     <div v-else-if="!workout" class="flex flex-col items-center gap-3 py-16 text-center">
@@ -131,13 +132,17 @@ function formatSet(set: { reps: number | null, weight: number | null, effortTarg
       </section>
     </template>
 
-    <!-- Bottom CTA, over a gradient bleed into the safe area as on iOS -->
+    <!--
+      Bottom CTA, over a gradient bleed into the safe area as on iOS. It goes
+      back in flow on desktop: docking it to the window would span the whole
+      frame and slide under the side rail.
+    -->
     <div
       v-if="workout"
-      class="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas/95 to-transparent px-4 pt-6"
+      class="fixed inset-x-0 bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas/95 to-transparent px-4 pt-6 lg:static lg:mt-8 lg:bg-none lg:px-0 lg:pt-0"
       style="padding-bottom: calc(env(safe-area-inset-bottom) + 1rem)"
     >
-      <div class="mx-auto max-w-lg">
+      <div class="mx-auto max-w-lg lg:max-w-none">
         <UButton
           block
           size="xl"

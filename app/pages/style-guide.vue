@@ -50,6 +50,18 @@ const typeScale = [
   { name: 'caption2', class: 'text-caption2' },
 ]
 
+/**
+ * Shell geometry. Not swatches — the widths that decide where the phone column
+ * ends and the desktop frame begins. Resize the window past 1024 and 1280 to
+ * see them take effect.
+ */
+const geometry = [
+  { name: 'frame', value: '1440px', note: 'outer desktop shell, centred' },
+  { name: 'column', value: '768px', note: 'single-column content at lg' },
+  { name: 'content', value: '1120px', note: 'two-column content at xl' },
+  { name: 'sidenav', value: '260px', note: 'side rail width at lg' },
+]
+
 /** Every icon the shell and the new screens rely on — a missing name renders
  *  as an empty box, which is easy to miss on a real screen. */
 const icons = [
@@ -109,6 +121,19 @@ const sheetOpen = ref(false)
         </p>
         <p class="text-label-secondary">label-secondary</p>
         <p class="text-label-tertiary">label-tertiary</p>
+      </div>
+    </section>
+
+    <section class="space-y-2">
+      <p class="text-caption font-semibold uppercase text-label-secondary">Shell geometry</p>
+      <div class="divide-y divide-separator overflow-hidden rounded-card bg-surface">
+        <div v-for="g in geometry" :key="g.name" class="flex items-baseline justify-between gap-3 px-4 py-2.5">
+          <span class="text-body">{{ g.name }}</span>
+          <span class="min-w-0 text-right">
+            <span class="block text-subheadline tnum text-label">{{ g.value }}</span>
+            <span class="block truncate text-caption text-label-secondary">{{ g.note }}</span>
+          </span>
+        </div>
       </div>
     </section>
 

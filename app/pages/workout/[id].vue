@@ -64,7 +64,7 @@ onMounted(async () => {
   try {
     const found = await loadActiveSession()
     if (!found || session.value?.id !== sessionId.value) {
-      await router.replace('/')
+      await router.replace('/home')
       return
     }
   } catch {
@@ -289,7 +289,7 @@ async function confirmComplete(): Promise<void> {
     if (result.programCompleted) {
       programCompleted.value = true
     } else {
-      await router.push('/')
+      await router.push('/home')
     }
   } catch {
     // Error is handled by completing state resetting
@@ -298,14 +298,14 @@ async function confirmComplete(): Promise<void> {
 
 async function handlePause(): Promise<void> {
   endDialogOpen.value = false
-  await router.push('/')
+  await router.push('/home')
 }
 
 async function handleDiscard(): Promise<void> {
   try {
     await abandonWorkout()
     endDialogOpen.value = false
-    await router.push('/')
+    await router.push('/home')
   } catch {
     // Error handled by abandoning state
   }
@@ -335,16 +335,33 @@ async function handleDiscard(): Promise<void> {
       <p class="text-label-secondary">
         Congratulations! You've finished every workout in this program.
       </p>
-      <UButton color="primary" size="lg" @click="router.push('/')">
+      <UButton color="primary" size="lg" @click="router.push('/home')">
         Back to Home
       </UButton>
     </div>
 
-    <!-- Workout session -->
+    <!--
+      Workout session.
+
+      One column on a phone. From `lg` the exercise flow takes the left column
+      and the session chrome becomes a sticky control rail on the right, so the
+      progress bar, rest timer and Complete button stay put while you scroll a
+      long list of exercises — a single 1120px column of exercise cards would
+      be worse than the phone layout, not better.
+
+      `order-*` reproduces the phone order exactly; `lg:order-none` hands
+      placement back to the grid. The wrapper uses `gap`, not `space-y`, which
+      follows DOM order and would break under `order`.
+    -->
     <template v-else-if="session && day">
-      <!-- Header -->
-      <div class="flex items-center gap-3">
-        <NuxtLink to="/">
+      <div
+        class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-8"
+      >
+        <!-- Session chrome -->
+        <div class="order-1 flex flex-col gap-4 lg:order-none lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1">
+          <!-- Header -->
+          <div class="flex items-center gap-3">
+        <NuxtLink to="/home">
           <UButton
             icon="i-lucide-arrow-left"
             color="neutral"
@@ -352,151 +369,161 @@ async function handleDiscard(): Promise<void> {
             size="sm"
           />
         </NuxtLink>
-        <h2 class="flex-1 text-title3 font-semibold">
-          Week {{ session.weekNumber }}, Day {{ session.dayNumber }}
-        </h2>
-        <UButton
-          icon="i-lucide-timer"
-          color="neutral"
-          variant="soft"
-          size="sm"
-          aria-label="Rest timer"
-          @click="restTimerOpen = true"
-        />
-      </div>
+            <h2 class="flex-1 text-title3 font-semibold">
+              Week {{ session.weekNumber }}, Day {{ session.dayNumber }}
+            </h2>
+            <UButton
+              icon="i-lucide-timer"
+              color="neutral"
+              variant="soft"
+              size="sm"
+              aria-label="Rest timer"
+              @click="restTimerOpen = true"
+            />
+          </div>
 
-      <!-- PT routines quick access -->
-      <AppSkeleton v-if="ptLoading" :height="28" :width="112" />
-      <UButton
-        v-else-if="ptEnabled && (ptRoutines?.length ?? 0) > 0"
-        icon="i-lucide-clipboard-list"
-        color="neutral"
-        variant="soft"
-        size="xs"
-        @click="openPtDrawer"
-      >
-        PT Routines
-      </UButton>
+          <!-- PT routines quick access -->
+          <AppSkeleton v-if="ptLoading" :height="28" :width="112" />
+          <UButton
+            v-else-if="ptEnabled && (ptRoutines?.length ?? 0) > 0"
+            icon="i-lucide-clipboard-list"
+            color="neutral"
+            variant="soft"
+            size="xs"
+            class="self-start"
+            @click="openPtDrawer"
+          >
+            PT Routines
+          </UButton>
 
-      <!-- Progress bar -->
-      <div class="space-y-1">
-        <div class="flex items-center justify-between text-xs text-label-secondary">
-          <span>Progress</span>
-          <span>{{ completedSetCount }} / {{ totalSets }} sets</span>
-        </div>
-        <div class="h-3 overflow-hidden rounded-full bg-fill">
-          <div
-            class="h-full rounded-full bg-tint transition-all duration-300"
-            :style="{ width: `${progressPercent}%` }"
-          />
-        </div>
-      </div>
-
-      <!-- Warm-up -->
-      <div v-if="day.warmUp" class="rounded-tile bg-ios-orange/15 px-3 py-2.5">
-        <p class="text-caption2 font-medium text-ios-orange/70">Warm-up</p>
-        <p class="mt-0.5 text-sm text-ios-orange">{{ day.warmUp }}</p>
-      </div>
-
-      <!-- Exercise groups -->
-      <div class="space-y-3">
-        <WorkoutExerciseCard
-          v-for="(group, groupIdx) in day.exerciseGroups"
-          :key="group.id"
-          :ref="(el) => { if (el) (exerciseCardRefs as unknown as (ExerciseCardHandle | null)[])[groupIdx] = el as unknown as ExerciseCardHandle }"
-          :group="group"
-          :completed-sets="completedSets"
-          :extra-completed-sets="extraCompletedSets"
-          :exercise-swaps="exerciseSwaps"
-          :editable="true"
-          :recording-set-id="recordingSetId"
-          :completing-group="completingGroupIdx === groupIdx"
-          @edit="handleEdit"
-          @add-extra-set="handleAddExtraSet"
-          @swap="handleSwap"
-          @group-complete="handleGroupComplete(groupIdx)"
-        />
-        <WorkoutAdHocExerciseCard
-          v-for="group in adHocGroups"
-          :key="group.exerciseName"
-          :group="group"
-          :editable="true"
-          @log-set="handleAdHocLogSet"
-          @add-set="handleAdHocAddSet"
-        />
-      </div>
-
-      <!-- Add Exercise Group -->
-      <UButton
-        color="neutral"
-        variant="outline"
-        size="sm"
-        icon="i-lucide-plus"
-        class="w-full justify-center py-3"
-        @click="addExerciseDrawerOpen = true"
-      >
-        Add Exercise Group
-      </UButton>
-
-      <!-- Workout Notes -->
-      <div class="rounded-tile bg-surface">
-        <div
-          role="button"
-          tabindex="0"
-          class="flex w-full items-center gap-3 rounded-tile px-3 py-3 text-left"
-          @click="workoutNotesOpen = !workoutNotesOpen"
-          @keydown.enter="workoutNotesOpen = !workoutNotesOpen"
-          @keydown.space.prevent="workoutNotesOpen = !workoutNotesOpen"
-        >
-          <span class="flex-1 text-sm font-medium text-label">Workout Notes</span>
-          <UIcon
-            :name="workoutNotesOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-            class="size-6 shrink-0 text-label-secondary"
-          />
-        </div>
-        <div
-          class="grid overflow-hidden transition-all duration-200 ease-in-out"
-          :class="workoutNotesOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
-        >
-          <div class="min-h-0">
-            <div class="border-t border-separator px-3 pb-3 pt-2">
-              <textarea
-                id="workout-notes"
-                :value="notesDraft"
-                rows="3"
-                placeholder="Add notes for this workout..."
-                class="w-full resize-none bg-transparent text-base text-label placeholder-label-tertiary outline-none"
-                @input="notesDraft = ($event.target as HTMLTextAreaElement).value; saveWorkoutNotes(notesDraft)"
-                @blur="saveWorkoutNotes(notesDraft)"
+          <!-- Progress bar -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-xs text-label-secondary">
+              <span>Progress</span>
+              <span>{{ completedSetCount }} / {{ totalSets }} sets</span>
+            </div>
+            <div class="h-3 overflow-hidden rounded-full bg-fill">
+              <div
+                class="h-full rounded-full bg-tint transition-all duration-300"
+                :style="{ width: `${progressPercent}%` }"
               />
-              <p class="mt-0.5 text-right text-xs text-label-tertiary" :class="{ invisible: !notesSaving }">
-                Saving...
-              </p>
+            </div>
+          </div>
+
+          <!-- Warm-up -->
+          <div v-if="day.warmUp" class="rounded-tile bg-ios-orange/15 px-3 py-2.5">
+            <p class="text-caption2 font-medium text-ios-orange/70">Warm-up</p>
+            <p class="mt-0.5 text-sm text-ios-orange">{{ day.warmUp }}</p>
+          </div>
+        </div>
+
+        <!-- Exercise flow -->
+        <div class="order-2 flex flex-col gap-4 lg:order-none lg:col-start-1 lg:row-start-1 lg:row-span-2">
+          <!-- Exercise groups -->
+          <div class="space-y-3">
+            <WorkoutExerciseCard
+              v-for="(group, groupIdx) in day.exerciseGroups"
+              :key="group.id"
+              :ref="(el) => { if (el) (exerciseCardRefs as unknown as (ExerciseCardHandle | null)[])[groupIdx] = el as unknown as ExerciseCardHandle }"
+              :group="group"
+              :completed-sets="completedSets"
+              :extra-completed-sets="extraCompletedSets"
+              :exercise-swaps="exerciseSwaps"
+              :editable="true"
+              :recording-set-id="recordingSetId"
+              :completing-group="completingGroupIdx === groupIdx"
+              @edit="handleEdit"
+              @add-extra-set="handleAddExtraSet"
+              @swap="handleSwap"
+              @group-complete="handleGroupComplete(groupIdx)"
+            />
+            <WorkoutAdHocExerciseCard
+              v-for="group in adHocGroups"
+              :key="group.exerciseName"
+              :group="group"
+              :editable="true"
+              @log-set="handleAdHocLogSet"
+              @add-set="handleAdHocAddSet"
+            />
+          </div>
+
+          <!-- Add Exercise Group -->
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-plus"
+            class="w-full justify-center py-3"
+            @click="addExerciseDrawerOpen = true"
+          >
+            Add Exercise Group
+          </UButton>
+
+          <!-- Workout Notes -->
+          <div class="rounded-tile bg-surface">
+            <div
+              role="button"
+              tabindex="0"
+              class="flex w-full items-center gap-3 rounded-tile px-3 py-3 text-left"
+              @click="workoutNotesOpen = !workoutNotesOpen"
+              @keydown.enter="workoutNotesOpen = !workoutNotesOpen"
+              @keydown.space.prevent="workoutNotesOpen = !workoutNotesOpen"
+            >
+              <span class="flex-1 text-sm font-medium text-label">Workout Notes</span>
+              <UIcon
+                :name="workoutNotesOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                class="size-6 shrink-0 text-label-secondary"
+              />
+            </div>
+            <div
+              class="grid overflow-hidden transition-all duration-200 ease-in-out"
+              :class="workoutNotesOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+            >
+              <div class="min-h-0">
+                <div class="border-t border-separator px-3 pb-3 pt-2">
+                  <textarea
+                    id="workout-notes"
+                    :value="notesDraft"
+                    rows="3"
+                    placeholder="Add notes for this workout..."
+                    class="w-full resize-none bg-transparent text-base text-label placeholder-label-tertiary outline-none"
+                    @input="notesDraft = ($event.target as HTMLTextAreaElement).value; saveWorkoutNotes(notesDraft)"
+                    @blur="saveWorkoutNotes(notesDraft)"
+                  />
+                  <p class="mt-0.5 text-right text-xs text-label-tertiary" :class="{ invisible: !notesSaving }">
+                    Saving...
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Action buttons -->
-      <div class="flex gap-3">
-        <UButton
-          color="neutral"
-          variant="outline"
-          size="lg"
-          class="flex-1 justify-center py-5 text-base"
-          @click="endDialogOpen = true"
-        >
-          End
-        </UButton>
-        <UButton
-          color="primary"
-          size="lg"
-          class="flex-1 justify-center py-5 text-base"
-          :loading="completing"
-          @click="completeDialogOpen = true"
-        >
-          Complete
-        </UButton>
+        <!--
+          Action buttons. Side by side under the flow on a phone; stacked at the
+          foot of the rail on desktop, stuck to the bottom of the viewport so
+          Complete stays reachable however long the exercise list runs.
+        -->
+        <div class="order-3 flex gap-3 lg:order-none lg:sticky lg:bottom-6 lg:col-start-2 lg:row-start-2 lg:flex-col lg:self-end">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="lg"
+            class="flex-1 justify-center py-5 text-base"
+            @click="endDialogOpen = true"
+          >
+            End
+          </UButton>
+          <UButton
+            color="primary"
+            size="lg"
+            class="flex-1 justify-center py-5 text-base"
+            :loading="completing"
+            @click="completeDialogOpen = true"
+          >
+            Complete
+          </UButton>
+        </div>
       </div>
     </template>
 

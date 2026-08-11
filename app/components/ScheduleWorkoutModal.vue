@@ -24,6 +24,12 @@ const props = defineProps<{
     scheduledDate: string
   }>
   completedDays: Array<{ weekNumber: number; dayNumber: number }>
+  /**
+   * Surfaced here because a failed schedule leaves this modal open — the
+   * caller's own error slot sits in a branch that only renders once a workout
+   * *is* scheduled, so it would never be seen.
+   */
+  error?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -68,6 +74,13 @@ function selectDay(weekNumber: number, dayNumber: number): void {
   >
     <template #body>
       <div class="space-y-4 p-4">
+        <UAlert
+          v-if="error"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-alert-circle"
+          :title="error"
+        />
         <div v-for="week in program.weeks" :key="week.id">
           <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-label-secondary">
             Week {{ week.weekNumber }}

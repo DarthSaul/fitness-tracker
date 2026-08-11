@@ -106,14 +106,14 @@ describe('GET /api/auth/google', () => {
       })
     })
 
-    test('redirects to / after successful login', async () => {
+    test('redirects to /home after successful login', async () => {
       mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
       const event = makeEvent()
 
       await config.onSuccess(event, { user: mockGoogleUser })
 
       expect(mockSendRedirect).toHaveBeenCalledOnce()
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/')
+      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/home')
     })
   })
 

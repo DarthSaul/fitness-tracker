@@ -29,6 +29,11 @@ const headerOverride = usePageHeaderOverride()
 const header = computed(() => headerOverride.value ?? route.meta.header)
 const isInlineHeader = computed(() => header.value?.style === 'inline')
 
+// The leaf crumb is whatever title the shell is already showing, so screens
+// that publish one through `usePageHeader()` after their fetch lands need no
+// extra plumbing.
+const crumbs = computed(() => resolveBreadcrumbs(route.name as string | undefined, header.value?.title))
+
 const isOnWorkoutPage = computed(() =>
   route.path.startsWith('/workout/') || route.path.startsWith('/standalone-workouts/session/'),
 )
@@ -56,23 +61,6 @@ const resumeTarget = computed(() => {
 })
 
 const showResumeBanner = computed(() => !!resumeTarget.value && !isOnWorkoutPage.value)
-
-const navItems = [
-  { label: 'Home', icon: 'i-lucide-house', to: '/' },
-  { label: 'History', icon: 'i-lucide-history', to: '/history' },
-  { label: 'Analytics', icon: 'i-lucide-trending-up', to: '/analytics' },
-  { label: 'Programs', icon: 'i-lucide-dumbbell', to: '/programs' },
-  { label: 'Settings', icon: 'i-lucide-settings', to: '/settings' },
-]
-
-/**
- * Home is matched exactly — with five tabs a prefix match would light it up on
- * every route. Every other tab also owns its nested detail screens.
- */
-function isActive(to: string): boolean {
-  if (to === '/') return route.path === '/'
-  return route.path === to || route.path.startsWith(`${to}/`)
-}
 
 const mainEl = ref<HTMLElement | null>(null)
 const scrolled = ref(false)
@@ -103,106 +91,133 @@ onUnmounted(() => {
 
 <template>
   <div class="fixed inset-0 flex flex-col overflow-hidden bg-canvas" style="height: 100dvh">
-    <!-- Compact bar for pushed screens -->
-    <header
-      v-if="isInlineHeader"
-      class="shrink-0 border-b border-separator bg-canvas/80 backdrop-blur-xl"
-      style="padding-top: env(safe-area-inset-top)"
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-30 focus:rounded-chip focus:bg-surface focus:px-3 focus:py-2 focus:text-body"
     >
-      <div class="relative mx-auto flex h-11 w-full max-w-lg items-center px-2">
-        <button
-          type="button"
-          class="flex items-center gap-0.5 rounded-chip px-1 py-1 text-body text-tint"
-          @click="router.back()"
-        >
-          <UIcon name="i-lucide-chevron-left" class="size-5" />
-          Back
-        </button>
-        <h1 class="absolute left-1/2 -translate-x-1/2 text-headline">{{ header?.title }}</h1>
-      </div>
-    </header>
+      Skip to content
+    </a>
 
-    <div class="relative flex min-h-0 flex-1 flex-col">
-      <main
-        ref="mainEl"
-        class="mx-auto w-full max-w-lg flex-1 overflow-y-auto"
-        :style="{ paddingTop: isInlineHeader ? '0' : 'env(safe-area-inset-top)' }"
-      >
-        <AppScreenHeader
-          v-if="header && !isInlineHeader"
-          :title="header.title"
-          :emoji="header.emoji"
-          :subtitle="header.subtitle"
-        />
-        <div class="px-4 pt-3 pb-6">
-          <slot />
-        </div>
-      </main>
-
-      <!--
-        Progressive blur into the status bar, the CSS analogue of iOS's
-        VariableBlur: a blurred strip masked to fade out downwards.
-      -->
-      <div
-        v-if="!isInlineHeader"
-        class="pointer-events-none absolute inset-x-0 top-0 backdrop-blur-md [mask-image:linear-gradient(to_bottom,black,transparent)]"
-        style="height: calc(env(safe-area-inset-top) + 1.25rem)"
+    <!--
+      The desktop frame. Below `lg` this is a transparent full-bleed box and
+      the shell is exactly the phone column it has always been.
+    -->
+    <div class="mx-auto flex min-h-0 w-full max-w-frame flex-1">
+      <ShellSideNav
+        class="hidden lg:flex"
+        :resume-target="showResumeBanner ? resumeTarget : null"
       />
 
-      <!-- Floating title chip, once the large header has scrolled away -->
-      <Transition
-        enter-active-class="transition duration-200 ease-snappy"
-        enter-from-class="scale-90 opacity-0"
-        leave-active-class="transition duration-200 ease-snappy"
-        leave-to-class="scale-90 opacity-0"
-      >
-        <div
-          v-if="scrolled && header && !isInlineHeader"
-          class="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-material px-3 py-1.5 text-footnote font-semibold shadow-chip backdrop-blur-2xl backdrop-saturate-150"
-          style="top: calc(env(safe-area-inset-top) + 0.25rem)"
+      <div class="flex min-w-0 flex-1 flex-col">
+        <!-- Compact bar for pushed screens -->
+        <header
+          v-if="isInlineHeader"
+          class="shrink-0 border-b border-separator bg-canvas/80 backdrop-blur-xl lg:hidden"
+          style="padding-top: env(safe-area-inset-top)"
         >
-          {{ header.title }}
+          <div class="relative mx-auto flex h-11 w-full max-w-lg items-center px-2">
+            <button
+              type="button"
+              class="flex items-center gap-0.5 rounded-chip px-1 py-1 text-body text-tint"
+              @click="router.back()"
+            >
+              <UIcon name="i-lucide-chevron-left" class="size-5" />
+              Back
+            </button>
+            <h1 class="absolute left-1/2 -translate-x-1/2 text-headline">{{ header?.title }}</h1>
+          </div>
+        </header>
+
+        <!-- …and its desktop counterpart, where hierarchy beats a Back button -->
+        <header
+          v-if="isInlineHeader"
+          class="hidden shrink-0 border-b border-separator bg-canvas/80 backdrop-blur-xl lg:block"
+        >
+          <div class="mx-auto flex h-14 w-full max-w-column items-center px-6 xl:max-w-content">
+            <ShellBreadcrumb v-if="crumbs.length" :items="crumbs" />
+            <!-- Unmapped pushed screens still need a way out -->
+            <button
+              v-else
+              type="button"
+              class="flex items-center gap-0.5 rounded-chip px-1 py-1 text-body text-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tint"
+              @click="router.back()"
+            >
+              <UIcon name="i-lucide-chevron-left" class="size-5" />
+              Back
+            </button>
+          </div>
+        </header>
+
+        <div class="relative flex min-h-0 flex-1 flex-col">
+          <!-- tabindex="-1" so the skip link can actually move focus here;
+               without it the browser scrolls but focus stays on the link. -->
+          <main
+            id="main"
+            ref="mainEl"
+            tabindex="-1"
+            class="w-full flex-1 overflow-y-auto outline-none"
+            :style="{ paddingTop: isInlineHeader ? '0' : 'env(safe-area-inset-top)' }"
+          >
+            <!--
+              The single width-and-gutter wrapper. Everything inside it is
+              padding-free horizontally so the large title always lines up with
+              the content beneath it.
+            -->
+            <div class="mx-auto w-full max-w-lg px-4 lg:max-w-column lg:px-6 lg:pt-4 xl:max-w-content">
+              <AppScreenHeader
+                v-if="header && !isInlineHeader"
+                :title="header.title"
+                :emoji="header.emoji"
+                :subtitle="header.subtitle"
+              />
+              <div class="pt-3 pb-6 lg:pb-12">
+                <slot />
+              </div>
+            </div>
+          </main>
+
+          <!--
+            Progressive blur into the status bar, the CSS analogue of iOS's
+            VariableBlur: a blurred strip masked to fade out downwards. There
+            is no status bar to blur into on desktop, where the inset is 0.
+          -->
+          <div
+            v-if="!isInlineHeader"
+            class="pointer-events-none absolute inset-x-0 top-0 backdrop-blur-md [mask-image:linear-gradient(to_bottom,black,transparent)] lg:hidden"
+            style="height: calc(env(safe-area-inset-top) + 1.25rem)"
+          />
+
+          <!--
+            Floating title chip, once the large header has scrolled away. Its
+            `left-1/2` resolves against this content area, so it stays centred
+            on the column rather than on the window once the rail appears.
+          -->
+          <Transition
+            enter-active-class="transition duration-200 ease-snappy"
+            enter-from-class="scale-90 opacity-0"
+            leave-active-class="transition duration-200 ease-snappy"
+            leave-to-class="scale-90 opacity-0"
+          >
+            <div
+              v-if="scrolled && header && !isInlineHeader"
+              class="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 rounded-full bg-material px-3 py-1.5 text-footnote font-semibold shadow-chip backdrop-blur-2xl backdrop-saturate-150"
+              style="top: calc(env(safe-area-inset-top) + 0.25rem)"
+            >
+              {{ header.title }}
+            </div>
+          </Transition>
         </div>
-      </Transition>
+      </div>
     </div>
 
-    <div class="relative shrink-0">
-      <!-- Floating resume pill, inset so it reads as one piece with the tab bar -->
-      <NuxtLink
+    <div class="relative shrink-0 lg:hidden">
+      <ShellResumeBanner
         v-if="showResumeBanner && resumeTarget"
         :to="resumeTarget.to"
-        class="absolute inset-x-0 bottom-full mx-[22px] mb-1.5 flex items-center gap-3 rounded-full bg-material px-4 py-2.5 shadow-chip backdrop-blur-2xl backdrop-saturate-150"
-        :aria-label="`Resume workout, ${resumeTarget.subtitle}`"
-      >
-        <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-tint">
-          <!-- Always white: the circle behind it is the tint in both schemes -->
-          <UIcon name="i-lucide-dumbbell" class="size-5 text-white" />
-        </span>
-        <span class="min-w-0 flex-1">
-          <span class="block text-subheadline font-semibold">Workout in progress</span>
-          <span class="block truncate text-caption text-label-secondary">{{ resumeTarget.subtitle }}</span>
-        </span>
-        <span class="text-subheadline font-semibold text-tint">Resume</span>
-      </NuxtLink>
-
-      <nav
-        class="border-t border-separator bg-material backdrop-blur-2xl backdrop-saturate-150"
-        style="padding-bottom: env(safe-area-inset-bottom)"
-      >
-        <div class="mx-auto flex max-w-lg items-stretch justify-around px-2 py-1.5">
-          <NuxtLink
-            v-for="item in navItems"
-            :key="item.label"
-            :to="item.to"
-            class="flex flex-1 flex-col items-center gap-0.5 py-1 transition-colors"
-            :class="isActive(item.to) ? 'text-tint' : 'text-label-secondary'"
-            :aria-current="isActive(item.to) ? 'page' : undefined"
-          >
-            <UIcon :name="item.icon" class="size-6" />
-            <span class="text-caption2">{{ item.label }}</span>
-          </NuxtLink>
-        </div>
-      </nav>
+        :subtitle="resumeTarget.subtitle"
+        variant="floating"
+      />
+      <ShellTabBar />
     </div>
 
     <PwaInstallBanner />

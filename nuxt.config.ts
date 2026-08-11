@@ -3,7 +3,12 @@ import { version } from './package.json'
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
-  ssr: false,
+  // Enabled so the public landing page can be prerendered to real HTML. Every
+  // app route is switched back off in `nitro.routeRules` below, so they keep
+  // shipping exactly the SPA they did before. Nuxt itself models `ssr: false`
+  // as `ssr: true` plus a `/**` route rule, so this is its own equivalence
+  // rather than a new rendering mode.
+  ssr: true,
   devtools: { enabled: true },
   modules: ['nuxt-auth-utils', '@nuxt/ui', '@vite-pwa/nuxt', '@sentry/nuxt/module'],
   sourcemap: {
@@ -54,6 +59,16 @@ export default defineNuxtConfig({
         && process.env.NUXT_OAUTH_APPLE_KEY_ID
         && process.env.NUXT_OAUTH_APPLE_PRIVATE_KEY,
       ),
+      // Open Graph image and canonical URLs must be absolute for most crawlers.
+      // The same env var already drives the API's CORS headers, read there via
+      // process.env.
+      //
+      // NOTE: `/` is prerendered, so this value is baked into its static HTML
+      // at BUILD time. Unlike the rest of runtimeConfig.public it cannot be
+      // corrected by setting NUXT_PUBLIC_APP_URL at runtime — the deployment
+      // must have it set in the build environment or the OG tags will point at
+      // whatever the builder had.
+      appUrl: process.env.NUXT_PUBLIC_APP_URL ?? '',
     },
   },
   components: [
@@ -80,8 +95,16 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
+      // Global defaults. The landing page overrides these with useSeoMeta; the
+      // app screens are behind auth and never surface in a link preview.
+      title: 'DR. DUMBBELL',
+      titleTemplate: '%s · DR. DUMBBELL',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        {
+          name: 'description',
+          content: 'A workout tracker for people following a structured strength program — multi-week programs, set-by-set logging and strength trends per exercise.',
+        },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
@@ -105,11 +128,14 @@ export default defineNuxtConfig({
     manifest: {
       name: 'DR. DUMBBELL',
       short_name: 'Dr. Dumbbell',
-      start_url: '/',
+      // An installed app opens straight into the dashboard, not the marketing
+      // page. `scope` stays at the root because it must cover `/`, `/login` and
+      // the OAuth callbacks; `id` stays because changing it mints a new app
+      // identity and orphans every existing install.
+      start_url: '/home',
       scope: '/',
       id: '/',
       display: 'standalone',
-      orientation: 'portrait',
       // Matches the dark systemBackground. The manifest colours are static per
       // spec, so the light-scheme splash intentionally doesn't track them.
       theme_color: '#000000',
@@ -146,11 +172,35 @@ export default defineNuxtConfig({
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-      navigateFallback: '/',
-      navigateFallbackDenylist: [/^\/api\//],
+      // The SPA shell, not `/`. Now that `/` is a prerendered marketing page,
+      // falling back to it would serve marketing HTML for every offline
+      // navigation — /home, /history, /workout/x — against a browser URL of
+      // something else, mismatching on hydration every time.
+      navigateFallback: '/home',
+      // `/` has its own precache entry and must not be replaced by the shell.
+      // Defensive: the precache route is registered first regardless.
+      navigateFallbackDenylist: [/^\/api\//, /^\/$/],
+      // The hero art is deliberately NOT in globPatterns: precaching ~400KB of
+      // jpg into every install for two public pages is a bad trade. This gets
+      // the same offline-after-first-visit behaviour at no install-time cost.
+      runtimeCaching: [
+        {
+          urlPattern: /^\/img\/.*\.(?:jpe?g|png|webp)$/,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'marketing-img',
+            expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 30 },
+          },
+        },
+      ],
     },
   },
   nitro: {
+    prerender: {
+      // The landing page links to /login and /home; crawling would prerender
+      // and precache app routes that are deliberately client-rendered.
+      crawlLinks: false,
+    },
     routeRules: {
       '/api/**': {
         headers: {
@@ -162,6 +212,17 @@ export default defineNuxtConfig({
           'Access-Control-Max-Age': '86400',
         },
       },
+
+      // The only server-rendered route: a public marketing page with no auth
+      // state and no data fetching, baked at build time and served statically.
+      '/': { ssr: true, prerender: true },
+
+      // Prerendered SPA shell. Precached, and the service worker's navigation
+      // fallback binds to it — every other route boots the client app here.
+      '/home': { ssr: false, prerender: true },
+
+      // Everything else stays exactly as it was: client-rendered.
+      '/**': { ssr: false },
     },
     experimental: {
       openAPI: true,

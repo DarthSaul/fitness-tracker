@@ -236,6 +236,16 @@
   --radius-tile: 10px;
   --radius-chip: 8px;
 
+  /* Shell geometry. Below `lg` the app is the phone column it has always been.
+     `lg` swaps the tab bar for a side rail and centres everything in a frame;
+     `xl` is where the dense screens go two-up. These are the only widths in
+     the app that are not max-w-lg — drawers and sheets deliberately stay at
+     the phone width, where a centred 512px panel still reads correctly. */
+  --container-frame: 1440px;
+  --container-column: 768px;
+  --container-content: 1120px;
+  --spacing-sidenav: 260px;
+
   /* iOS text styles at the default Dynamic Type size → text-headline,
      text-subheadline, text-caption2, … Additive: Tailwind's text-xs/sm/base
      are untouched, so unmigrated screens keep rendering. */
@@ -263,6 +273,19 @@
   --text-caption--line-height: 16px;
   --text-caption2: 11px;
   --text-caption2--line-height: 13px;
+
+  /* Marketing display sizes. The iOS scale stops at 34px because that is where
+     Dynamic Type stops; the public landing page is not an iOS screen and needs
+     a headline that reads as marketing. Used only by app/pages/index.vue and
+     app/components/marketing/*. */
+  --text-display: 44px;
+  --text-display--line-height: 48px;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.02em;
+  --text-display-lg: 60px;
+  --text-display-lg--line-height: 62px;
+  --text-display-lg--font-weight: 700;
+  --text-display-lg--letter-spacing: -0.025em;
 
   /* The only shadow in the entire iOS app: the floating scroll-title chip. */
   --shadow-chip: 0 2px 6px rgb(0 0 0 / 0.12);
