@@ -18,7 +18,9 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-  <header class="px-4 pt-2 pb-2">
+  <!-- Horizontal padding is the shell's job: it owns the one wrapper that keeps
+       the title aligned with the content beneath it at every breakpoint. -->
+  <header class="pt-2 pb-2">
     <div class="flex items-baseline justify-between gap-3">
       <h1 class="text-large-title">{{ title }}</h1>
       <span v-if="emoji" class="text-large-title" aria-hidden="true">{{ emoji }}</span>
