@@ -53,7 +53,10 @@ function close(): void {
     :snap-points="detents"
   >
     <template #content>
-      <div class="mx-auto w-full max-w-lg px-4 pt-2 pb-8">
+      <!-- Stays bottom-docked on desktop, just a little wider: a centred panel
+           against the bottom edge reads correctly, and set logging is a
+           glance-down interaction where that placement is arguably right. -->
+      <div class="mx-auto w-full max-w-lg px-4 pt-2 pb-8 lg:max-w-xl">
         <div v-if="!hideHeader" class="mb-4 flex items-center justify-between gap-3">
           <h3 class="text-headline">{{ title }}</h3>
           <button

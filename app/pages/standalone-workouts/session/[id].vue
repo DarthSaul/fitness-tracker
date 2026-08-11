@@ -154,59 +154,62 @@ function formatValue(value: number | null | undefined): string {
 
     <UAlert v-else-if="error" color="error" variant="subtle" :title="error" icon="i-lucide-alert-circle" />
 
+    <!-- Groups are independent of one another, so they sit two-up on a wide screen -->
     <template v-else-if="workout">
-      <section v-for="group in workout.groups" :key="group.id" class="space-y-2">
-        <div class="flex items-center justify-between px-1">
-          <span class="text-caption font-semibold uppercase text-label-secondary">
-            {{ group.label || (group.type === 'SUPERSET' ? 'Superset' : 'Standard') }}
-          </span>
-          <AppChip v-if="group.restSeconds" icon="i-lucide-clock" :label="`Rest ${group.restSeconds}s`" />
-        </div>
-
-        <div class="space-y-4 rounded-card bg-surface p-4">
-          <div v-for="exercise in group.exercises" :key="exercise.id">
-            <p class="text-headline">{{ exercise.exercise.name }}</p>
-
-            <div class="grid grid-cols-5 items-center pb-1 pt-2 text-caption2 font-semibold uppercase text-label-secondary">
-              <span class="text-center">#</span>
-              <span class="text-center">lb</span>
-              <span class="text-center">Reps</span>
-              <span class="text-center">Effort</span>
-              <span class="text-center">Done</span>
-            </div>
-
-            <button
-              v-for="set in exercise.sets"
-              :key="set.id"
-              type="button"
-              class="grid w-full grid-cols-5 items-center py-2 text-subheadline tnum transition-colors hover:bg-label-secondary/10"
-              :class="{ 'opacity-50': recordingSetId === set.id }"
-              @click="openLog(set)"
-            >
-              <span
-                class="text-center text-caption font-medium"
-                :class="isSetCompleted(set.id) ? 'text-ios-green' : 'text-label-secondary'"
-              >
-                {{ set.setNumber }}
-              </span>
-              <span :class="isSetCompleted(set.id) ? 'text-center text-ios-green' : 'text-center text-label'">
-                {{ formatValue(isSetCompleted(set.id) ? getCompletedSet(set.id)?.weight : set.weight) }}
-              </span>
-              <span :class="isSetCompleted(set.id) ? 'text-center text-ios-green' : 'text-center text-label'">
-                {{ formatValue(isSetCompleted(set.id) ? getCompletedSet(set.id)?.reps : set.reps) }}
-              </span>
-              <span class="text-center text-caption text-label-tertiary">{{ set.effortTarget ?? '—' }}</span>
-              <span class="flex items-center justify-center">
-                <UIcon
-                  :name="isSetCompleted(set.id) ? 'i-lucide-check' : 'i-lucide-circle-dashed'"
-                  class="size-4"
-                  :class="isSetCompleted(set.id) ? 'text-ios-green' : 'text-label-tertiary'"
-                />
-              </span>
-            </button>
+      <div class="space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+        <section v-for="group in workout.groups" :key="group.id" class="space-y-2">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-caption font-semibold uppercase text-label-secondary">
+              {{ group.label || (group.type === 'SUPERSET' ? 'Superset' : 'Standard') }}
+            </span>
+            <AppChip v-if="group.restSeconds" icon="i-lucide-clock" :label="`Rest ${group.restSeconds}s`" />
           </div>
-        </div>
-      </section>
+
+          <div class="space-y-4 rounded-card bg-surface p-4">
+            <div v-for="exercise in group.exercises" :key="exercise.id">
+              <p class="text-headline">{{ exercise.exercise.name }}</p>
+
+              <div class="grid grid-cols-5 items-center pb-1 pt-2 text-caption2 font-semibold uppercase text-label-secondary">
+                <span class="text-center">#</span>
+                <span class="text-center">lb</span>
+                <span class="text-center">Reps</span>
+                <span class="text-center">Effort</span>
+                <span class="text-center">Done</span>
+              </div>
+
+              <button
+                v-for="set in exercise.sets"
+                :key="set.id"
+                type="button"
+                class="grid w-full grid-cols-5 items-center py-2 text-subheadline tnum transition-colors hover:bg-label-secondary/10"
+                :class="{ 'opacity-50': recordingSetId === set.id }"
+                @click="openLog(set)"
+              >
+                <span
+                  class="text-center text-caption font-medium"
+                  :class="isSetCompleted(set.id) ? 'text-ios-green' : 'text-label-secondary'"
+                >
+                  {{ set.setNumber }}
+                </span>
+                <span :class="isSetCompleted(set.id) ? 'text-center text-ios-green' : 'text-center text-label'">
+                  {{ formatValue(isSetCompleted(set.id) ? getCompletedSet(set.id)?.weight : set.weight) }}
+                </span>
+                <span :class="isSetCompleted(set.id) ? 'text-center text-ios-green' : 'text-center text-label'">
+                  {{ formatValue(isSetCompleted(set.id) ? getCompletedSet(set.id)?.reps : set.reps) }}
+                </span>
+                <span class="text-center text-caption text-label-tertiary">{{ set.effortTarget ?? '—' }}</span>
+                <span class="flex items-center justify-center">
+                  <UIcon
+                    :name="isSetCompleted(set.id) ? 'i-lucide-check' : 'i-lucide-circle-dashed'"
+                    class="size-4"
+                    :class="isSetCompleted(set.id) ? 'text-ios-green' : 'text-label-tertiary'"
+                  />
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
 
       <UButton
         block
