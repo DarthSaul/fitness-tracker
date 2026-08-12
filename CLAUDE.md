@@ -220,8 +220,39 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 - **Logging:** `logger` is auto-imported from `server/utils/logger.ts` (pino). In route handlers prefer the request-scoped child logger: `(event.context.logger ?? logger).error({ err, route: 'GET /api/foo' }, 'message')`. The `?? logger` fallback covers non-request contexts (e.g. unit tests). Never string-interpolate; pass structured fields. Secrets are redacted by the logger config.
 - **Request lifecycle:** `server/middleware/00.logging.ts` runs before `auth.ts` (numeric prefix orders it first), generates `event.context.requestId`, and logs request completion.
 - **Sentry:** `@sentry/nuxt` auto-instruments Nitro (per-request isolation scope, uncaught-error capture, serverless flush) — do **not** add a custom Nitro error-capture plugin; it double-reports. `server/middleware/auth.ts` calls `Sentry.setUser` after auth. Server config is `sentry.server.config.ts`; it no-ops when `SENTRY_DSN` is unset (local dev). On Vercel, `autoInjectServerSentry: 'top-level-import'` in `nuxt.config.ts` is required (serverless ignores Node `--import`).
-- **4xx is filtered from Sentry, not 5xx:** `sentry.server.config.ts` has a `beforeSend` (`isClientError`) that drops any error with a 4xx `statusCode` (401/403/404/429/…). These are expected, caller-driven outcomes — notably the routine 401 from an expired iOS access token, which the client recovers from via `/api/auth/refresh` — not server bugs. Do **not** "fix" these by capturing them; they are intentionally suppressed to keep the dashboard/quota for actionable 5xx. They remain visible in the pino `request.complete` log. When you add a route, throw `createError` with the right 4xx `statusCode` so this filter applies; reserve 5xx for genuine server faults.
+- **401 is filtered from Sentry — and only 401:** `sentry.server.config.ts` has a `beforeSend` (`isExpectedClientError`) that drops errors whose `statusCode` is exactly `401`. That is the routine expiry of a 15-minute iOS access token, which the client recovers from via `/api/auth/refresh` — not a server bug. Do **not** "fix" these by capturing them; they are intentionally suppressed to keep the dashboard/quota for actionable errors, and they remain visible in the pino `request.complete` log. Other 4xx (400 validation bugs, 403 authorization failures, 409 state conflicts, 422, 429) **do** reach Sentry deliberately, because they indicate real client/server state bugs. When you add a route, throw `createError` with an accurate `statusCode`; reserve 5xx for genuine server faults.
 - **Failed-auth user attribution:** on a failed Bearer verify, `auth.ts` decodes the JWT **without verifying** (`decodeUnverifiedSub`) and attaches the `sub` as an UNTRUSTED id via `Sentry.setUser` + an `auth.failed` tag, and `event.context.unverifiedUserId` (logged, never `userId`). Triage-only — never use `unverifiedUserId` for authorization.
+- **OAuth failures — filter on `cause`, not the message.** `nuxt-auth-utils` renders every
+  token-exchange failure as the literal string `Apple login failed: Unknown error` (it reads
+  `.error_description`/`.error` off a *thrown* FetchError, which has neither), and ofetch's
+  `.data`/`.status`/`.response` are **non-enumerable** getters that pino's error serializer
+  cannot see — so the provider's real error body never reaches the raw log. Both OAuth error
+  paths therefore call `reportOAuthFailure` (`server/utils/oauth-error.ts`), which emits a
+  single `oauth.failure` log line carrying a `cause` discriminator: `apple_invalid_client`,
+  `apple_invalid_grant`, `bad_private_key`, `id_token_missing`, `id_token_audience`,
+  `missing_config`, `db_error`, … Filter Vercel logs and Sentry on `cause`. Each value maps
+  to one remediation. Reach for `extractOAuthErrorDetail` before adding ad-hoc logging.
+- **The Sentry 401 filter still applies, so OAuth reports use a synthetic error.**
+  `handleAccessTokenErrorResponse` stamps `statusCode: 401` on every OAuth failure, which
+  `isExpectedClientError` drops on purpose. `reportOAuthFailure` therefore captures a
+  synthetic `Error` carrying no `statusCode`, with the detail as tags/extras — do **not**
+  "fix" this by loosening `isExpectedClientError`; that would reopen the iOS token-expiry
+  firehose. A test asserts the synthetic error survives the filter.
+- **Correlating a user report to a log line:** OAuth failures redirect to
+  `/login?error=<code>&rid=<requestId>` and `app/pages/login.vue` renders it as
+  "Reference: …". That value is the `requestId` on the `oauth.failure` and
+  `request.complete` lines.
+- **Apple config problems surface in `apple.oauth.config`,** logged on every request to
+  `/api/auth/apple`: which of the five `NUXT_OAUTH_APPLE_*` vars are present at **runtime**
+  (the `appleAuthEnabled` flag is build-time and cannot see this), their `typeof` — Nitro's
+  `applyEnv` runs values through `destr`, so an all-digit key ID silently becomes a number —
+  and the detected `.p8` format via `classifyApplePrivateKey`. On a bad format it also logs
+  the remediation and a key-material-masked forensic summary. Values are never logged.
+- **Apple credentials cannot be validated offline.** Apple checks the grant *before* the
+  client secret, so a bogus code always returns `invalid_grant` regardless of whether the
+  credentials are valid; its authorize endpoint defers all validation until after the user
+  authenticates. `invalid_client` vs `invalid_grant` is only observable from `oauth.failure`
+  during a real sign-in — do not build a pre-flight check that claims otherwise.
 - **Still pending:** client-side Sentry (`sentry.client.config.ts` is a stub).
 
 ### TypeScript
@@ -304,8 +335,12 @@ complete apart from Exercise skip UI and Core workouts)
 - [x] CORS config (restricted to known web origin)
 - [x] Upstash rate limiting on auth endpoints
 - [ ] Wire up push notification triggers (e.g., workout reminders)
-- [ ] Apple web OAuth configuration — Services ID + key. The login screen
-      hides the Apple button until `NUXT_OAUTH_APPLE_CLIENT_ID` is set.
+- [x] Apple web OAuth configuration — Services ID + key. The login screen hides
+      the Apple button unless **all five** `NUXT_OAUTH_APPLE_*` vars are set
+      (`runtimeConfig.public.appleAuthEnabled`), and that flag is computed at
+      **build** time — so a var present in the build env but missing at runtime
+      renders the button and then fails. Check the `apple.oauth.config` log line
+      for the runtime picture.
 
 ### Phase 4 — Observability
 - [x] pino structured logging middleware
