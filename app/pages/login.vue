@@ -56,6 +56,23 @@ const errorMessage = computed(() => {
   return errorMessages[errorParam.value] ?? 'An unexpected error occurred.'
 })
 
+/**
+ * Request id appended by the OAuth handlers on failure. Shown verbatim so a
+ * screenshot of this page maps to exactly one `oauth.failure` log line. Shape
+ * checked against the UUID that `server/middleware/00.logging.ts` generates, so
+ * a crafted `?rid=` cannot render arbitrary text.
+ */
+const errorRef = computed(() => {
+  // Only while the OAuth error is the one actually on screen. `errorMessage`
+  // gives formError precedence, but the rid stays in the URL — so submitting the
+  // email form after a failed OAuth attempt would otherwise pin a stale
+  // reference to an unrelated error, pointing triage at the wrong log line.
+  if (formError.value || !errorParam.value) return null
+
+  const rid = route.query.rid
+  return typeof rid === 'string' && /^[0-9a-f-]{36}$/i.test(rid) ? rid : null
+})
+
 // Check for confirmation success from query param
 if (route.query.confirmed === 'true') {
   successMessage.value = 'Email confirmed! You can now sign in.'
@@ -183,6 +200,7 @@ async function handleEmailSubmit() {
           color="error"
           variant="subtle"
           :title="errorMessage"
+          :description="errorRef ? `Reference: ${errorRef}` : undefined"
           icon="i-lucide-alert-circle"
         />
 

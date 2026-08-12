@@ -25,6 +25,7 @@ vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
 vi.stubGlobal('getRouterParam', vi.fn())
 vi.stubGlobal('getQuery', vi.fn(() => ({})))
 vi.stubGlobal('getHeader', vi.fn(() => null))
+vi.stubGlobal('getRequestHeader', vi.fn(() => undefined))
 vi.stubGlobal('readBody', vi.fn())
 vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
   const err = new Error(opts.statusMessage) as Error & {
@@ -46,7 +47,25 @@ vi.stubGlobal('clearUserSession', vi.fn())
 // These wrap the config object and return it unchanged so tests can access
 // onSuccess / onError directly after importing the handler module.
 vi.stubGlobal('defineOAuthGoogleEventHandler', (config: unknown) => config)
-vi.stubGlobal('defineOAuthAppleEventHandler', (config: unknown) => config)
+// Apple's route wraps the library call in its own defineEventHandler (to supply
+// a redirectURL fallback), so the return value has to be CALLABLE. Object.assign
+// keeps the config readable off the result, which is what config-shape
+// assertions rely on.
+// The returned handler is itself a spy, so tests can assert it was invoked with
+// the original event; Object.assign keeps the config readable off the result.
+vi.stubGlobal(
+  'defineOAuthAppleEventHandler',
+  vi.fn((config: Record<string, unknown>) =>
+    Object.assign(vi.fn((_event: unknown) => config), config),
+  ),
+)
+
+// ── Nitro runtime config / request helpers ───────────────────────────────────
+// Defaults are the "configured correctly" case; tests override per-case.
+vi.stubGlobal('useRuntimeConfig', vi.fn(() => ({
+  oauth: { apple: { redirectURL: 'https://fitness-app.me/api/auth/apple' } },
+})))
+vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/apple')))
 
 // ── Prisma client global (used in Nitro server route handlers via auto-import) ─
 // Individual test files can reconfigure prisma.user.upsert etc. per-test via
