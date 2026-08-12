@@ -210,6 +210,13 @@ export default defineEventHandler(async (event) => {
   // No-ops when Upstash is not configured.
   await rateLimitByIp(event)
 
+  // Captured before normalisation so the log shows what the browser actually
+  // sent. Two very different faults make the library bounce the user back to
+  // Apple — a Content-Type it does not recognise, and a callback with no `code`
+  // — and they are indistinguishable from the browser, which reports only a
+  // blocked cross-origin navigation. This field separates them.
+  const requestContentType = getRequestHeader(event, 'content-type') ?? null
+
   // Must run before the library inspects the request (see the function docs).
   normaliseFormContentType(event)
 
@@ -233,14 +240,19 @@ export default defineEventHandler(async (event) => {
   // stays out of production logs (pino runs at `info` there). Anything actually
   // wrong — a bad key format, or a redirect URL we had to synthesise — is
   // promoted to `info` so it surfaces without a redeploy.
-  const misconfigured = Boolean(privateKeyProblem) || !configured
+  // POST is the callback — one line per real sign-in attempt, and the only place
+  // the two silent bounce-back faults are distinguishable. GET is the redirect
+  // to Apple, which happens on every button click and says nothing useful when
+  // the configuration is sound.
+  const noteworthy = Boolean(privateKeyProblem) || !configured || event.method === 'POST'
   const log = event.context.logger ?? logger
-  ;(misconfigured ? log.info : log.debug).call(
+  ;(noteworthy ? log.info : log.debug).call(
     log,
     {
       route: '/api/auth/apple',
       method: event.method,
       requestId: event.context.requestId,
+      requestContentType,
       clientIdSet: Boolean(apple?.clientId),
       clientIdType: typeof apple?.clientId,
       teamIdSet: Boolean(apple?.teamId),

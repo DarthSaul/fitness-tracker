@@ -492,16 +492,41 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
         'Application/X-WWW-Form-Urlencoded; charset=UTF-8',
       ])('collapses %s to the bare media type', async (contentType) => {
         const event = postEvent(contentType)
-        vi.mocked(getRequestHeader).mockReturnValueOnce(contentType)
+        vi.mocked(getRequestHeader).mockReturnValue(contentType)
 
         await appleHandler(event as never)
 
         expect(event.node.req.headers['content-type']).toBe('application/x-www-form-urlencoded')
       })
 
+      test('logs the Content-Type the browser actually sent, pre-normalisation', async () => {
+        const contentType = 'application/x-www-form-urlencoded; charset=UTF-8'
+        vi.mocked(getRequestHeader).mockReturnValue(contentType)
+
+        await appleHandler(postEvent(contentType) as never)
+
+        const logged = vi.mocked(logger.info).mock.calls
+          .find(([, msg]) => msg === 'apple.oauth.config')?.[0] as Record<string, unknown>
+        expect(logged.requestContentType).toBe(contentType)
+      })
+
+      // The callback is the only place the two silent bounce-back faults can be
+      // told apart, so it must survive production's `info` log level.
+      test('logs the callback at info even when the config is healthy', async () => {
+        vi.mocked(getRequestHeader).mockReturnValue('application/x-www-form-urlencoded')
+        withAppleConfig({
+          redirectURL: 'https://fitness-app.me/api/auth/apple',
+          privateKey: '-----BEGIN PRIVATE KEY-----\nMIGT\n-----END PRIVATE KEY-----',
+        })
+
+        await appleHandler(postEvent('application/x-www-form-urlencoded') as never)
+
+        expect(vi.mocked(logger.info).mock.calls.some(([, m]) => m === 'apple.oauth.config')).toBe(true)
+      })
+
       test('leaves an already-bare form type untouched', async () => {
         const event = postEvent('application/x-www-form-urlencoded')
-        vi.mocked(getRequestHeader).mockReturnValueOnce('application/x-www-form-urlencoded')
+        vi.mocked(getRequestHeader).mockReturnValue('application/x-www-form-urlencoded')
 
         await appleHandler(event as never)
 
@@ -510,7 +535,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
       test('does not touch an unrelated content type', async () => {
         const event = postEvent('application/json')
-        vi.mocked(getRequestHeader).mockReturnValueOnce('application/json')
+        vi.mocked(getRequestHeader).mockReturnValue('application/json')
 
         await appleHandler(event as never)
 
@@ -519,7 +544,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
       test('tolerates a request with no content-type at all', async () => {
         const event = postEvent()
-        vi.mocked(getRequestHeader).mockReturnValueOnce(undefined)
+        vi.mocked(getRequestHeader).mockReturnValue(undefined)
 
         await expect(appleHandler(event as never)).resolves.toBeDefined()
       })
