@@ -14,6 +14,8 @@
 
 /** PKCS#8 PEM banner. `jose` requires this at index 0 — not merely present. */
 const PKCS8_BANNER = '-----BEGIN PRIVATE KEY-----'
+/** Closing armor line. Absent on a truncated paste, which jose also rejects. */
+const PKCS8_FOOTER = '-----END PRIVATE KEY-----'
 
 /**
  * True when an all-base64 value decodes to PEM text (someone base64-encoded the
@@ -68,7 +70,12 @@ export type ApplePrivateKeyFormat =
 export function classifyApplePrivateKey(raw: unknown): ApplePrivateKeyFormat {
   if (typeof raw !== 'string' || raw.length === 0) return 'empty'
 
-  if (raw.startsWith(PKCS8_BANNER)) {
+  // Both the header AND the footer are required. A value truncated after the
+  // banner — a partial paste, or a shell that ate everything past the first line
+  // — would otherwise be called usable here and then fail inside importPKCS8
+  // with the same opaque TypeError this function exists to replace. Falling
+  // through leaves it as 'unknown', which carries remediation.
+  if (raw.startsWith(PKCS8_BANNER) && raw.includes(PKCS8_FOOTER)) {
     return raw.includes('\\n') ? 'pkcs8-escaped-newlines' : 'pkcs8'
   }
   // Checked on the trimmed value: a space before the quote is still a quoting
@@ -187,9 +194,11 @@ export function explainApplePrivateKeyFormat(format: ApplePrivateKeyFormat): str
       return 'This is a path to the .p8, not its contents. The variable must hold the key '
         + 'itself: use `cat AuthKey_XXXXXXXXXX.p8`, not the filename.'
     case 'unknown':
-      return 'The value has no recognisable PEM banner, so it is not a usable private key. '
-        + 'Check what it actually contains with: node -e \'process.loadEnvFile(".env"); '
-        + 'const k = process.env.NUXT_OAUTH_APPLE_PRIVATE_KEY ?? ""; '
-        + 'console.log(k.length, JSON.stringify(k.slice(0, 32)))\''
+      // Deliberately does not suggest printing the value: any slice of it is key
+      // material. The accompanying privateKeyForensics field reports length,
+      // banner presence and newline style with base64 runs masked.
+      return 'The value has no complete PEM armor, so it is not a usable private key. It must '
+        + 'start with "-----BEGIN PRIVATE KEY-----" and contain the matching END line. See the '
+        + 'privateKeyForensics field on the apple.oauth.config log line for what it does hold.'
   }
 }

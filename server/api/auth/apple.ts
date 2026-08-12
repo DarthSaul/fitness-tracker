@@ -57,6 +57,22 @@ function readAppleUser(raw: unknown): AppleUserProfile {
   return typeof raw === 'object' ? (raw as AppleUserProfile) : {}
 }
 
+/** Upper bound on a name part, matching the longest plausible legal given name. */
+const MAX_NAME_PART = 64
+
+/**
+ * Accepts a name part only if it is a non-empty trimmed string of sane length.
+ *
+ * The `user` field is body data, so its `name` can be any JSON value — a number,
+ * an object, or a megabyte of text. Anything unusable is ignored rather than
+ * failing the sign-in, since the name is cosmetic and the email is what matters.
+ */
+function readNamePart(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 && trimmed.length <= MAX_NAME_PART ? trimmed : null
+}
+
 /**
  * Builds the post-failure redirect, tagging it with the requestId so a user's
  * screenshot of `/login` maps to exactly one `oauth.failure` log line.
@@ -92,17 +108,20 @@ export const appleOAuthConfig: AppleOAuthHandlerConfig = {
     // so any assumption about its shape is a 500 waiting to happen. A throw out
     // here would bypass onError entirely and surface as an unhandled error.
     try {
-      const appleUser = readAppleUser(user)
-
-      // Email is available from the JWT payload on every login; the body copy is
-      // only a fallback for the first one.
-      const email = payload.email ?? appleUser.email
+      // ONLY the id_token's verified claim may be used here. findOrLinkUser
+      // links accounts by email and documents that the caller must have verified
+      // it with the provider; `user` is form-post body data, so falling back to
+      // its email would let anyone holding a valid code link into an arbitrary
+      // account. Apple puts email in the id_token on every login, so there is
+      // nothing to gain from the fallback either.
+      const email = payload.email
       if (!email) {
         return sendRedirect(event, '/login?error=apple_no_email')
       }
 
-      const firstName = appleUser.name?.firstName
-      const lastName = appleUser.name?.lastName
+      const appleUser = readAppleUser(user)
+      const firstName = readNamePart(appleUser.name?.firstName)
+      const lastName = readNamePart(appleUser.name?.lastName)
       const name = [firstName, lastName].filter(Boolean).join(' ') || null
 
       const dbUser = await findOrLinkUser({
@@ -156,6 +175,11 @@ export const appleOAuthConfig: AppleOAuthHandlerConfig = {
  * One closure per request is free next to a network round trip to Apple.
  */
 export default defineEventHandler(async (event) => {
+  // First statement, per CLAUDE.md — this is an unauthenticated, internet-facing
+  // auth route, and the callback leg performs a token exchange with Apple.
+  // No-ops when Upstash is not configured.
+  await rateLimitByIp(event)
+
   const apple = useRuntimeConfig(event).oauth?.apple as Record<string, unknown> | undefined
   const configured = typeof apple?.redirectURL === 'string' ? apple.redirectURL : ''
   const redirectURL = configured || `${getRequestURL(event).origin}/api/auth/apple`
@@ -171,7 +195,15 @@ export default defineEventHandler(async (event) => {
   // `destr`: an all-digit KEY_ID or TEAM_ID silently becomes a number, which
   // Apple rejects as invalid_client. Values are never logged — only presence,
   // type, length and the key's format classification.
-  ;(event.context.logger ?? logger).info(
+  //
+  // A healthy configuration has nothing to diagnose, so it goes to `debug` and
+  // stays out of production logs (pino runs at `info` there). Anything actually
+  // wrong — a bad key format, or a redirect URL we had to synthesise — is
+  // promoted to `info` so it surfaces without a redeploy.
+  const misconfigured = Boolean(privateKeyProblem) || !configured
+  const log = event.context.logger ?? logger
+  ;(misconfigured ? log.info : log.debug).call(
+    log,
     {
       route: '/api/auth/apple',
       method: event.method,

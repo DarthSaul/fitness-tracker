@@ -199,3 +199,32 @@ describe('describeApplePrivateKeyValue', () => {
     expect(describeApplePrivateKeyValue(value).length).toBe(0)
   })
 })
+
+describe('classifyApplePrivateKey — armor completeness', () => {
+  // A header-only value used to classify as usable, then fail inside
+  // importPKCS8 with the same opaque TypeError this module exists to replace.
+  test('rejects a header-only value', () => {
+    const truncated = PEM.slice(0, PEM.indexOf('-----END'))
+
+    expect(classifyApplePrivateKey(truncated)).not.toBe('pkcs8')
+    expect(explainApplePrivateKeyFormat(classifyApplePrivateKey(truncated))).toBeTruthy()
+  })
+
+  test('rejects a bare banner with no body or footer', () => {
+    expect(classifyApplePrivateKey('-----BEGIN PRIVATE KEY-----')).toBe('unknown')
+  })
+
+  test('still accepts a complete PEM with escaped newlines', () => {
+    expect(classifyApplePrivateKey(PEM.replace(/\n/g, '\\n'))).toBe('pkcs8-escaped-newlines')
+  })
+})
+
+describe('explainApplePrivateKeyFormat — no key material in remediation', () => {
+  // The unknown-format remediation used to suggest printing k.slice(0, 32),
+  // i.e. 32 raw characters of the key.
+  test('never tells the operator to print part of the key', () => {
+    for (const format of ['unknown', 'base64-blob', 'pem-body-only', 'quoted'] as const) {
+      expect(explainApplePrivateKeyFormat(format)).not.toMatch(/slice\(|substring\(|substr\(/)
+    }
+  })
+})

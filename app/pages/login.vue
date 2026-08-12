@@ -63,6 +63,12 @@ const errorMessage = computed(() => {
  * a crafted `?rid=` cannot render arbitrary text.
  */
 const errorRef = computed(() => {
+  // Only while the OAuth error is the one actually on screen. `errorMessage`
+  // gives formError precedence, but the rid stays in the URL — so submitting the
+  // email form after a failed OAuth attempt would otherwise pin a stale
+  // reference to an unrelated error, pointing triage at the wrong log line.
+  if (formError.value || !errorParam.value) return null
+
   const rid = route.query.rid
   return typeof rid === 'string' && /^[0-9a-f-]{36}$/i.test(rid) ? rid : null
 })

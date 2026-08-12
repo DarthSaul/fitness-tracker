@@ -50,10 +50,12 @@ vi.stubGlobal('defineOAuthGoogleEventHandler', (config: unknown) => config)
 // a redirectURL fallback), so the return value has to be CALLABLE. Object.assign
 // keeps the config readable off the result, which is what config-shape
 // assertions rely on.
+// The returned handler is itself a spy, so tests can assert it was invoked with
+// the original event; Object.assign keeps the config readable off the result.
 vi.stubGlobal(
   'defineOAuthAppleEventHandler',
   vi.fn((config: Record<string, unknown>) =>
-    Object.assign((_event: unknown) => config, config),
+    Object.assign(vi.fn((_event: unknown) => config), config),
   ),
 )
 

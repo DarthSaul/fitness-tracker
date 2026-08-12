@@ -98,20 +98,31 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       )
     })
 
-    test('falls back to user.email when payload has no email', async () => {
-      mockFindOrLinkUser.mockResolvedValueOnce({
-        ...mockDbUser,
-        email: 'fallback@example.com',
-      })
+    /**
+     * findOrLinkUser links accounts by email and documents that the caller must
+     * have verified it with the provider. The `user` field is form-post body
+     * data, so honouring its email would let anyone holding a valid code link
+     * into an arbitrary account. Only the id_token claim is trusted.
+     */
+    test('never links using an email supplied in the request body', async () => {
+      const event = makeEvent()
 
-      await config.onSuccess(makeEvent(), {
-        user: { email: 'fallback@example.com' },
+      await config.onSuccess(event, {
+        user: { email: 'attacker-controlled@example.com' },
         payload: { sub: 'apple-sub-002' },
       })
 
-      expect(mockFindOrLinkUser).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'fallback@example.com' }),
-      )
+      expect(mockFindOrLinkUser).not.toHaveBeenCalled()
+      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/login?error=apple_no_email')
+    })
+
+    test('ignores a body email even when it is the same as a real account', async () => {
+      await config.onSuccess(makeEvent(), {
+        user: JSON.stringify({ email: 'apple@example.com' }),
+        payload: { sub: 'apple-sub-002' },
+      })
+
+      expect(mockFindOrLinkUser).not.toHaveBeenCalled()
     })
 
     test('redirects to /login?error=apple_no_email when no email exists in payload or user', async () => {
@@ -345,7 +356,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       config.onError(makeEvent(), wrapped)
 
       expect(logger.error).toHaveBeenCalledWith(
-        expect.objectContaining({ cause: 'apple_invalid_client' }),
+        expect.objectContaining({ cause: 'oauth_invalid_client' }),
         'oauth.failure',
       )
     })
@@ -424,7 +435,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
       await appleHandler(wrapperEvent() as never)
 
-      const logged = vi.mocked(logger.info).mock.calls.find(([, msg]) => msg === 'apple.oauth.config')?.[0]
+      const logged = vi.mocked(logger.debug).mock.calls.find(([, msg]) => msg === 'apple.oauth.config')?.[0]
       expect(logged).toMatchObject({
         clientIdSet: true,
         privateKeySet: true,
@@ -433,6 +444,32 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
         redirectURLFromRequestHost: false,
       })
       expect(JSON.stringify(logged)).not.toContain('SECRETBODY')
+    })
+
+    test('invokes the library handler with the original event', async () => {
+      const event = wrapperEvent()
+      withAppleConfig({ redirectURL: 'https://fitness-app.me/api/auth/apple' })
+
+      await appleHandler(event as never)
+
+      const built = vi.mocked(defineOAuthAppleEventHandler).mock.results.at(-1)?.value
+      expect(built).toHaveBeenCalledWith(event)
+    })
+
+    // An entirely absent oauth.apple block is the shape a misconfigured runtime
+    // actually has — not merely an empty redirectURL string.
+    test('falls back to the request origin when oauth.apple is absent entirely', async () => {
+      vi.mocked(useRuntimeConfig).mockReturnValue({} as unknown as ReturnType<typeof useRuntimeConfig>)
+
+      await appleHandler(wrapperEvent() as never)
+
+      expect(defineOAuthAppleEventHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            redirectURL: 'http://localhost:3000/api/auth/apple',
+          }),
+        }),
+      )
     })
 
     test('adds remediation and masked forensics when the key format is bad', async () => {
@@ -444,6 +481,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
       await appleHandler(wrapperEvent() as never)
 
+      // A bad format is promoted to `info` so it survives production log levels.
       const logged = vi.mocked(logger.info).mock.calls
         .find(([, msg]) => msg === 'apple.oauth.config')?.[0] as Record<string, unknown>
 
@@ -462,7 +500,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
       await appleHandler(wrapperEvent() as never)
 
-      const logged = vi.mocked(logger.info).mock.calls
+      const logged = vi.mocked(logger.debug).mock.calls
         .find(([, msg]) => msg === 'apple.oauth.config')?.[0] as Record<string, unknown>
 
       expect(logged.privateKeyProblem).toBeUndefined()

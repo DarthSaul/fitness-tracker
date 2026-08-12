@@ -108,7 +108,7 @@ describe('extractOAuthErrorDetail', () => {
         })),
       )
 
-      expect(detail.cause).toBe('apple_invalid_client')
+      expect(detail.cause).toBe('oauth_invalid_client')
       expect(detail.oauthError).toBe('invalid_client')
       expect(detail.httpStatus).toBe(400)
       expect(detail.statusCode).toBe(401)
@@ -122,7 +122,7 @@ describe('extractOAuthErrorDetail', () => {
         })),
       )
 
-      expect(detail.cause).toBe('apple_invalid_grant')
+      expect(detail.cause).toBe('oauth_invalid_grant')
       expect(detail.oauthErrorDescription).toBe('The code has expired.')
     })
 
@@ -130,14 +130,14 @@ describe('extractOAuthErrorDetail', () => {
       const detail = extractOAuthErrorDetail(
         wrapLikeNuxtAuthUtils(makeFetchError({ status: 400, body: { error: 'invalid_request' } })),
       )
-      expect(detail.cause).toBe('apple_invalid_request')
+      expect(detail.cause).toBe('oauth_invalid_request')
     })
 
     test('falls back to a generic OAuth cause for an unrecognised error code', () => {
       const detail = extractOAuthErrorDetail(
         wrapLikeNuxtAuthUtils(makeFetchError({ status: 400, body: { error: 'slow_down' } })),
       )
-      expect(detail.cause).toBe('apple_oauth_error')
+      expect(detail.cause).toBe('oauth_error')
       expect(detail.oauthError).toBe('slow_down')
     })
 
@@ -341,7 +341,7 @@ describe('reportOAuthFailure', () => {
       expect.objectContaining({
         provider: 'apple',
         stage: 'callback',
-        cause: 'apple_invalid_client',
+        cause: 'oauth_invalid_client',
         requestId: 'req-1',
       }),
       'oauth.failure',
@@ -367,7 +367,7 @@ describe('reportOAuthFailure', () => {
     expect(Sentry.captureException).toHaveBeenCalledWith(
       expect.any(Error),
       expect.objectContaining({
-        tags: expect.objectContaining({ oauth_cause: 'apple_invalid_grant', oauth_provider: 'google' }),
+        tags: expect.objectContaining({ oauth_cause: 'oauth_invalid_grant', oauth_provider: 'google' }),
       }),
     )
   })
@@ -387,5 +387,69 @@ describe('reportOAuthFailure', () => {
 
     const captured = vi.mocked(Sentry.captureException).mock.calls[0]?.[0]
     expect(isExpectedClientError(captured)).toBe(false)
+  })
+})
+
+describe('extractOAuthErrorDetail — credentials outside a URL', () => {
+  test('redacts bare client_secret and code values in a message', () => {
+    const detail = extractOAuthErrorDetail(
+      new Error(`token request failed client_secret=${APPLE_SECRET_JWT} code=${APPLE_CODE} retrying`),
+    )
+
+    expect(detail.message).not.toContain(APPLE_SECRET_JWT)
+    expect(detail.message).not.toContain(APPLE_CODE)
+    // The key names survive so the message still reads sensibly.
+    expect(detail.message).toContain('client_secret=[REDACTED]')
+    expect(detail.message).toContain('code=[REDACTED]')
+  })
+})
+
+describe('extractOAuthErrorDetail — code classification', () => {
+  test.each([
+    ['ENOTFOUND', 'network'],
+    ['ECONNRESET', 'network'],
+    ['UND_ERR_CONNECT_TIMEOUT', 'network'],
+  ])('treats %s as a network code', (code, expected) => {
+    const detail = extractOAuthErrorDetail(Object.assign(new Error('boom'), { code }))
+    expect(detail.cause).toBe(expected)
+    expect(detail.networkCode).toBe(code)
+  })
+
+  // An unrecognised library code used to be recorded as a network error, which
+  // sends triage looking at connectivity for a problem that is not there.
+  test('does not label an unknown library code as a network error', () => {
+    const detail = extractOAuthErrorDetail(
+      Object.assign(new Error('library exploded'), { code: 'SOME_LIB_FAILURE' }),
+    )
+
+    expect(detail.networkCode).toBeUndefined()
+    expect(detail.cause).toBe('unknown')
+    expect(detail.message).toContain('library exploded')
+  })
+
+  // Structured codes are authoritative; the private-key check is a message
+  // heuristic whose tokens a database error could plausibly contain.
+  test('prefers a Prisma code over a private-key message match', () => {
+    const detail = extractOAuthErrorDetail(
+      Object.assign(new Error('Invalid keyData in column'), { code: 'P2002' }),
+    )
+
+    expect(detail.cause).toBe('db_error')
+  })
+})
+
+describe('reportOAuthFailure — synthetic error retains the original', () => {
+  test('carries the innermost error as cause', () => {
+    const inner = new Error('[POST] "https://appleid.apple.com/auth/token": 400 Bad Request')
+    reportOAuthFailure(
+      { context: { requestId: 'req-9', logger: { error: vi.fn() } } } as never,
+      'apple',
+      'callback',
+      wrapLikeNuxtAuthUtils(inner),
+    )
+
+    const captured = vi.mocked(Sentry.captureException).mock.calls.at(-1)?.[0] as Error
+    expect(captured.cause).toBe(inner)
+    expect(captured.name).toBe('OAuthFailure')
   })
 })

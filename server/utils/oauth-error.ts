@@ -8,16 +8,16 @@ import * as Sentry from '@sentry/nuxt'
  * low-cardinality, and mapping one-to-one onto a remediation.
  */
 export type OAuthFailureCause =
-  /** One of the five NUXT_OAUTH_APPLE_* vars is empty at RUNTIME. */
+  /** A required NUXT_OAUTH_<PROVIDER>_* var is empty at RUNTIME. */
   | 'missing_config'
-  /** Apple rejected the client secret — clientId/teamId/keyId/key mismatch. */
-  | 'apple_invalid_client'
+  /** The provider rejected the client credentials — id/secret/key mismatch. */
+  | 'oauth_invalid_client'
   /** Credentials fine; the code or the redirect_uri is wrong. */
-  | 'apple_invalid_grant'
+  | 'oauth_invalid_grant'
   /** Malformed token request — most often an empty redirect_uri. */
-  | 'apple_invalid_request'
+  | 'oauth_invalid_request'
   /** Some other OAuth 2.0 `error` code from the provider. */
-  | 'apple_oauth_error'
+  | 'oauth_error'
   /** Non-2xx from the token endpoint with no parseable OAuth body. */
   | 'token_endpoint_http'
   /** The .p8 is not raw PKCS#8 PEM. */
@@ -148,6 +148,13 @@ function scrubMessage(message: string): string {
     .replace(SENSITIVE_PARAM_RE, '$1=[REDACTED]')
 }
 
+/**
+ * Node/undici/OS-level network error codes. `ENOTFOUND`, `ECONNRESET`,
+ * `EAI_AGAIN`, `UND_ERR_CONNECT_TIMEOUT` and friends — matched by shape so an
+ * unrelated library code is not mistaken for a connectivity problem.
+ */
+const NETWORK_CODE_RE = /^(E[A-Z0-9]+|UND_ERR_[A-Z_]+|ERR_(SOCKET|STREAM|TLS|SSL)[A-Z_]*)$/
+
 const PRIVATE_KEY_MESSAGE_RE
   = /pkcs#?8|must be pkcs|BEGIN (EC |RSA )?PRIVATE KEY|Invalid PKCS|Expected (version field|algorithm identifier|algorithm OID|curve OID)|Unsupported (key algorithm|named curve)|Invalid keyData|DataError/i
 
@@ -215,9 +222,12 @@ export function extractOAuthErrorDetail(error: unknown): OAuthErrorDetail {
       detail.joseClaim = asString(dict.claim, 32)
       detail.joseReason = asString(dict.reason, 32)
     }
-    else {
+    else if (NETWORK_CODE_RE.test(code)) {
       detail.networkCode = code
     }
+    // Any other `code` is left unrecorded rather than assumed to be a network
+    // error — a library-specific code would otherwise be reported as 'network'
+    // and send triage the wrong way. `errorName` and `message` still carry it.
   }
 
   detail.cause = deriveCause(detail)
@@ -229,10 +239,10 @@ function deriveCause(d: OAuthErrorDetail): OAuthFailureCause {
   if (d.statusCode === 500 && /^Missing NUXT_OAUTH_/.test(d.message)) return 'missing_config'
 
   if (d.oauthError) {
-    if (d.oauthError === 'invalid_client') return 'apple_invalid_client'
-    if (d.oauthError === 'invalid_grant') return 'apple_invalid_grant'
-    if (d.oauthError === 'invalid_request') return 'apple_invalid_request'
-    return 'apple_oauth_error'
+    if (d.oauthError === 'invalid_client') return 'oauth_invalid_client'
+    if (d.oauthError === 'invalid_grant') return 'oauth_invalid_grant'
+    if (d.oauthError === 'invalid_request') return 'oauth_invalid_request'
+    return 'oauth_error'
   }
 
   if (d.joseCode) {
@@ -261,12 +271,17 @@ function deriveCause(d: OAuthErrorDetail): OAuthFailureCause {
     }
   }
 
-  // jose's importPKCS8 rejects a non-PEM string with a plain TypeError, and its
-  // ASN.1 reader throws plain Errors — neither carries a `code`.
-  if (PRIVATE_KEY_MESSAGE_RE.test(d.message)) return 'bad_private_key'
-
+  // Structured codes first: they are authoritative, whereas the private-key
+  // check below is a message heuristic with broad tokens ("DataError",
+  // "Invalid keyData") that a database or socket error could plausibly contain.
   if (d.prismaCode) return 'db_error'
   if (d.networkCode) return 'network'
+
+  // jose's importPKCS8 rejects a non-PEM string with a plain TypeError, and its
+  // ASN.1 reader throws plain Errors — neither carries a `code`, so this is the
+  // only way to catch them.
+  if (PRIVATE_KEY_MESSAGE_RE.test(d.message)) return 'bad_private_key'
+
   if (d.httpStatus !== undefined) return 'token_endpoint_http'
   return 'unknown'
 }
@@ -308,7 +323,13 @@ export function reportOAuthFailure(
     'oauth.failure',
   )
 
-  const synthetic = new Error(`${provider} oauth failed: ${detail.cause}`)
+  // Carry the innermost original as `cause` so Sentry still shows the real stack
+  // and message. The synthetic wrapper exists only to shed the 401 statusCode;
+  // it must not also discard the evidence.
+  const inner = asDict(error)?.data
+  const synthetic = new Error(`${provider} oauth failed: ${detail.cause}`, {
+    cause: inner instanceof Error ? inner : error instanceof Error ? error : undefined,
+  })
   synthetic.name = 'OAuthFailure'
   Sentry.captureException(synthetic, {
     tags: { oauth_provider: provider, oauth_stage: stage, oauth_cause: detail.cause },
