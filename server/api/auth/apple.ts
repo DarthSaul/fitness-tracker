@@ -1,3 +1,10 @@
+import {
+  classifyApplePrivateKey,
+  describeApplePrivateKeyValue,
+  explainApplePrivateKeyFormat,
+} from '../../utils/apple-key'
+import { reportOAuthFailure } from '../../utils/oauth-error'
+
 defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
@@ -11,11 +18,68 @@ defineRouteMeta({
   },
 })
 
+/** The `user` field Apple form-posts back, once normalised. */
+interface AppleUserProfile {
+  name?: { firstName?: string; lastName?: string }
+  email?: string
+}
+
 /**
- * Apple OAuth handler — covers both the GET redirect initiation and the POST callback.
- * Apple uses `response_mode: form_post`, so this file has no HTTP method suffix.
+ * Normalises Apple's `user` field, which has two shapes plus an absence:
+ *
+ *  - **Missing entirely** on every sign-in after the first. Apple sends `user`
+ *    only with the initial authorization, so `user` is `undefined` thereafter.
+ *    Reading `user.name` then throws a TypeError — and because it happened
+ *    before the try block, it escaped `onError` and 500'd the callback. That was
+ *    the production failure this function exists to prevent.
+ *  - **A JSON string** on the first sign-in. The callback is
+ *    `application/x-www-form-urlencoded`, so `readBody` yields the raw string
+ *    `{"name":{"firstName":"Jane",…}}`, not an object. `user.name` on a string
+ *    is `undefined`, so the name was silently dropped — no crash, just a User
+ *    row that never got a name.
+ *  - An object, if a future library version parses it for us.
  */
-export default defineOAuthAppleEventHandler({
+function readAppleUser(raw: unknown): AppleUserProfile {
+  if (!raw) return {}
+
+  if (typeof raw === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(raw)
+      return typeof parsed === 'object' && parsed !== null ? (parsed as AppleUserProfile) : {}
+    }
+    catch {
+      // Malformed JSON from the body is not worth failing a sign-in over; the
+      // email still comes from the verified id_token.
+      return {}
+    }
+  }
+
+  return typeof raw === 'object' ? (raw as AppleUserProfile) : {}
+}
+
+/**
+ * Builds the post-failure redirect, tagging it with the requestId so a user's
+ * screenshot of `/login` maps to exactly one `oauth.failure` log line.
+ */
+function failureRedirect(code: string, requestId: string): string {
+  return requestId
+    ? `/login?error=${code}&rid=${encodeURIComponent(requestId)}`
+    : `/login?error=${code}`
+}
+
+/**
+ * Config shape expected by nuxt-auth-utils, derived from the auto-imported
+ * function rather than restated. Extracting the object literal out of the
+ * `defineOAuthAppleEventHandler(...)` call site loses the contextual typing that
+ * gave `onSuccess`/`onError` their parameter types, so it is reapplied here.
+ */
+type AppleOAuthHandlerConfig = Parameters<typeof defineOAuthAppleEventHandler>[0]
+
+/**
+ * The OAuth config. Exported by name so it stays independently unit-testable
+ * now that the default export is a per-request wrapper (see below).
+ */
+export const appleOAuthConfig: AppleOAuthHandlerConfig = {
   config: {
     scope: ['name', 'email'],
   },
@@ -24,18 +88,23 @@ export default defineOAuthAppleEventHandler({
    * Name is only populated on the first login; email is read from the JWT payload on every login.
    */
   async onSuccess(event, { user, payload }) {
-    // Apple only sends name on the very first login (from POST body).
-    // Email is available from the JWT payload on every login.
-    const email = payload.email ?? user.email
-    if (!email) {
-      return sendRedirect(event, '/login?error=apple_no_email')
-    }
-
-    const firstName = user.name?.firstName
-    const lastName = user.name?.lastName
-    const name = [firstName, lastName].filter(Boolean).join(' ') || null
-
+    // Everything is inside the try: `user` comes straight off the request body,
+    // so any assumption about its shape is a 500 waiting to happen. A throw out
+    // here would bypass onError entirely and surface as an unhandled error.
     try {
+      const appleUser = readAppleUser(user)
+
+      // Email is available from the JWT payload on every login; the body copy is
+      // only a fallback for the first one.
+      const email = payload.email ?? appleUser.email
+      if (!email) {
+        return sendRedirect(event, '/login?error=apple_no_email')
+      }
+
+      const firstName = appleUser.name?.firstName
+      const lastName = appleUser.name?.lastName
+      const name = [firstName, lastName].filter(Boolean).join(' ') || null
+
       const dbUser = await findOrLinkUser({
         provider: 'apple',
         providerId: payload.sub,
@@ -57,13 +126,83 @@ export default defineOAuthAppleEventHandler({
       return sendRedirect(event, '/home')
     }
     catch (error) {
-      ;(event.context.logger ?? logger).error({ err: error }, 'Apple OAuth upsert error:')
-      return sendRedirect(event, '/login?error=apple_failed')
+      const requestId = reportOAuthFailure(event, 'apple', 'upsert', error)
+      return sendRedirect(event, failureRedirect('apple_failed', requestId))
     }
   },
-  /** Logs the error and redirects to the login page with a query-string error code. */
+  /** Logs the real cause, reports it to Sentry, and redirects with a correlation id. */
   onError(event, error) {
-    ;(event.context.logger ?? logger).error({ err: error }, 'Apple OAuth error:')
-    return sendRedirect(event, '/login?error=apple_failed')
+    const requestId = reportOAuthFailure(event, 'apple', 'callback', error)
+    return sendRedirect(event, failureRedirect('apple_failed', requestId))
   },
+}
+
+/**
+ * Wrapped per request for two reasons.
+ *
+ * 1. `redirectURL` asymmetry in nuxt-auth-utils: the authorize step falls back
+ *    to `getOAuthRedirectURL(event)` when `config.redirectURL` is empty, but the
+ *    token exchange sends `redirect_uri: config.redirectURL` with NO fallback,
+ *    and `redirectURL` is excluded from the library's missing-config check. An
+ *    empty value therefore yields a perfectly normal Apple consent screen
+ *    followed by a guaranteed `invalid_grant` — an exact match for the symptom
+ *    this route was failing with. Supplying the value ourselves makes the
+ *    authorize-step and exchange-step `redirect_uri` provably identical.
+ *
+ * 2. `runtimeConfig.public.appleAuthEnabled` is computed at BUILD time, so it
+ *    cannot see the runtime environment. The log line below is the only thing
+ *    that can prove or disprove a build-vs-runtime env divergence.
+ *
+ * One closure per request is free next to a network round trip to Apple.
+ */
+export default defineEventHandler(async (event) => {
+  const apple = useRuntimeConfig(event).oauth?.apple as Record<string, unknown> | undefined
+  const configured = typeof apple?.redirectURL === 'string' ? apple.redirectURL : ''
+  const redirectURL = configured || `${getRequestURL(event).origin}/api/auth/apple`
+
+  // A malformed .p8 is the single most common cause of `apple_failed`, and
+  // jose's TypeError says nothing useful about it. Naming the format — and, when
+  // it is wrong, what the value actually looks like — turns that into a one-line
+  // fix. Only emitted on a bad format, and the forensics mask key material.
+  const privateKeyFormat = classifyApplePrivateKey(apple?.privateKey)
+  const privateKeyProblem = explainApplePrivateKeyFormat(privateKeyFormat)
+
+  // `typeof` is logged because Nitro's applyEnv runs every env value through
+  // `destr`: an all-digit KEY_ID or TEAM_ID silently becomes a number, which
+  // Apple rejects as invalid_client. Values are never logged — only presence,
+  // type, length and the key's format classification.
+  ;(event.context.logger ?? logger).info(
+    {
+      route: '/api/auth/apple',
+      method: event.method,
+      requestId: event.context.requestId,
+      clientIdSet: Boolean(apple?.clientId),
+      clientIdType: typeof apple?.clientId,
+      teamIdSet: Boolean(apple?.teamId),
+      teamIdType: typeof apple?.teamId,
+      keyIdSet: Boolean(apple?.keyId),
+      keyIdType: typeof apple?.keyId,
+      privateKeySet: Boolean(apple?.privateKey),
+      privateKeyLength: typeof apple?.privateKey === 'string' ? apple.privateKey.length : 0,
+      privateKeyFormat,
+      ...(privateKeyProblem
+        ? {
+            privateKeyProblem,
+            privateKeyForensics: describeApplePrivateKeyValue(apple?.privateKey),
+          }
+        : {}),
+      redirectURLSet: Boolean(configured),
+      // Public: Apple shows it and the browser sees it in the authorize URL.
+      effectiveRedirectURL: redirectURL,
+      // True means NUXT_OAUTH_APPLE_REDIRECT_URL is missing at runtime and we
+      // are papering over it — worth fixing even though the flow now works.
+      redirectURLFromRequestHost: !configured,
+    },
+    'apple.oauth.config',
+  )
+
+  return defineOAuthAppleEventHandler({
+    ...appleOAuthConfig,
+    config: { ...appleOAuthConfig.config, redirectURL },
+  })(event)
 })
