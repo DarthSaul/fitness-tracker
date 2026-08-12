@@ -472,6 +472,59 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       )
     })
 
+    /**
+     * Regression: nuxt-auth-utils compares the Content-Type header with strict
+     * equality, so Safari's `; charset=UTF-8` made it treat Apple's callback as
+     * a fresh initiation and redirect the user back to Apple — a cross-origin
+     * bounce the browser blocks, with no error raised anywhere.
+     */
+    describe('form Content-Type normalisation', () => {
+      const postEvent = (contentType?: string) => ({
+        path: '/api/auth/apple',
+        method: 'POST',
+        context: {},
+        node: { req: { headers: contentType ? { 'content-type': contentType } : {} } },
+      })
+
+      test.each([
+        'application/x-www-form-urlencoded; charset=UTF-8',
+        'application/x-www-form-urlencoded;charset=utf-8',
+        'Application/X-WWW-Form-Urlencoded; charset=UTF-8',
+      ])('collapses %s to the bare media type', async (contentType) => {
+        const event = postEvent(contentType)
+        vi.mocked(getRequestHeader).mockReturnValueOnce(contentType)
+
+        await appleHandler(event as never)
+
+        expect(event.node.req.headers['content-type']).toBe('application/x-www-form-urlencoded')
+      })
+
+      test('leaves an already-bare form type untouched', async () => {
+        const event = postEvent('application/x-www-form-urlencoded')
+        vi.mocked(getRequestHeader).mockReturnValueOnce('application/x-www-form-urlencoded')
+
+        await appleHandler(event as never)
+
+        expect(event.node.req.headers['content-type']).toBe('application/x-www-form-urlencoded')
+      })
+
+      test('does not touch an unrelated content type', async () => {
+        const event = postEvent('application/json')
+        vi.mocked(getRequestHeader).mockReturnValueOnce('application/json')
+
+        await appleHandler(event as never)
+
+        expect(event.node.req.headers['content-type']).toBe('application/json')
+      })
+
+      test('tolerates a request with no content-type at all', async () => {
+        const event = postEvent()
+        vi.mocked(getRequestHeader).mockReturnValueOnce(undefined)
+
+        await expect(appleHandler(event as never)).resolves.toBeDefined()
+      })
+    })
+
     test('adds remediation and masked forensics when the key format is bad', async () => {
       // The exact production mistake: the PEM body with its armor lines stripped.
       withAppleConfig({

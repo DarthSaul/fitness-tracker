@@ -25,6 +25,7 @@ vi.stubGlobal('defineEventHandler', (fn: (event: unknown) => unknown) => fn)
 vi.stubGlobal('getRouterParam', vi.fn())
 vi.stubGlobal('getQuery', vi.fn(() => ({})))
 vi.stubGlobal('getHeader', vi.fn(() => null))
+vi.stubGlobal('getRequestHeader', vi.fn(() => undefined))
 vi.stubGlobal('readBody', vi.fn())
 vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
   const err = new Error(opts.statusMessage) as Error & {

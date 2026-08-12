@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import {
   classifyApplePrivateKey,
   describeApplePrivateKeyValue,
@@ -55,6 +56,35 @@ function readAppleUser(raw: unknown): AppleUserProfile {
   }
 
   return typeof raw === 'object' ? (raw as AppleUserProfile) : {}
+}
+
+const FORM_CONTENT_TYPE = 'application/x-www-form-urlencoded'
+
+/**
+ * Rewrites a parameterised form Content-Type to its bare media type.
+ *
+ * `nuxt-auth-utils@0.5.29` decides whether a request is Apple's callback with
+ * `getRequestHeader(event, 'content-type') === 'application/x-www-form-urlencoded'`
+ * — a strict equality against the whole header. A `charset` parameter is
+ * perfectly legal and Safari includes one on Apple's form POST where Chrome does
+ * not, so on Safari the callback is mistaken for a fresh initiation and the user
+ * is redirected straight back to Apple's authorize endpoint. The browser then
+ * blocks that as an unsafe cross-origin navigation and the sign-in dies with
+ * nothing logged, because no error is ever raised.
+ *
+ * Verified against production: `; charset=UTF-8` returns a 302 to
+ * appleid.apple.com/auth/authorize, while the bare type processes the callback.
+ *
+ * Normalising the header is deliberately narrow — it only ever collapses a
+ * form-urlencoded type to the exact spelling the library tests for.
+ */
+function normaliseFormContentType(event: H3Event): void {
+  const raw = getRequestHeader(event, 'content-type')
+  if (!raw || raw === FORM_CONTENT_TYPE) return
+
+  if (raw.split(';')[0]?.trim().toLowerCase() === FORM_CONTENT_TYPE) {
+    event.node.req.headers['content-type'] = FORM_CONTENT_TYPE
+  }
 }
 
 /** Upper bound on a name part, matching the longest plausible legal given name. */
@@ -179,6 +209,9 @@ export default defineEventHandler(async (event) => {
   // auth route, and the callback leg performs a token exchange with Apple.
   // No-ops when Upstash is not configured.
   await rateLimitByIp(event)
+
+  // Must run before the library inspects the request (see the function docs).
+  normaliseFormContentType(event)
 
   const apple = useRuntimeConfig(event).oauth?.apple as Record<string, unknown> | undefined
   const configured = typeof apple?.redirectURL === 'string' ? apple.redirectURL : ''
