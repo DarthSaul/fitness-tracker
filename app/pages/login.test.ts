@@ -34,7 +34,7 @@ const UAlertStub = {
   template: '<div class="alert" :data-title="title" :data-description="description" />',
 }
 
-async function mountLogin() {
+async function mountLogin(): Promise<ReturnType<typeof mount>> {
   const Login = (await import('./login.vue')).default
   return mount(Login, {
     global: {

@@ -18,6 +18,34 @@ const PKCS8_BANNER = '-----BEGIN PRIVATE KEY-----'
 const PKCS8_FOOTER = '-----END PRIVATE KEY-----'
 
 /**
+ * True only for complete, non-empty PKCS#8 armor.
+ *
+ * Presence of both marker lines is not enough: `BEGIN…END` with nothing between
+ * them, or a well-formed key with junk appended after the footer, both parse as
+ * "has a header and a footer" while still being rejected by importPKCS8. They
+ * must fall through to `unknown` so they get remediation rather than being
+ * called usable.
+ */
+function hasCompletePkcs8Armor(raw: string): boolean {
+  if (!raw.startsWith(PKCS8_BANNER)) return false
+
+  const footerAt = raw.indexOf(PKCS8_FOOTER)
+  if (footerAt < 0) return false
+
+  // The footer must close the armor — only trailing whitespace may follow.
+  if (raw.slice(footerAt + PKCS8_FOOTER.length).trim() !== '') return false
+
+  // A non-empty base64 body must sit between the markers. Literal `\n` escapes
+  // are stripped first, since the library expands them before parsing.
+  const body = raw
+    .slice(PKCS8_BANNER.length, footerAt)
+    .replace(/\\n/g, '')
+    .replace(/\s/g, '')
+
+  return body.length > 0 && /^[A-Za-z0-9+/=]+$/.test(body)
+}
+
+/**
  * True when an all-base64 value decodes to PEM text (someone base64-encoded the
  * whole .p8 file), false when it decodes to raw DER (someone copied the PEM's
  * body without its BEGIN/END armor). Both look identical from the outside but
@@ -70,12 +98,11 @@ export type ApplePrivateKeyFormat =
 export function classifyApplePrivateKey(raw: unknown): ApplePrivateKeyFormat {
   if (typeof raw !== 'string' || raw.length === 0) return 'empty'
 
-  // Both the header AND the footer are required. A value truncated after the
-  // banner — a partial paste, or a shell that ate everything past the first line
-  // — would otherwise be called usable here and then fail inside importPKCS8
-  // with the same opaque TypeError this function exists to replace. Falling
-  // through leaves it as 'unknown', which carries remediation.
-  if (raw.startsWith(PKCS8_BANNER) && raw.includes(PKCS8_FOOTER)) {
+  // Complete armor with a real body. A truncated paste, empty markers, or junk
+  // after the footer would otherwise be called usable here and then fail inside
+  // importPKCS8 with the same opaque TypeError this function exists to replace.
+  // Falling through leaves them as 'unknown', which carries remediation.
+  if (hasCompletePkcs8Armor(raw)) {
     return raw.includes('\\n') ? 'pkcs8-escaped-newlines' : 'pkcs8'
   }
   // Checked on the trimmed value: a space before the quote is still a quoting

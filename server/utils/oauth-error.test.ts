@@ -17,7 +17,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import * as Sentry from '@sentry/nuxt'
 import * as joseErrors from 'jose/errors'
 
-import { extractOAuthErrorDetail, reportOAuthFailure } from './oauth-error'
+import { extractOAuthErrorDetail, reportOAuthFailure, type OAuthFailureCause } from './oauth-error'
 import { isExpectedClientError } from '../../sentry.server.config'
 
 /**
@@ -405,11 +405,13 @@ describe('extractOAuthErrorDetail — credentials outside a URL', () => {
 })
 
 describe('extractOAuthErrorDetail — code classification', () => {
-  test.each([
+  const NETWORK_CODES: Array<[code: string, expected: OAuthFailureCause]> = [
     ['ENOTFOUND', 'network'],
     ['ECONNRESET', 'network'],
     ['UND_ERR_CONNECT_TIMEOUT', 'network'],
-  ])('treats %s as a network code', (code, expected) => {
+  ]
+
+  test.each(NETWORK_CODES)('treats %s as a network code', (code, expected) => {
     const detail = extractOAuthErrorDetail(Object.assign(new Error('boom'), { code }))
     expect(detail.cause).toBe(expected)
     expect(detail.networkCode).toBe(code)

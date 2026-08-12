@@ -214,6 +214,25 @@ describe('classifyApplePrivateKey — armor completeness', () => {
     expect(classifyApplePrivateKey('-----BEGIN PRIVATE KEY-----')).toBe('unknown')
   })
 
+  // Both marker lines present is not enough — importPKCS8 still rejects these,
+  // so calling them usable would reproduce the opaque failure this module exists
+  // to replace.
+  test.each([
+    ['markers with no body at all', '-----BEGIN PRIVATE KEY----------END PRIVATE KEY-----'],
+    ['markers around whitespace', '-----BEGIN PRIVATE KEY-----\n \n-----END PRIVATE KEY-----'],
+  ])('rejects %s', (_label, value) => {
+    expect(classifyApplePrivateKey(value)).toBe('unknown')
+    expect(explainApplePrivateKeyFormat(classifyApplePrivateKey(value))).toBeTruthy()
+  })
+
+  test('rejects data appended after the footer', () => {
+    expect(classifyApplePrivateKey(`${PEM.trimEnd()}\nLEFTOVER`)).toBe('unknown')
+  })
+
+  test('tolerates trailing whitespace after the footer', () => {
+    expect(classifyApplePrivateKey(`${PEM.trimEnd()}\n  \n`)).toBe('pkcs8')
+  })
+
   test('still accepts a complete PEM with escaped newlines', () => {
     expect(classifyApplePrivateKey(PEM.replace(/\n/g, '\\n'))).toBe('pkcs8-escaped-newlines')
   })
@@ -222,9 +241,23 @@ describe('classifyApplePrivateKey — armor completeness', () => {
 describe('explainApplePrivateKeyFormat — no key material in remediation', () => {
   // The unknown-format remediation used to suggest printing k.slice(0, 32),
   // i.e. 32 raw characters of the key.
-  test('never tells the operator to print part of the key', () => {
-    for (const format of ['unknown', 'base64-blob', 'pem-body-only', 'quoted'] as const) {
-      expect(explainApplePrivateKeyFormat(format)).not.toMatch(/slice\(|substring\(|substr\(/)
-    }
+  /** Every format that carries remediation — i.e. all but the two usable ones. */
+  const UNUSABLE_FORMATS: ApplePrivateKeyFormat[] = [
+    'empty',
+    'quoted',
+    'leading-whitespace',
+    'sec1',
+    'pkcs1',
+    'base64-blob',
+    'pem-body-only',
+    'smart-punctuation',
+    'rtf',
+    'file-path',
+    'unknown',
+  ]
+
+  test.each(UNUSABLE_FORMATS)('never tells the operator to print part of the key (%s)', (format) => {
+    // Whitespace before the paren still calls the function.
+    expect(explainApplePrivateKeyFormat(format)).not.toMatch(/\b(slice|substring|substr)\s*\(/)
   })
 })
