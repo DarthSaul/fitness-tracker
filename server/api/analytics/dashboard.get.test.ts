@@ -55,7 +55,11 @@ function makeStandaloneCompletedSet(overrides: {
   reps?: number | null
   weight?: number | null
   exerciseId?: string | null
-} = {}) {
+} = {}): {
+  reps: number | null
+  weight: number | null
+  set: { standaloneWorkoutExercise: { exerciseId: string } } | null
+} {
   const exerciseId = overrides.exerciseId !== undefined ? overrides.exerciseId : 'ex101'
   return {
     reps: overrides.reps !== undefined ? overrides.reps : 10,
@@ -68,7 +72,15 @@ function makeStandaloneSession(overrides: Partial<{
   id: string
   completedAt: Date | null
   completedSets: ReturnType<typeof makeStandaloneCompletedSet>[]
-}> = {}) {
+}> = {}): {
+  id: string
+  userId: string
+  standaloneWorkoutId: string
+  status: string
+  startedAt: Date
+  completedAt: Date | null
+  completedSets: ReturnType<typeof makeStandaloneCompletedSet>[]
+} {
   return {
     id: 'sws001',
     userId: 'user001',

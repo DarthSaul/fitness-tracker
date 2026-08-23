@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
       exercise: { id: string; name: string },
       sessionId: string,
       completedAt: Date | null,
-    ) {
+    ): void {
       const existing = exerciseMap.get(exercise.id)
 
       if (!existing) {

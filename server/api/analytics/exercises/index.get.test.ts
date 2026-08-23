@@ -41,7 +41,11 @@ function makeStandaloneCompletedSet(overrides: {
   completedAt?: Date | null
   exerciseId?: string
   exerciseName?: string
-} = {}) {
+} = {}): {
+  id: string
+  session: { id: string; completedAt: Date | null }
+  set: { standaloneWorkoutExercise: { exercise: { id: string; name: string } } }
+} {
   const {
     sessionId = 'sws001',
     completedAt = new Date('2026-08-05T12:00:00.000Z'),

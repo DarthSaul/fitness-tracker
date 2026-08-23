@@ -54,7 +54,16 @@ function makeStandaloneSet(overrides: {
   completedAt?: Date | null
   workoutName?: string | null
   category?: string
-} = {}) {
+} = {}): {
+  id: string
+  reps: number | null
+  weight: number | null
+  session: {
+    id: string
+    completedAt: Date | null
+    standaloneWorkout: { name: string | null; category: string }
+  }
+} {
   const {
     id = 'scs001',
     reps = 12,

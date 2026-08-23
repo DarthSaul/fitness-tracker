@@ -82,9 +82,11 @@ const emptyMessage = computed(() => {
     <!-- Program list. Two-up from `xl`; a real element rather than a fragment so
          the empty-state message below does not become a half-width grid cell. -->
     <div v-if="status !== 'pending' && status !== 'error' && programs && programs.length > 0">
+      <!-- auto-rows-fr sizes every row track equally and the default stretch
+           alignment fills each card to its cell, so all cards match heights. -->
       <div
         v-if="filteredPrograms.length > 0"
-        class="space-y-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0"
+        class="space-y-4 xl:grid xl:grid-cols-2 xl:auto-rows-fr xl:gap-4 xl:space-y-0"
       >
         <UCard
           v-for="program in filteredPrograms"
