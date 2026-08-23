@@ -21,11 +21,15 @@ export interface AnalyticsSessionSet {
   e1rm: number | null
 }
 
+export type AnalyticsSessionType = 'PROGRAM' | 'STANDALONE'
+
 export interface AnalyticsSessionEntry {
   sessionId: string
   completedAt: string
-  weekNumber: number
-  dayNumber: number
+  type: AnalyticsSessionType
+  weekNumber: number | null // null for STANDALONE sessions
+  dayNumber: number | null // null for STANDALONE sessions
+  workoutLabel: string | null // standalone workout name/category; null for PROGRAM
   sets: AnalyticsSessionSet[]
   bestE1rm: number | null
   totalVolume: number | null

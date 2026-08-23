@@ -3,6 +3,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import handler from './index.get'
 
 const mockFindManyCompletedSets = (prisma as typeof prisma).completedSet.findMany as ReturnType<typeof vi.fn>
+const mockFindManyStandaloneSets = (prisma as typeof prisma).standaloneCompletedSet.findMany as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
 function makeEvent() {
@@ -35,9 +36,35 @@ function makeCompletedSet(overrides: {
   }
 }
 
+function makeStandaloneCompletedSet(overrides: {
+  sessionId?: string
+  completedAt?: Date | null
+  exerciseId?: string
+  exerciseName?: string
+} = {}) {
+  const {
+    sessionId = 'sws001',
+    completedAt = new Date('2026-08-05T12:00:00.000Z'),
+    exerciseId = 'ex101',
+    exerciseName = 'DB Triceps Kickbacks',
+  } = overrides
+  return {
+    id: `scs-${sessionId}-${exerciseId}`,
+    session: { id: sessionId, completedAt },
+    set: {
+      standaloneWorkoutExercise: {
+        exercise: { id: exerciseId, name: exerciseName },
+      },
+    },
+  }
+}
+
 describe('GET /api/analytics/exercises', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: no standalone history. Tests exercising the standalone path
+    // override with mockResolvedValueOnce, which takes precedence.
+    mockFindManyStandaloneSets.mockResolvedValue([])
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
       const err = new Error(opts.statusMessage) as Error & { statusCode: number; statusMessage: string }
       err.statusCode = opts.statusCode
@@ -163,6 +190,98 @@ describe('GET /api/analytics/exercises', () => {
     // null completedAt falls back to new Date(0) — epoch ISO string
     expect(result).toHaveLength(1)
     expect(result[0]!.lastCompletedAt).toBe(new Date(0).toISOString())
+  })
+
+  test('includes exercises completed only in standalone sessions', async () => {
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneCompletedSet({ exerciseId: 'ex101', exerciseName: 'DB Triceps Kickbacks' }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{
+      id: string
+      name: string
+      sessionCount: number
+      lastCompletedAt: string
+    }[]>)(event)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      id: 'ex101',
+      name: 'DB Triceps Kickbacks',
+      sessionCount: 1,
+    })
+  })
+
+  test('merges sessionCount across program and standalone sessions of the same exercise', async () => {
+    mockFindManyCompletedSets.mockResolvedValueOnce([
+      makeCompletedSet({ workoutSessionId: 'ws001', exerciseId: 'ex001', exerciseName: 'DB Zottman Curls' }),
+    ])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneCompletedSet({ sessionId: 'sws001', exerciseId: 'ex001', exerciseName: 'DB Zottman Curls' }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string; sessionCount: number }[]>)(event)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]!.sessionCount).toBe(2)
+  })
+
+  test('lastCompletedAt reflects the most recent session across both families', async () => {
+    const older = new Date('2026-03-20T12:00:00.000Z')
+    const newer = new Date('2026-08-05T12:00:00.000Z')
+    mockFindManyCompletedSets.mockResolvedValueOnce([
+      makeCompletedSet({ workoutSessionId: 'ws001', exerciseId: 'ex001', completedAt: older }),
+    ])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneCompletedSet({ sessionId: 'sws001', exerciseId: 'ex001', completedAt: newer }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string; lastCompletedAt: string }[]>)(event)
+
+    expect(result).toHaveLength(1)
+    expect(result[0]!.lastCompletedAt).toBe(newer.toISOString())
+  })
+
+  test('skips standalone ad-hoc sets (no linked exercise)', async () => {
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      { id: 'scs001', session: { id: 'sws001', completedAt: new Date('2026-08-05T12:00:00.000Z') }, set: null, adhocExerciseName: 'Mystery move' },
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<unknown[]>)(event)
+
+    expect(result).toEqual([])
+  })
+
+  test('queries standaloneCompletedSets filtered by COMPLETED session status', async () => {
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockFindManyStandaloneSets).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { session: { userId: 'user001', status: 'COMPLETED' } },
+      }),
+    )
+  })
+
+  test('throws 500 and logs error when standaloneCompletedSet.findMany fails', async () => {
+    const dbError = new Error('connection reset')
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    mockFindManyStandaloneSets.mockRejectedValueOnce(dbError)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch exercise list' })
+
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/analytics/exercises' }, '[GET /api/analytics/exercises] Failed to fetch exercise list')
   })
 
   test('throws 500 and logs error when completedSet.findMany fails', async () => {

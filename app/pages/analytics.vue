@@ -326,6 +326,12 @@ function handleExerciseClear() {
                 <div class="flex items-start justify-between gap-2">
                   <p class="text-sm font-medium text-label">
                     {{ formatSessionDate(session.completedAt) }}
+                    <span
+                      v-if="session.type === 'STANDALONE'"
+                      class="ml-1 text-xs font-normal text-label-secondary"
+                    >
+                      {{ session.workoutLabel ?? 'Standalone' }}
+                    </span>
                   </p>
                   <span class="text-xs text-label-secondary shrink-0">
                     {{ session.sets.length }} {{ session.sets.length === 1 ? 'set' : 'sets' }}
