@@ -1,11 +1,11 @@
 /**
- * Public marketing shell for the landing page.
+ * Public marketing shell for the landing page and the privacy policy.
  *
  * Separate from `default` — which is shared with /login, /offline and /auth/* —
  * so those screens do not sprout a marketing header and footer.
  *
- * This is the one page in the app where the *document* scrolls rather than a
- * fixed inner column: anchor links, mobile URL-bar collapse and crawler
+ * These are the only pages in the app where the *document* scrolls rather than
+ * a fixed inner column: anchor links, mobile URL-bar collapse and crawler
  * behaviour all depend on it. It also deliberately omits PwaInstallBanner —
  * never prompt an install before sign-up.
  */

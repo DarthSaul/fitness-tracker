@@ -40,6 +40,25 @@ describe('MarketingFooter', () => {
     expect(hrefs).toContain('/login?signup=1')
   })
 
+  test('links to the privacy policy', () => {
+    const hrefs = mountFooter().findAll('a').map(a => a.attributes('href'))
+
+    expect(hrefs).toContain('/privacy')
+  })
+
+  /**
+   * The section anchors must be root-anchored: the footer now also renders on
+   * /privacy, where a bare `#features` would resolve to /privacy#features and
+   * scroll nowhere.
+   */
+  test('section anchors point back at the landing page', () => {
+    const hrefs = mountFooter().findAll('a').map(a => a.attributes('href'))
+
+    expect(hrefs).toContain('/#features')
+    expect(hrefs).toContain('/#how-it-works')
+    expect(hrefs).toContain('/#progress')
+  })
+
   test('links to the public source repository', () => {
     const hrefs = mountFooter().findAll('a').map(a => a.attributes('href'))
 

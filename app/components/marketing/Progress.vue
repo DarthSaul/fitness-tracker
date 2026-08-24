@@ -7,8 +7,14 @@
 <script setup lang="ts">
 type Shot = { src: string, src2x: string, w: number, h: number, alt: string }
 
-/** Wide capture at 1280×800 CSS, DPR 2, dark scheme. `public/img/screens/`. */
-const SHOT: Shot | null = null
+/**
+ * Wide capture at 1280×800 CSS, DPR 2, dark scheme. `public/img/screens/`.
+ *
+ * Typed via assertion rather than annotation: with `const SHOT: Shot | null
+ * = null`, vue-tsc narrows the literal `null` to `never` inside `v-if="SHOT"`
+ * and every `SHOT.foo` in the template fails TS2339.
+ */
+const SHOT = null as Shot | null
 
 const stats = [
   { label: 'Sessions logged', hint: 'all time and this week' },
