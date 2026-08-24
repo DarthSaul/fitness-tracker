@@ -5734,7 +5734,7 @@ const poolSeasonWeeks: WeekInput[] = [
 
 const OAK_TREE_NAME = 'Oak Tree';
 const OAK_TREE_DESCRIPTION =
-	'A 20-day undulating strength block from Pen and Paper Strength App. ' +
+	'A 20-day undulating strength block. ' +
 	'Percentage-based work on the big three lifts paired with superset accessories ' +
 	'and cardio finishers, organized into 5 weeks of 4 days.';
 
@@ -6514,8 +6514,8 @@ const oakTreeWeeks: WeekInput[] = [
 
 const PTOT_NAME = 'Periodic Table of Thickness';
 const PTOT_DESCRIPTION =
-	'A 4-week, 4-day density-style hypertrophy & strength program from Pen and Paper ' +
-	'Strength App. Each day pairs a percentage-based DENSITY protocol on the main lifts ' +
+	'A 4-week, 4-day density-style hypertrophy & strength program. ' +
+	'Each day pairs a percentage-based DENSITY protocol on the main lifts ' +
 	'with an Extra Growth accessory superset and a high-rep CARDIO circuit finisher.';
 
 // Warm-up text is the same for each day-slot every week.
@@ -7128,7 +7128,7 @@ const ptotWeeks: WeekInput[] = [
 
 const FOTH_NAME = 'Filling Out That Hoodie';
 const FOTH_DESCRIPTION =
-	'A 4-week, 4-day upper-body hypertrophy program from Pen and Paper Strength App. ' +
+	'A 4-week, 4-day upper-body hypertrophy program. ' +
 	'Each day runs a "Torso Thickening" block (percentage pressing and pulling) into a ' +
 	'"Make the Sleeves Fit Tight" arm block, finished with a high-rep cardio circuit. ' +
 	'Rest periods are prescribed per lift.';
@@ -7678,7 +7678,7 @@ const fothWeeks: WeekInput[] = [
 
 const SQUATOBER_NAME = 'Squatober The Prequel';
 const SQUATOBER_DESCRIPTION =
-	'A 4-week squat-focused strength program from Pen and Paper Strength App. ' +
+	'A 4-week squat-focused strength program. ' +
 	'Daily Back Squat percentage work (undulating 50-90% of max) paired with ' +
 	'upper-body accessories and a cardio finisher. Weeks run 3/4/4/3 days.';
 
