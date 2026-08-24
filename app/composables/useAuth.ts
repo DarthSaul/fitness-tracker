@@ -57,6 +57,21 @@ export function useAuth() {
     await navigateTo('/')
   }
 
+  /**
+   * Permanently deletes the account and all associated data via
+   * `DELETE /api/auth/me` (the server clears the session cookie as part of the
+   * deletion), then refreshes local session state and returns to the landing
+   * page. Irreversible — callers must confirm with the user first.
+   */
+  async function deleteAccount() {
+    await $fetch('/api/auth/me', { method: 'DELETE' })
+    // Once the DELETE resolved the account is gone — a failed session refresh
+    // must not reject (it would read as "could not delete" and strand the user
+    // on an authenticated screen for an account that no longer exists).
+    await fetch().catch(() => {})
+    await navigateTo('/')
+  }
+
   return {
     loggedIn,
     ready,
@@ -69,5 +84,6 @@ export function useAuth() {
     signInWithEmail,
     resetPassword,
     signOut,
+    deleteAccount,
   }
 }

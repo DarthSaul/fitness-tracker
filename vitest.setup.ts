@@ -73,7 +73,7 @@ vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/au
 vi.stubGlobal('prisma', {
   $queryRaw: vi.fn(),
   $transaction: vi.fn(),
-  user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   identity: { findUnique: vi.fn(), create: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
   programDay: { findUnique: vi.fn(), findFirst: vi.fn() },
@@ -123,6 +123,9 @@ vi.stubGlobal('supabase', {
     resetPasswordForEmail: vi.fn(),
     setSession: vi.fn(),
     updateUser: vi.fn(),
+    // Service-role admin API — used by DELETE /api/auth/me to remove the
+    // GoTrue user behind an email identity.
+    admin: { deleteUser: vi.fn() },
   },
   storage: {
     from: vi.fn(() => ({

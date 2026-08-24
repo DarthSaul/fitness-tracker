@@ -2,21 +2,27 @@
  * Marketing footer.
  *
  * No app-store or download badges: the iOS client is TestFlight-only, and a
- * badge a reader cannot act on is worse than none. No Legal column either,
- * rather than link to pages that do not exist.
+ * badge a reader cannot act on is worse than none.
+ *
+ * Section anchors are root-anchored (`/#features`) because this footer also
+ * renders on /privacy, where a bare fragment would scroll nowhere.
  */
 <script setup lang="ts">
 const config = useRuntimeConfig()
 
 const product = [
-  { label: 'Features', to: '#features' },
-  { label: 'How it works', to: '#how-it-works' },
-  { label: 'Progress', to: '#progress' },
+  { label: 'Features', to: '/#features' },
+  { label: 'How it works', to: '/#how-it-works' },
+  { label: 'Progress', to: '/#progress' },
 ]
 
 const account = [
   { label: 'Sign in', to: '/login' },
   { label: 'Create an account', to: '/login?signup=1' },
+]
+
+const legal = [
+  { label: 'Privacy Policy', to: '/privacy' },
 ]
 </script>
 
@@ -62,6 +68,17 @@ const account = [
                 >
                   Source on GitHub
                 </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="text-caption font-semibold uppercase text-label-secondary">Legal</p>
+            <ul class="mt-3 space-y-2">
+              <li v-for="link in legal" :key="link.to">
+                <NuxtLink :to="link.to" class="text-subheadline text-label transition-colors hover:text-tint">
+                  {{ link.label }}
+                </NuxtLink>
               </li>
             </ul>
           </div>

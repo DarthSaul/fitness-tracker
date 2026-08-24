@@ -241,9 +241,10 @@ export default defineNuxtConfig({
       // navigation — /home, /history, /workout/x — against a browser URL of
       // something else, mismatching on hydration every time.
       navigateFallback: '/home',
-      // `/` has its own precache entry and must not be replaced by the shell.
-      // Defensive: the precache route is registered first regardless.
-      navigateFallbackDenylist: [/^\/api\//, /^\/$/],
+      // `/` and `/privacy` have their own precache entries and must not be
+      // replaced by the shell. Defensive: the precache route is registered
+      // first regardless.
+      navigateFallbackDenylist: [/^\/api\//, /^\/$/, /^\/privacy\/?$/],
       // The hero art is deliberately NOT in globPatterns: precaching ~400KB of
       // jpg into every install for two public pages is a bad trade. This gets
       // the same offline-after-first-visit behaviour at no install-time cost.
@@ -280,9 +281,12 @@ export default defineNuxtConfig({
         },
       },
 
-      // The only server-rendered route: a public marketing page with no auth
-      // state and no data fetching, baked at build time and served statically.
+      // The public server-rendered routes: the marketing page and the privacy
+      // policy. Both carry no auth state and no data fetching, baked at build
+      // time and served statically. /privacy is the App Store's privacy policy
+      // URL, so it must be real HTML without JavaScript.
       '/': { ssr: true, prerender: true },
+      '/privacy': { ssr: true, prerender: true },
 
       // Prerendered SPA shell. Precached, and the service worker's navigation
       // fallback binds to it — every other route boots the client app here.

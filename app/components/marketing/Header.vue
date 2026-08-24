@@ -3,13 +3,14 @@
  *
  * The anchors simply drop out below `md` rather than collapsing into a
  * hamburger — three links do not justify a menu, and the sign-in path stays
- * one tap away at every width.
+ * one tap away at every width. They are root-anchored (`/#features`) because
+ * the header also renders on /privacy, where a bare fragment would go nowhere.
  */
 <script setup lang="ts">
 const links = [
-  { label: 'Features', href: '#features' },
-  { label: 'How it works', href: '#how-it-works' },
-  { label: 'Progress', href: '#progress' },
+  { label: 'Features', href: '/#features' },
+  { label: 'How it works', href: '/#how-it-works' },
+  { label: 'Progress', href: '/#progress' },
 ]
 </script>
 

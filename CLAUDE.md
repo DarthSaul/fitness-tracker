@@ -2,7 +2,7 @@
 
 A mobile-first PWA for tracking structured workout programs, with a desktop layout from `lg` up. Also consumed by a native iOS client. Registration is open — anyone can sign up with Google, Apple, or email.
 
-**Routing:** `/` is the public marketing landing page and the only server-rendered route; the authenticated dashboard is `/home`. Every other route is client-rendered exactly as before (see `nitro.routeRules` in `nuxt.config.ts`).
+**Routing:** `/` is the public marketing landing page and `/privacy` is the public privacy policy (the App Store's privacy policy URL) — the only two server-rendered routes, both prerendered; the authenticated dashboard is `/home`. Every other route is client-rendered exactly as before (see `nitro.routeRules` in `nuxt.config.ts`).
 
 ## Tech Stack
 
@@ -330,6 +330,12 @@ complete apart from Exercise skip UI and Core workouts)
 - [x] Native Sign in with Apple (`POST /api/auth/native/apple`)
 - [x] Native Sign in with Google (`POST /api/auth/native/google`)
 - [x] Native logout with refresh token revocation
+- [x] Account deletion API (`DELETE /api/auth/me`) — cascades every user-owned
+      row, deletes the Supabase Auth user behind email identities first (so a
+      failure is retryable), and best-effort-removes feedback screenshots from
+      storage. Required by App Review Guideline 5.1.1(v). Web Settings has the
+      confirm-sheet UI (`useAuth().deleteAccount`); the iOS Settings row still
+      needs to be built in the app repo.
 - [x] APNs push infrastructure: `DeviceToken` model, `server/utils/apns.ts`
 - [x] Device token registration/unregistration (`POST /api/devices/register`, `DELETE /api/devices/:id`)
 - [x] CORS config (restricted to known web origin)

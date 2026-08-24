@@ -10,6 +10,7 @@
  *  - resetPassword: POSTs to reset endpoint
  *  - signOut: POSTs to logout, refreshes session, navigates to / — in that order
  *  - signOut error propagation
+ *  - deleteAccount: DELETEs /api/auth/me, refreshes session, navigates to /
  *
  * Nuxt globals (useUserSession, navigateTo, $fetch) are stubbed globally in
  * vitest.setup.ts. We configure them per-test via the cast references below.
@@ -264,6 +265,59 @@ describe('useAuth composable', () => {
       mockDollarFetch.mockRejectedValueOnce(new Error('network error'))
       const { signOut } = useAuth()
       await expect(signOut()).rejects.toThrow('network error')
+    })
+  })
+
+  describe('deleteAccount', () => {
+    test('is exposed as a function', () => {
+      const { deleteAccount } = useAuth()
+      expect(typeof deleteAccount).toBe('function')
+    })
+
+    test('DELETEs /api/auth/me', async () => {
+      const { deleteAccount } = useAuth()
+      await deleteAccount()
+      expect(mockDollarFetch).toHaveBeenCalledWith('/api/auth/me', { method: 'DELETE' })
+    })
+
+    test('executes $fetch → fetchSession → navigateTo(/) in that order', async () => {
+      const callOrder: string[] = []
+      mockDollarFetch.mockImplementation(() => {
+        callOrder.push('$fetch')
+        return Promise.resolve()
+      })
+      mockFetchSession.mockImplementation(() => {
+        callOrder.push('fetchSession')
+        return Promise.resolve()
+      })
+      mockNavigateTo.mockImplementation((to: string) => {
+        callOrder.push(`navigateTo:${to}`)
+        return Promise.resolve()
+      })
+
+      const { deleteAccount } = useAuth()
+      await deleteAccount()
+
+      expect(callOrder).toEqual(['$fetch', 'fetchSession', 'navigateTo:/'])
+    })
+
+    test('propagates an error and does not navigate if the DELETE rejects', async () => {
+      mockDollarFetch.mockRejectedValueOnce(new Error('server error'))
+      const { deleteAccount } = useAuth()
+
+      await expect(deleteAccount()).rejects.toThrow('server error')
+      expect(mockNavigateTo).not.toHaveBeenCalled()
+    })
+
+    // The DELETE succeeded, so the account is gone no matter what the session
+    // refresh says. Rejecting here would surface as "could not delete" and
+    // strand the user on an authenticated screen for a deleted account.
+    test('still navigates to / when the session refresh fails after a successful DELETE', async () => {
+      mockFetchSession.mockRejectedValueOnce(new Error('session endpoint unavailable'))
+      const { deleteAccount } = useAuth()
+
+      await expect(deleteAccount()).resolves.toBeUndefined()
+      expect(mockNavigateTo).toHaveBeenCalledWith('/')
     })
   })
 })

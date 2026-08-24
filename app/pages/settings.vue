@@ -11,7 +11,7 @@ definePageMeta({
   header: { title: 'Settings', emoji: '⚙️' },
 })
 
-const { user, signOut } = useAuth()
+const { user, signOut, deleteAccount } = useAuth()
 const config = useRuntimeConfig()
 
 const {
@@ -46,6 +46,34 @@ async function handlePtToggle(value: boolean): Promise<void> {
   } catch {
     // The switch is bound to the fetched profile, so a failed save reverts
     // visually on the next render.
+  }
+}
+
+// Deletion is irreversible, so the row only opens a confirmation sheet; the
+// actual DELETE happens on the sheet's destructive button. On success,
+// deleteAccount() navigates away to `/`. Required by App Review 5.1.1(v).
+const deleteSheetOpen = ref(false)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+function openDeleteSheet(): void {
+  deleteError.value = null
+  deleteSheetOpen.value = true
+}
+
+async function handleDeleteAccount(): Promise<void> {
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await deleteAccount()
+  } catch {
+    // Keep the sheet open with an explanation so the user can retry. Deletion
+    // may have partly completed on the server (external auth cleanup is not
+    // rolled back), but retrying resumes and finishes it — so "try again" is
+    // always the right guidance.
+    deleteError.value = 'Could not delete your account. Please try again.'
+  } finally {
+    deleting.value = false
   }
 }
 </script>
@@ -133,6 +161,24 @@ async function handlePtToggle(value: boolean): Promise<void> {
       </div>
     </section>
 
+    <!-- Account -->
+    <section>
+      <p class="mb-1.5 px-1 text-caption font-semibold uppercase text-label-secondary">Account</p>
+      <div class="overflow-hidden rounded-card bg-surface">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+          @click="openDeleteSheet"
+        >
+          <span class="flex items-center gap-2.5 text-body text-ios-red">
+            <UIcon name="i-lucide-trash-2" class="size-5" />
+            Delete Account
+          </span>
+          <UIcon name="i-lucide-chevron-right" class="size-4 text-label-tertiary" />
+        </button>
+      </div>
+    </section>
+
     <div class="space-y-2">
       <UAlert
         v-if="signOutError"
@@ -152,5 +198,48 @@ async function handlePtToggle(value: boolean): Promise<void> {
         @click="handleSignOut"
       />
     </div>
+
+    <AppSheet
+      v-model:open="deleteSheetOpen"
+      title="Delete Account?"
+      description="Confirm permanent deletion of your account and all data"
+    >
+      <div class="space-y-3">
+        <p class="text-body text-label-secondary">
+          This permanently deletes your account and everything in it — saved
+          programs, workout history, logged sets, notes, and PT routines. This
+          cannot be undone.
+        </p>
+        <UAlert
+          v-if="deleteError"
+          color="error"
+          variant="subtle"
+          :title="deleteError"
+          icon="i-lucide-alert-circle"
+        />
+      </div>
+
+      <template #footer>
+        <div class="space-y-2">
+          <UButton
+            block
+            color="error"
+            size="lg"
+            :loading="deleting"
+            :label="deleting ? 'Deleting…' : 'Delete My Account'"
+            @click="handleDeleteAccount"
+          />
+          <UButton
+            block
+            color="neutral"
+            variant="soft"
+            size="lg"
+            label="Cancel"
+            :disabled="deleting"
+            @click="deleteSheetOpen = false"
+          />
+        </div>
+      </template>
+    </AppSheet>
   </div>
 </template>
