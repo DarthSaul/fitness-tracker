@@ -13,7 +13,7 @@ defineRouteMeta({
       200: { description: 'Account deleted', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       401: { description: 'Unauthorized' },
       404: { description: 'User not found' },
-      500: { description: 'Deletion failed — nothing was removed; safe to retry' },
+      500: { description: 'Deletion failed — always safe to retry. Deletion may have partly completed (external auth cleanup is not rolled back); a retry resumes and finishes it. The account row and session remain until the final database delete succeeds.' },
     },
   },
 })

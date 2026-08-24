@@ -67,8 +67,10 @@ async function handleDeleteAccount(): Promise<void> {
   try {
     await deleteAccount()
   } catch {
-    // Keep the sheet open with an explanation so the user can retry — the
-    // server deletes nothing on failure, so their account is intact.
+    // Keep the sheet open with an explanation so the user can retry. Deletion
+    // may have partly completed on the server (external auth cleanup is not
+    // rolled back), but retrying resumes and finishes it — so "try again" is
+    // always the right guidance.
     deleteError.value = 'Could not delete your account. Please try again.'
   } finally {
     deleting.value = false

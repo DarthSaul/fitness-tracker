@@ -308,5 +308,16 @@ describe('useAuth composable', () => {
       await expect(deleteAccount()).rejects.toThrow('server error')
       expect(mockNavigateTo).not.toHaveBeenCalled()
     })
+
+    // The DELETE succeeded, so the account is gone no matter what the session
+    // refresh says. Rejecting here would surface as "could not delete" and
+    // strand the user on an authenticated screen for a deleted account.
+    test('still navigates to / when the session refresh fails after a successful DELETE', async () => {
+      mockFetchSession.mockRejectedValueOnce(new Error('session endpoint unavailable'))
+      const { deleteAccount } = useAuth()
+
+      await expect(deleteAccount()).resolves.toBeUndefined()
+      expect(mockNavigateTo).toHaveBeenCalledWith('/')
+    })
   })
 })

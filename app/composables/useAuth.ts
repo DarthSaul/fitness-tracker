@@ -65,7 +65,10 @@ export function useAuth() {
    */
   async function deleteAccount() {
     await $fetch('/api/auth/me', { method: 'DELETE' })
-    await fetch()
+    // Once the DELETE resolved the account is gone — a failed session refresh
+    // must not reject (it would read as "could not delete" and strand the user
+    // on an authenticated screen for an account that no longer exists).
+    await fetch().catch(() => {})
     await navigateTo('/')
   }
 
