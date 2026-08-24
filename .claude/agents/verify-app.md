@@ -27,7 +27,7 @@ whole-app checks and always run in full.
 
 ## Verification Pipeline
 
-Execute these steps in order. If any step fails, stop, diagnose the issue, and report it clearly.
+Execute these steps in order. If a step fails, diagnose and record the failure, then continue with the remaining steps so the report covers everything — a later step's success never cancels an earlier failure, and the overall verdict is FAIL if any step failed.
 
 ### Step 1: TypeScript Compilation Check
 
@@ -81,19 +81,25 @@ After running all steps, provide a clear summary:
 ```markdown
 ## QA Verification Report
 
-| Step                   | Status | Details                                              |
-| ---------------------- | ------ | ---------------------------------------------------- |
-| TypeScript Check       | ✅/❌  | ...                                                  |
-| Unit Tests             | ✅/❌  | X passed, Y failed, Z skipped (scoped: N of M files) |
-| Build                  | ✅/❌  | ...                                                  |
-| Dev Server Smoke Check | ✅/❌  | Health + main page HTTP status codes                 |
+| Step                   | Status | Details                                            |
+| ---------------------- | ------ | -------------------------------------------------- |
+| TypeScript Check       | ✅/❌  | ...                                                |
+| Unit Tests             | ✅/❌  | X passed, Y failed, Z skipped <scope note, if any> |
+| Build                  | ✅/❌  | ...                                                |
+| Dev Server Smoke Check | ✅/❌  | Health + main page HTTP status codes               |
 
-**Test scope:** impacted only — the full suite was not run (invoke with "verify-app full" to run everything).
+**Test scope:** <one of the variants below>
 
 **Overall: PASS / FAIL**
 ```
 
-The `(scoped: N of M files)` note and the **Test scope** line apply to IMPACTED runs. On a FULL run, write `**Test scope:** full suite.` instead — and if IMPACTED escalated to FULL, include the escalation reason on that line.
+Fill the **Test scope** line to match the run that actually happened:
+
+- IMPACTED: `impacted only — the full suite was not run (invoke with "verify-app full" to run everything).`
+- FULL (requested): `full suite.`
+- FULL (escalated): `full suite — escalated from impacted: <reason>.`
+
+On IMPACTED runs only, the Unit Tests row's scope note is `(scoped: N of M test files)`; omit it on FULL runs.
 
 If any step fails:
 
