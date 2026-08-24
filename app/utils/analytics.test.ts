@@ -13,8 +13,23 @@ function session(bestE1rm: number | null, id = 's1'): AnalyticsSessionEntry {
   return {
     sessionId: id,
     completedAt: '2026-01-15T10:00:00.000Z',
+    type: 'PROGRAM',
     weekNumber: 1,
     dayNumber: 1,
+    workoutLabel: null,
+    bestE1rm,
+    sets: [],
+  } as unknown as AnalyticsSessionEntry
+}
+
+function standaloneSession(bestE1rm: number | null, id = 'sa1'): AnalyticsSessionEntry {
+  return {
+    sessionId: id,
+    completedAt: '2026-08-05T10:00:00.000Z',
+    type: 'STANDALONE',
+    weekNumber: null,
+    dayNumber: null,
+    workoutLabel: 'Arms Blast',
     bestE1rm,
     sets: [],
   } as unknown as AnalyticsSessionEntry
@@ -61,6 +76,13 @@ describe('buildSparkline', () => {
     expect(points[0]!.y).toBe(padY + height)
     expect(points[1]!.y).toBe(padY + height / 2)
     expect(points[2]!.y).toBe(padY)
+  })
+
+  test('plots standalone entries (null week/day) alongside program entries', () => {
+    const points = buildSparkline([session(100, 'a'), standaloneSession(120, 'b')])
+
+    expect(points).toHaveLength(2)
+    expect(points.map(p => p.session.sessionId)).toEqual(['a', 'b'])
   })
 
   test('accepts custom geometry', () => {

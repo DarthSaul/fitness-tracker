@@ -6,6 +6,7 @@ import handler from './[exerciseId].get'
 // unknown so TypeScript resolves the mock type without needing to import Prisma.
 const mockFindUniqueExercise = (prisma as unknown as { exercise: { findUnique: ReturnType<typeof vi.fn> } }).exercise.findUnique as ReturnType<typeof vi.fn>
 const mockFindManyCompletedSets = (prisma as typeof prisma).completedSet.findMany as ReturnType<typeof vi.fn>
+const mockFindManyStandaloneSets = (prisma as typeof prisma).standaloneCompletedSet.findMany as ReturnType<typeof vi.fn>
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
@@ -45,9 +46,47 @@ function makeCompletedSet(overrides: {
   }
 }
 
+function makeStandaloneSet(overrides: {
+  id?: string
+  reps?: number | null
+  weight?: number | null
+  sessionId?: string
+  completedAt?: Date | null
+  workoutName?: string | null
+  category?: string
+} = {}): {
+  id: string
+  reps: number | null
+  weight: number | null
+  session: {
+    id: string
+    completedAt: Date | null
+    standaloneWorkout: { name: string | null; category: string }
+  }
+} {
+  const {
+    id = 'scs001',
+    reps = 12,
+    weight = 25,
+    sessionId = 'sws001',
+    completedAt = new Date('2026-08-05T12:00:00.000Z'),
+    workoutName = 'Arms Blast',
+    category = 'ARMS',
+  } = overrides
+  return {
+    id,
+    reps,
+    weight,
+    session: { id: sessionId, completedAt, standaloneWorkout: { name: workoutName, category } },
+  }
+}
+
 describe('GET /api/analytics/exercises/:exerciseId', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: no standalone history. Tests exercising the standalone path
+    // override with mockResolvedValueOnce, which takes precedence.
+    mockFindManyStandaloneSets.mockResolvedValue([])
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
       const err = new Error(opts.statusMessage) as Error & { statusCode: number; statusMessage: string }
       err.statusCode = opts.statusCode
@@ -101,8 +140,10 @@ describe('GET /api/analytics/exercises/:exerciseId', () => {
       history: {
         sessionId: string
         completedAt: string
-        weekNumber: number
-        dayNumber: number
+        type: 'PROGRAM' | 'STANDALONE'
+        weekNumber: number | null
+        dayNumber: number | null
+        workoutLabel: string | null
         sets: { reps: number | null; weight: number | null; e1rm: number | null }[]
         bestE1rm: number | null
         totalVolume: number | null
@@ -112,8 +153,10 @@ describe('GET /api/analytics/exercises/:exerciseId', () => {
     expect(result.history).toHaveLength(1)
     const entry = result.history[0]!
     expect(entry.sessionId).toBe('ws001')
+    expect(entry.type).toBe('PROGRAM')
     expect(entry.weekNumber).toBe(1)
     expect(entry.dayNumber).toBe(1)
+    expect(entry.workoutLabel).toBeNull()
     expect(entry.sets).toHaveLength(1)
     expect(entry.sets[0]).toMatchObject({ reps: 10, weight: 135 })
   })
@@ -136,20 +179,159 @@ describe('GET /api/analytics/exercises/:exerciseId', () => {
     expect(result.history[0]!.completedAt < result.history[1]!.completedAt).toBe(true)
   })
 
-  test('completedSets query filters by exerciseId and COMPLETED sessions', async () => {
+  test('completedSets query matches both prescribed and extra sets for the exercise in COMPLETED sessions', async () => {
     mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
     mockFindManyCompletedSets.mockResolvedValueOnce([])
 
     const event = makeEvent('ex001')
     await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
+    // The OR is the regression guard: extra sets carry programExerciseId with no
+    // exerciseSet, and used to be silently dropped from the trend.
     expect(mockFindManyCompletedSets).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           workoutSession: { userId: 'user001', status: 'COMPLETED' },
-          exerciseSet: { programExercise: { exerciseId: 'ex001' } },
+          OR: [
+            { exerciseSet: { programExercise: { exerciseId: 'ex001' } } },
+            { programExercise: { exerciseId: 'ex001' } },
+          ],
         },
       }),
+    )
+  })
+
+  test('standaloneCompletedSets query filters by exerciseId and COMPLETED sessions', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+
+    const event = makeEvent('ex001')
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockFindManyStandaloneSets).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          session: { userId: 'user001', status: 'COMPLETED' },
+          set: { standaloneWorkoutExercise: { exerciseId: 'ex001' } },
+        },
+      }),
+    )
+  })
+
+  test('includes standalone sessions with type STANDALONE, null week/day, and workoutLabel', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneSet({ reps: 12, weight: 25, workoutName: 'Arms Blast' }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{
+      history: {
+        sessionId: string
+        type: string
+        weekNumber: number | null
+        dayNumber: number | null
+        workoutLabel: string | null
+        sets: { reps: number | null; weight: number | null; e1rm: number | null }[]
+      }[]
+    }>)(event)
+
+    expect(result.history).toHaveLength(1)
+    const entry = result.history[0]!
+    expect(entry.sessionId).toBe('sws001')
+    expect(entry.type).toBe('STANDALONE')
+    expect(entry.weekNumber).toBeNull()
+    expect(entry.dayNumber).toBeNull()
+    expect(entry.workoutLabel).toBe('Arms Blast')
+    expect(entry.sets[0]).toMatchObject({ reps: 12, weight: 25 })
+  })
+
+  test('workoutLabel falls back to category when the standalone workout has no name', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneSet({ workoutName: null, category: 'ARMS' }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{
+      history: { workoutLabel: string | null }[]
+    }>)(event)
+
+    expect(result.history[0]!.workoutLabel).toBe('ARMS')
+  })
+
+  test('merges program and standalone history ordered by completedAt ascending', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([
+      makeCompletedSet({ workoutSessionId: 'ws001', completedAt: new Date('2026-03-10T12:00:00.000Z') }),
+      makeCompletedSet({ workoutSessionId: 'ws002', completedAt: new Date('2026-08-10T12:00:00.000Z') }),
+    ])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneSet({ sessionId: 'sws001', completedAt: new Date('2026-08-05T12:00:00.000Z') }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{
+      history: { sessionId: string; type: string }[]
+    }>)(event)
+
+    expect(result.history.map((h) => h.sessionId)).toEqual(['ws001', 'sws001', 'ws002'])
+    expect(result.history.map((h) => h.type)).toEqual(['PROGRAM', 'STANDALONE', 'PROGRAM'])
+  })
+
+  test('e1RM and volume are computed for standalone sets like program sets', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneSet({ id: 'scs001', reps: 10, weight: 30 }),
+      makeStandaloneSet({ id: 'scs002', reps: 8, weight: 35 }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{
+      history: { bestE1rm: number | null; totalVolume: number | null; sets: unknown[] }[]
+    }>)(event)
+
+    expect(result.history).toHaveLength(1)
+    expect(result.history[0]!.sets).toHaveLength(2)
+    // best e1rm: max(30*(1+10/30)=40, 35*(1+8/30)≈44.33)
+    expect(result.history[0]!.bestE1rm).toBeCloseTo(35 * (1 + 8 / 30))
+    expect(result.history[0]!.totalVolume).toBe(10 * 30 + 8 * 35)
+  })
+
+  test('skips standalone sets whose session completedAt is null', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    mockFindManyStandaloneSets.mockResolvedValueOnce([
+      makeStandaloneSet({ id: 'scs001', sessionId: 'sws001', completedAt: null }),
+      makeStandaloneSet({ id: 'scs002', sessionId: 'sws002' }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{
+      history: { sessionId: string }[]
+    }>)(event)
+
+    expect(result.history).toHaveLength(1)
+    expect(result.history[0]!.sessionId).toBe('sws002')
+  })
+
+  test('throws 500 and logs error when standaloneCompletedSet.findMany fails', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce(mockExercise)
+    mockFindManyCompletedSets.mockResolvedValueOnce([])
+    const dbError = new Error('query timeout')
+    mockFindManyStandaloneSets.mockRejectedValueOnce(dbError)
+
+    const event = makeEvent('ex001')
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch exercise history' })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      { err: dbError, route: 'GET /api/analytics/exercises/:exerciseId', exerciseId: 'ex001' },
+      'Failed to fetch exercise history',
     )
   })
 

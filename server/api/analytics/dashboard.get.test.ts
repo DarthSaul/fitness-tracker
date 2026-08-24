@@ -3,6 +3,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import handler from './dashboard.get'
 
 const mockFindManySessions = (prisma as typeof prisma).workoutSession.findMany as ReturnType<typeof vi.fn>
+const mockFindManyStandaloneSessions = (prisma as typeof prisma).standaloneWorkoutSession.findMany as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
 function makeEvent() {
@@ -46,9 +47,58 @@ function makeSession(overrides: Partial<{
   }
 }
 
+/**
+ * Standalone completed-set mock with the set → standaloneWorkoutExercise chain
+ * the route traverses. exerciseId: null models an ad-hoc set (set relation null).
+ */
+function makeStandaloneCompletedSet(overrides: {
+  reps?: number | null
+  weight?: number | null
+  exerciseId?: string | null
+} = {}): {
+  reps: number | null
+  weight: number | null
+  set: { standaloneWorkoutExercise: { exerciseId: string } } | null
+} {
+  const exerciseId = overrides.exerciseId !== undefined ? overrides.exerciseId : 'ex101'
+  return {
+    reps: overrides.reps !== undefined ? overrides.reps : 10,
+    weight: overrides.weight !== undefined ? overrides.weight : 20,
+    set: exerciseId == null ? null : { standaloneWorkoutExercise: { exerciseId } },
+  }
+}
+
+function makeStandaloneSession(overrides: Partial<{
+  id: string
+  completedAt: Date | null
+  completedSets: ReturnType<typeof makeStandaloneCompletedSet>[]
+}> = {}): {
+  id: string
+  userId: string
+  standaloneWorkoutId: string
+  status: string
+  startedAt: Date
+  completedAt: Date | null
+  completedSets: ReturnType<typeof makeStandaloneCompletedSet>[]
+} {
+  return {
+    id: 'sws001',
+    userId: 'user001',
+    standaloneWorkoutId: 'sw001',
+    status: 'COMPLETED',
+    startedAt: new Date('2026-03-24T10:00:00.000Z'),
+    completedAt: now,
+    completedSets: [makeStandaloneCompletedSet()],
+    ...overrides,
+  }
+}
+
 describe('GET /api/analytics/dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: no standalone history. Tests exercising the standalone path
+    // override with mockResolvedValueOnce, which takes precedence.
+    mockFindManyStandaloneSessions.mockResolvedValue([])
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
       const err = new Error(opts.statusMessage) as Error & { statusCode: number; statusMessage: string }
       err.statusCode = opts.statusCode
@@ -317,6 +367,149 @@ describe('GET /api/analytics/dashboard', () => {
     const result = await (handler as unknown as (e: typeof event) => Promise<{ longestStreakDays: number }>)(event)
 
     expect(result.longestStreakDays).toBe(2)
+  })
+
+  test('queries standalone sessions filtered by user and COMPLETED status', async () => {
+    mockFindManySessions.mockResolvedValueOnce([])
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockFindManyStandaloneSessions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user001', status: 'COMPLETED' },
+      }),
+    )
+  })
+
+  test('totalSessions counts standalone sessions alongside program sessions', async () => {
+    mockFindManySessions.mockResolvedValueOnce([makeSession()])
+    mockFindManyStandaloneSessions.mockResolvedValueOnce([makeStandaloneSession()])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ totalSessions: number }>)(event)
+
+    expect(result.totalSessions).toBe(2)
+  })
+
+  test('totalVolumeLbs includes standalone sets, including ad-hoc ones', async () => {
+    // Program: 10 × 100 = 1000. Standalone prescribed: 10 × 20 = 200.
+    // Standalone ad-hoc (no linked exercise): 12 × 15 = 180 — still counts toward
+    // volume, matching how program ad-hoc sets are treated.
+    mockFindManySessions.mockResolvedValueOnce([
+      makeSession({ completedSets: [makeSet({ reps: 10, weight: 100 })] }),
+    ])
+    mockFindManyStandaloneSessions.mockResolvedValueOnce([
+      makeStandaloneSession({
+        completedSets: [
+          makeStandaloneCompletedSet({ reps: 10, weight: 20 }),
+          makeStandaloneCompletedSet({ reps: 12, weight: 15, exerciseId: null }),
+        ],
+      }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ totalVolumeLbs: number }>)(event)
+
+    expect(result.totalVolumeLbs).toBe(1000 + 200 + 180)
+  })
+
+  test('totalExercises counts exercises reached only via standalone sessions', async () => {
+    mockFindManySessions.mockResolvedValueOnce([
+      makeSession({ completedSets: [makeSet({ exerciseId: 'ex001' })] }),
+    ])
+    mockFindManyStandaloneSessions.mockResolvedValueOnce([
+      makeStandaloneSession({ completedSets: [makeStandaloneCompletedSet({ exerciseId: 'ex101' })] }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ totalExercises: number }>)(event)
+
+    expect(result.totalExercises).toBe(2)
+  })
+
+  test('totalExercises does not double-count an exercise done in both families and skips ad-hoc standalone sets', async () => {
+    mockFindManySessions.mockResolvedValueOnce([
+      makeSession({ completedSets: [makeSet({ exerciseId: 'ex001' })] }),
+    ])
+    mockFindManyStandaloneSessions.mockResolvedValueOnce([
+      makeStandaloneSession({
+        completedSets: [
+          makeStandaloneCompletedSet({ exerciseId: 'ex001' }),
+          makeStandaloneCompletedSet({ exerciseId: null }),
+        ],
+      }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ totalExercises: number }>)(event)
+
+    expect(result.totalExercises).toBe(1)
+  })
+
+  test('lastWorkoutAt is the standalone completedAt when it is the most recent', async () => {
+    const standaloneDate = new Date('2026-08-05T15:30:00.000Z')
+    mockFindManySessions.mockResolvedValueOnce([
+      makeSession({ completedAt: new Date('2026-03-20T12:00:00.000Z') }),
+    ])
+    mockFindManyStandaloneSessions.mockResolvedValueOnce([
+      makeStandaloneSession({ completedAt: standaloneDate }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ lastWorkoutAt: string | null }>)(event)
+
+    expect(result.lastWorkoutAt).toBe(standaloneDate.toISOString())
+  })
+
+  test('streaks include standalone session dates (standalone-only day bridges a gap)', async () => {
+    // Program: Mar 22 and Mar 24. Standalone: Mar 23 — bridging them into a 3-day streak.
+    mockFindManySessions.mockResolvedValueOnce([
+      makeSession({ id: 'ws001', completedAt: new Date('2026-03-22T10:00:00.000Z') }),
+      makeSession({ id: 'ws002', completedAt: new Date('2026-03-24T10:00:00.000Z') }),
+    ])
+    mockFindManyStandaloneSessions.mockResolvedValueOnce([
+      makeStandaloneSession({ id: 'sws001', completedAt: new Date('2026-03-23T10:00:00.000Z') }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ longestStreakDays: number }>)(event)
+
+    expect(result.longestStreakDays).toBe(3)
+  })
+
+  test('sessionsThisWeek counts standalone sessions', async () => {
+    // 2026-03-24 is a Tuesday; the week starts Monday Mar 23 (tzOffset 0).
+    const fixedNow = new Date('2026-03-24T12:00:00.000Z')
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNow)
+
+    mockFindManySessions.mockResolvedValueOnce([
+      makeSession({ id: 'ws001', completedAt: new Date('2026-03-22T10:00:00.000Z') }),
+    ])
+    mockFindManyStandaloneSessions.mockResolvedValueOnce([
+      makeStandaloneSession({ id: 'sws001', completedAt: new Date('2026-03-23T10:00:00.000Z') }),
+      makeStandaloneSession({ id: 'sws002', completedAt: new Date('2026-03-24T10:00:00.000Z') }),
+    ])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ sessionsThisWeek: number }>)(event)
+
+    vi.useRealTimers()
+    expect(result.sessionsThisWeek).toBe(2)
+  })
+
+  test('throws 500 and logs error when standaloneWorkoutSession.findMany fails', async () => {
+    const dbError = new Error('connection reset')
+    mockFindManySessions.mockResolvedValueOnce([])
+    mockFindManyStandaloneSessions.mockRejectedValueOnce(dbError)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch dashboard stats' })
+
+    expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'GET /api/analytics/dashboard' }, '[GET /api/analytics/dashboard] Failed to fetch dashboard stats')
   })
 
   test('throws 500 and logs error when workoutSession.findMany fails', async () => {

@@ -52,17 +52,29 @@ async function handlePtToggle(value: boolean): Promise<void> {
 
 <template>
   <div class="space-y-6">
-    <!-- Profile -->
-    <div class="flex items-center gap-3">
-      <span
-        class="flex size-11 shrink-0 items-center justify-center rounded-full bg-ios-purple/15 text-headline font-semibold text-ios-purple"
-      >
-        {{ userInitial }}
-      </span>
-      <span class="min-w-0">
-        <span class="block text-title3 font-semibold">{{ user?.name ?? 'Unknown' }}</span>
-        <span class="block truncate text-subheadline text-label-secondary">{{ user?.email ?? '' }}</span>
-      </span>
+    <!-- Profile. On desktop, Sign Out sits opposite the user info in this row;
+         on the phone it stays at the bottom of the page (see below), so the
+         button exists twice with breakpoint-gated visibility. -->
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex min-w-0 items-center gap-3">
+        <span
+          class="flex size-11 shrink-0 items-center justify-center rounded-full bg-ios-purple/15 text-headline font-semibold text-ios-purple"
+        >
+          {{ userInitial }}
+        </span>
+        <span class="min-w-0">
+          <span class="block text-title3 font-semibold">{{ user?.name ?? 'Unknown' }}</span>
+          <span class="block truncate text-subheadline text-label-secondary">{{ user?.email ?? '' }}</span>
+        </span>
+      </div>
+      <UButton
+        color="error"
+        variant="soft"
+        class="hidden shrink-0 lg:inline-flex"
+        :loading="signingOut"
+        :label="signingOut ? 'Signing out…' : 'Sign Out'"
+        @click="handleSignOut"
+      />
     </div>
 
     <!-- Preferences -->
@@ -134,6 +146,7 @@ async function handlePtToggle(value: boolean): Promise<void> {
         color="error"
         variant="soft"
         size="lg"
+        class="lg:hidden"
         :loading="signingOut"
         :label="signingOut ? 'Signing out…' : 'Sign Out'"
         @click="handleSignOut"

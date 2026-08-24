@@ -56,19 +56,13 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <!--
-        One divided card on a phone; a grid of individual cards from `xl`,
-        where a single column of full-width rows would leave the frame empty.
-        Reading order stays newest-first, left to right then down.
-      -->
-      <div
-        class="divide-y divide-separator overflow-hidden rounded-card bg-surface xl:grid xl:grid-cols-2 xl:gap-3 xl:divide-y-0 xl:rounded-none xl:bg-transparent"
-      >
+      <!-- One divided card at every width — a single newest-first column reads
+           better than the old two-up grid, which zigzagged the timeline. -->
+      <div class="divide-y divide-separator overflow-hidden rounded-card bg-surface">
         <HistoryRow
           v-for="entry in sessions"
           :key="entry.id"
           :entry="entry"
-          class="xl:overflow-hidden xl:rounded-card xl:bg-surface"
         />
       </div>
 

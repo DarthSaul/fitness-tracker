@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Analytics'],
     summary: 'Get dashboard summary stats',
-    description: 'Returns high-level analytics for the authenticated user: total sessions, total volume, current and longest streaks, last workout timestamp, and distinct exercise count.',
+    description: 'Returns high-level analytics for the authenticated user across program and standalone workout sessions: total sessions, total volume, current and longest streaks, last workout timestamp, and distinct exercise count.',
     responses: {
       200: { description: 'Dashboard summary stats' },
       401: { description: 'Unauthorized' },
@@ -76,24 +76,41 @@ export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
   try {
-    const sessions = await prisma.workoutSession.findMany({
-      where: { userId, status: 'COMPLETED' },
-      include: {
-        completedSets: {
-          select: {
-            reps: true,
-            weight: true,
-            exerciseSet: {
-              include: { programExercise: { select: { exerciseId: true } } },
+    const [sessions, standaloneSessions] = await Promise.all([
+      prisma.workoutSession.findMany({
+        where: { userId, status: 'COMPLETED' },
+        include: {
+          completedSets: {
+            select: {
+              reps: true,
+              weight: true,
+              exerciseSet: {
+                include: { programExercise: { select: { exerciseId: true } } },
+              },
+              programExercise: { select: { exerciseId: true } },
             },
-            programExercise: { select: { exerciseId: true } },
           },
         },
-      },
-      orderBy: { completedAt: 'asc' },
-    })
+        orderBy: { completedAt: 'asc' },
+      }),
+      prisma.standaloneWorkoutSession.findMany({
+        where: { userId, status: 'COMPLETED' },
+        include: {
+          completedSets: {
+            select: {
+              reps: true,
+              weight: true,
+              set: {
+                select: { standaloneWorkoutExercise: { select: { exerciseId: true } } },
+              },
+            },
+          },
+        },
+        orderBy: { completedAt: 'asc' },
+      }),
+    ])
 
-    const totalSessions = sessions.length
+    const totalSessions = sessions.length + standaloneSessions.length
 
     let totalVolumeLbs = 0
     const exerciseIdSet = new Set<string>()
@@ -111,11 +128,27 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    for (const session of standaloneSessions) {
+      for (const set of session.completedSets) {
+        // Volume counts every set, ad-hoc included — same as the program loop,
+        // where ad-hoc sets add volume but no exercise identity.
+        if (set.reps != null && set.weight != null) {
+          totalVolumeLbs += set.reps * set.weight
+        }
+        if (set.set) {
+          exerciseIdSet.add(set.set.standaloneWorkoutExercise.exerciseId)
+        }
+      }
+    }
+
     const totalExercises = exerciseIdSet.size
 
-    const completedAtDates = sessions
+    // Each query is ordered asc, but the merged list is not — re-sort, since
+    // lastWorkoutAt takes the final element and computeStreaks expects order.
+    const completedAtDates = [...sessions, ...standaloneSessions]
       .map((s) => s.completedAt)
       .filter((d): d is Date => d != null)
+      .sort((a, b) => a.getTime() - b.getTime())
 
     const lastWorkoutAt = completedAtDates.length > 0
       ? completedAtDates[completedAtDates.length - 1]!.toISOString()

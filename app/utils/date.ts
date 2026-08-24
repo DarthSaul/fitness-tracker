@@ -10,3 +10,24 @@ export function toDateString(date: Date): string {
 export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
+
+/**
+ * Cells for a month calendar grid, Sunday-first: leading nulls pad the first
+ * week so the 1st lands under its weekday column, one Date per day, then
+ * trailing nulls pad out to a constant 6-week × 7-day grid (42 cells) so the
+ * data shape is uniform across months. Renderers may drop fully-blank
+ * trailing weeks — CalendarStrip does, preferring a compact month grid over
+ * a fixed card height.
+ */
+export function monthGridCells(year: number, monthIndex: number): (Date | null)[] {
+  const first = new Date(year, monthIndex, 1)
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
+  const cells: (Date | null)[] = Array.from({ length: first.getDay() }, () => null)
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push(new Date(year, monthIndex, day))
+  }
+  while (cells.length < 42) {
+    cells.push(null)
+  }
+  return cells
+}
