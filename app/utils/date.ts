@@ -14,9 +14,10 @@ export function isSameDay(a: Date, b: Date): boolean {
 /**
  * Cells for a month calendar grid, Sunday-first: leading nulls pad the first
  * week so the 1st lands under its weekday column, one Date per day, then
- * trailing nulls pad out to a constant 6-week × 7-day grid (42 cells). The
- * fixed height keeps the card from jumping when paging between 5- and 6-week
- * months, mirroring the iOS MonthCalendarView.
+ * trailing nulls pad out to a constant 6-week × 7-day grid (42 cells) so the
+ * data shape is uniform across months. Renderers may drop fully-blank
+ * trailing weeks — CalendarStrip does, preferring a compact month grid over
+ * a fixed card height.
  */
 export function monthGridCells(year: number, monthIndex: number): (Date | null)[] {
   const first = new Date(year, monthIndex, 1)

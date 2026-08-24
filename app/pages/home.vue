@@ -403,12 +403,15 @@ async function handleUnschedule(): Promise<void> {
 			</section>
 		</div>
 
-		<!-- Left column: today's card, Strength on the Go, program row -->
-		<div class="contents xl:block xl:col-start-1 xl:row-start-1">
+		<!-- Left column: today's card, program row, Strength on the Go — DOM in
+		     phone order so keyboard/reader order matches the phone layout; the
+		     xl:order-* utilities produce the desktop stacking (today, Strength
+		     on the Go, program) inside the xl flex column. -->
+		<div class="contents xl:flex xl:flex-col xl:col-start-1 xl:row-start-1">
 			<!-- Today: date header + the selected day's card. From `xl` the header
 			     renders inside the card instead (so the card and calendar tops
 			     align); this standalone one covers phones and the cardless state. -->
-			<div class="order-2">
+			<div class="order-2 xl:order-1">
 				<h2
 					class="mb-3 text-lg font-semibold text-label"
 					:class="dateHeaderInCard ? 'xl:hidden' : ''"
@@ -445,9 +448,7 @@ async function handleUnschedule(): Promise<void> {
 							class="flex-1 min-w-0 rounded-none border-0"
 							:ui="{ body: 'p-4 flex flex-col h-full' }"
 						>
-							<h2 class="hidden text-lg font-semibold text-label xl:mb-4 xl:block">
-								{{ formattedSelectedDate }}
-							</h2>
+							<HomeCardDateHeading :label="formattedSelectedDate" />
 							<p class="text-sm text-label-secondary mb-1">In progress</p>
 							<p class="font-medium text-label">
 								Week
@@ -535,9 +536,7 @@ async function handleUnschedule(): Promise<void> {
 							class="flex-1 min-w-0 rounded-none border-0"
 							:ui="{ body: 'p-4 flex flex-col h-full' }"
 						>
-							<h2 class="hidden text-lg font-semibold text-label xl:mb-4 xl:block">
-								{{ formattedSelectedDate }}
-							</h2>
+							<HomeCardDateHeading :label="formattedSelectedDate" />
 							<p
 								class="text-sm text-label-secondary mb-1"
 							>
@@ -645,9 +644,7 @@ async function handleUnschedule(): Promise<void> {
 						<UCard
 							class="flex-1 min-w-0 rounded-none border-0 py-1"
 						>
-							<h2 class="hidden text-lg font-semibold text-label xl:mb-4 xl:block">
-								{{ formattedSelectedDate }}
-							</h2>
+							<HomeCardDateHeading :label="formattedSelectedDate" />
 							<p class="text-sm text-label-secondary">
 								Scheduled
 							</p>
@@ -724,9 +721,7 @@ async function handleUnschedule(): Promise<void> {
 							class="flex-1 min-w-0 rounded-none border-0"
 							:ui="{ body: 'p-4 flex flex-col h-full' }"
 						>
-							<h2 class="hidden text-lg font-semibold text-label xl:mb-4 xl:block">
-								{{ formattedSelectedDate }}
-							</h2>
+							<HomeCardDateHeading :label="formattedSelectedDate" />
 							<p class="text-sm text-label-secondary">
 								Scheduled
 							</p>
@@ -751,9 +746,7 @@ async function handleUnschedule(): Promise<void> {
 						v-else-if="activeProgramStatus !== 'pending'"
 						class="py-1"
 					>
-						<h2 class="hidden text-lg font-semibold text-label xl:mb-4 xl:block">
-							{{ formattedSelectedDate }}
-						</h2>
+						<HomeCardDateHeading :label="formattedSelectedDate" />
 						<div class="text-label-secondary">
 							No active program
 						</div>
@@ -761,31 +754,8 @@ async function handleUnschedule(): Promise<void> {
 				</template>
 			</div>
 
-			<!-- Strength on the Go -->
-			<NuxtLink
-				v-wave
-				to="/standalone-workouts"
-				class="order-4 mt-6 block"
-			>
-				<AppCard>
-					<div class="flex items-center gap-3">
-						<span class="flex size-10 shrink-0 items-center justify-center rounded-tile bg-gradient-to-b from-ios-purple to-ios-pink">
-							<UIcon name="i-lucide-zap" class="size-5 text-white" />
-						</span>
-						<span class="min-w-0 flex-1">
-							<span class="block text-headline">Strength on the Go</span>
-							<span class="block text-caption text-label-secondary">Quick 30–45 minute workouts, any time</span>
-						</span>
-						<span class="flex shrink-0 items-center gap-0.5 rounded-full bg-tint/15 px-2.5 py-1 text-caption font-semibold text-tint">
-							Browse
-							<UIcon name="i-lucide-chevron-right" class="size-3" />
-						</span>
-					</div>
-				</AppCard>
-			</NuxtLink>
-
 			<!-- Manage Program row -->
-			<div class="order-3 mt-6 space-y-6">
+			<div class="order-3 mt-6 space-y-6 xl:order-3">
 				<!-- Loading -->
 				<div
 					v-if="
@@ -916,6 +886,29 @@ async function handleUnschedule(): Promise<void> {
 				</UCard>
 
 			</div>
+
+			<!-- Strength on the Go -->
+			<NuxtLink
+				v-wave
+				to="/standalone-workouts"
+				class="order-4 mt-6 block xl:order-2"
+			>
+				<AppCard>
+					<div class="flex items-center gap-3">
+						<span class="flex size-10 shrink-0 items-center justify-center rounded-tile bg-gradient-to-b from-ios-purple to-ios-pink">
+							<UIcon name="i-lucide-zap" class="size-5 text-white" />
+						</span>
+						<span class="min-w-0 flex-1">
+							<span class="block text-headline">Strength on the Go</span>
+							<span class="block text-caption text-label-secondary">Quick 30–45 minute workouts, any time</span>
+						</span>
+						<span class="flex shrink-0 items-center gap-0.5 rounded-full bg-tint/15 px-2.5 py-1 text-caption font-semibold text-tint">
+							Browse
+							<UIcon name="i-lucide-chevron-right" class="size-3" />
+						</span>
+					</div>
+				</AppCard>
+			</NuxtLink>
 		</div>
 
 		<!-- Schedule workout modal -->
