@@ -288,7 +288,7 @@ Server-side observability is live. **Do not use `console.log`/`console.error` in
 ### Verification
 
 - Every implementation plan must include a final step to run the **verify-app** subagent.
-- The verify-app agent runs the full QA pipeline (TypeScript check, unit tests, build, dev server smoke check) and must pass before changes are considered complete.
+- The verify-app agent runs the QA pipeline (TypeScript check, unit tests — scoped to the impacted areas of the changes by default, build, dev server smoke check) and must pass before changes are considered complete. Say "run verify-app full" to run the entire test suite.
 - Do not skip this step, even for small changes.
 
 ## Roadmap
