@@ -4,10 +4,8 @@ import handler from './google.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockVerifyGoogleIdToken = verifyGoogleIdToken as ReturnType<typeof vi.fn>
-const mockSignAccessToken = signAccessToken as ReturnType<typeof vi.fn>
-const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
-const mockPrismaRefreshTokenCreate = (prisma as any).refreshToken.create as ReturnType<typeof vi.fn>
+const mockIssueTokenPair = issueTokenPair as ReturnType<typeof vi.fn>
 
 function makeEvent() {
   return { path: '/api/auth/native/google', context: {} } as any
@@ -35,10 +33,8 @@ describe('POST /api/auth/native/google', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    mockSignAccessToken.mockResolvedValue('access-token-xyz')
-    mockGetHeader.mockReturnValue('TestApp/1.0')
     mockFindOrLinkUser.mockResolvedValue(mockDbUser)
-    mockPrismaRefreshTokenCreate.mockResolvedValue({})
+    mockIssueTokenPair.mockResolvedValue({ accessToken: 'access-token-xyz', refreshToken: 'refresh-raw-xyz' })
   })
 
   afterEach(() => {
@@ -102,11 +98,9 @@ describe('POST /api/auth/native/google', () => {
       mockVerifyGoogleIdToken.mockResolvedValueOnce(mockGooglePayload)
     })
 
-    test('returns accessToken and refreshToken', async () => {
+    test('returns the token pair from issueTokenPair', async () => {
       const result = await handler(makeEvent())
-      expect(result).toHaveProperty('accessToken', 'access-token-xyz')
-      expect(result).toHaveProperty('refreshToken')
-      expect(typeof (result as any).refreshToken).toBe('string')
+      expect(result).toEqual({ accessToken: 'access-token-xyz', refreshToken: 'refresh-raw-xyz' })
     })
 
     test('calls findOrLinkUser with the google provider profile', async () => {
@@ -120,33 +114,12 @@ describe('POST /api/auth/native/google', () => {
       })
     })
 
-    test('creates a refresh token record', async () => {
-      await handler(makeEvent())
-      expect(mockPrismaRefreshTokenCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'cluser002',
-            expiresAt: expect.any(Date),
-          }),
-        }),
-      )
-    })
-
-    test('stores a hashed token (not the raw value)', async () => {
-      await handler(makeEvent())
-      const createArg = mockPrismaRefreshTokenCreate.mock.calls[0]?.[0] as {
-        data: { tokenHash: string }
-      }
-      expect(createArg.data.tokenHash).toHaveLength(64)
-    })
-
-    test('stores deviceInfo from user-agent header', async () => {
-      await handler(makeEvent())
-      expect(mockPrismaRefreshTokenCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ deviceInfo: 'TestApp/1.0' }),
-        }),
-      )
+    // Minting mechanics (hashing, expiry, deviceInfo) are covered by
+    // server/utils/native-tokens.test.ts
+    test('issues the token pair for the resolved user', async () => {
+      const event = makeEvent()
+      await handler(event)
+      expect(mockIssueTokenPair).toHaveBeenCalledWith(event, 'cluser002')
     })
   })
 

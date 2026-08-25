@@ -27,13 +27,15 @@ vi.stubGlobal('getQuery', vi.fn(() => ({})))
 vi.stubGlobal('getHeader', vi.fn(() => null))
 vi.stubGlobal('getRequestHeader', vi.fn(() => undefined))
 vi.stubGlobal('readBody', vi.fn())
-vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string }) => {
+vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string; data?: unknown }) => {
   const err = new Error(opts.statusMessage) as Error & {
     statusCode: number
     statusMessage: string
+    data?: unknown
   }
   err.statusCode = opts.statusCode
   err.statusMessage = opts.statusMessage
+  err.data = opts.data
   return err
 }))
 vi.stubGlobal('sendRedirect', vi.fn())
@@ -121,6 +123,7 @@ vi.stubGlobal('supabase', {
     signUp: vi.fn(),
     signInWithPassword: vi.fn(),
     resetPasswordForEmail: vi.fn(),
+    resend: vi.fn(),
     setSession: vi.fn(),
     updateUser: vi.fn(),
   },
@@ -139,6 +142,9 @@ vi.stubGlobal('supabase', {
 // Account-linking helper — default to a no-op vi.fn(); each route test overrides
 // with a resolved User. Real logic is exercised by server/utils/auth.test.ts.
 vi.stubGlobal('findOrLinkUser', vi.fn())
+// Native token-pair minting — default to a no-op vi.fn(); route tests override
+// with a resolved pair. Real logic is exercised by server/utils/native-tokens.test.ts.
+vi.stubGlobal('issueTokenPair', vi.fn())
 // JWT utilities — default to no-op; override per-test as needed
 vi.stubGlobal('signAccessToken', vi.fn())
 vi.stubGlobal('signRefreshToken', vi.fn())

@@ -85,7 +85,12 @@ The API supports two authentication paths that share a single `server/middleware
 **Native sign-in endpoints** (under `/api/auth/`, public):
 - `POST /api/auth/native/apple` — accepts Apple identity token from iOS SDK, returns `{ accessToken, refreshToken }`
 - `POST /api/auth/native/google` — accepts Google ID token from iOS SDK, returns `{ accessToken, refreshToken }`
+- `POST /api/auth/native/email/signin` — email + password via Supabase Auth, returns `{ accessToken, refreshToken }`; 401 carries `data.code: 'email_not_confirmed'` for unconfirmed accounts
+- `POST /api/auth/native/email/signup` — creates the Supabase account; returns `{ confirmationRequired: true }` (no tokens, no DB user row until confirmed) or `{ confirmationRequired: false, accessToken, refreshToken }`
+- `POST /api/auth/native/email/resend-confirmation` — resends the confirmation email; always `{ success: true }` (anti-enumeration)
 - `POST /api/auth/refresh` — exchange refresh token for new access token (optionally rotates)
+
+Native routes mint tokens via `issueTokenPair` (`server/utils/native-tokens.ts`). iOS password reset reuses the web `POST /api/auth/email/reset-password` (session-agnostic; the emailed link opens the web reset page).
 
 **Native logout:** send `X-Client-Type: native` header; optionally include `refreshToken` in the body to revoke it.
 
@@ -102,7 +107,7 @@ The API supports two authentication paths that share a single `server/middleware
 
 - **CORS:** Restricted to `NUXT_PUBLIC_APP_URL` origin (never `*`). Native iOS apps don't send `Origin` headers so CORS doesn't apply to them. OPTIONS preflights are handled without auth.
 - **Registration is open:** any Google, Apple, or email account can sign up. There is no allow-list or invite gate — do not reintroduce one.
-- **Rate limiting:** Auth endpoints (`/api/auth/native/*`, `/api/auth/refresh`, `/api/auth/email/{signup,signin,reset-password}`) use Upstash sliding window (10 req/min per IP). No-ops when `UPSTASH_REDIS_REST_URL` is absent (dev mode). Every unauthenticated auth route must call `rateLimitByIp(event)` as its first statement — before `readBody` — since open registration makes them internet-facing.
+- **Rate limiting:** Auth endpoints (`/api/auth/native/*` including `native/email/{signin,signup,resend-confirmation}`, `/api/auth/refresh`, `/api/auth/email/{signup,signin,reset-password,update-password}`) use Upstash sliding window (10 req/min per IP). No-ops when `UPSTASH_REDIS_REST_URL` is absent (dev mode). Every unauthenticated auth route must call `rateLimitByIp(event)` as its first statement — before `readBody` — since open registration makes them internet-facing.
 - **Error responses:** All routes return generic error messages — no stack traces or Prisma error details exposed.
 - **Input validation:** Manual inline validation on all routes (same pattern as existing API); Zod is not used.
 

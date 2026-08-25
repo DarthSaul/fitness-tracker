@@ -15,6 +15,18 @@ describe('POST /api/auth/email/update-password', () => {
     vi.clearAllMocks()
   })
 
+  describe('rate limiting', () => {
+    test('rate limits by IP before reading the body', async () => {
+      const mockRateLimit = rateLimitByIp as ReturnType<typeof vi.fn>
+      mockRateLimit.mockRejectedValueOnce(createError({ statusCode: 429, statusMessage: 'Too many requests' }))
+
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 429 })
+
+      expect(mockReadBody).not.toHaveBeenCalled()
+      expect(mockSupabaseSetSession).not.toHaveBeenCalled()
+    })
+  })
+
   test('throws 400 when accessToken is missing', async () => {
     mockReadBody.mockResolvedValueOnce({ refreshToken: 'rt', newPassword: 'newpass123' })
 
