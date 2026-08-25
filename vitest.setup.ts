@@ -174,6 +174,9 @@ vi.stubGlobal('useRuntimeConfig', vi.fn(() => ({
   supabaseServiceRoleKey: 'test-service-role-key',
   jwtAccessSecret: 'test-access-secret-that-is-at-least-32-chars-long',
   jwtRefreshSecret: 'test-refresh-secret-that-is-at-least-32-chars-long',
+  public: {
+    appUrl: 'http://localhost:3000',
+  },
 })))
 
 // ── Nuxt composable / navigation globals (used in app/composables) ────────────

@@ -40,9 +40,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters.' })
   }
 
+  // Without an explicit redirect, confirmation links fall back to the Supabase
+  // dashboard Site URL and dump users on the site root. /auth/confirm shows the
+  // confirmation state and forwards to /login?confirmed=true. The URL must be
+  // in the Supabase redirect allowlist for each environment (prod + localhost).
+  const config = useRuntimeConfig()
   const { data, error } = await supabase.auth.signUp({
     email: body.email,
     password: body.password,
+    options: {
+      emailRedirectTo: `${config.public.appUrl}/auth/confirm`,
+    },
   })
 
   if (error) {

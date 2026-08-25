@@ -95,6 +95,27 @@ describe('POST /api/auth/email/signup', () => {
     expect(mockFindOrLinkUser).not.toHaveBeenCalled()
   })
 
+  // Without this option, Supabase falls back to the dashboard Site URL and the
+  // confirmation link dumps the user on the site root instead of /auth/confirm.
+  test('passes the confirm-page redirect to Supabase', async () => {
+    mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
+    mockSupabaseSignUp.mockResolvedValueOnce({
+      data: {
+        user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+        session: null,
+      },
+      error: null,
+    })
+
+    await handler(makeEvent())
+
+    expect(mockSupabaseSignUp).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      password: 'testpass123',
+      options: { emailRedirectTo: 'http://localhost:3000/auth/confirm' },
+    })
+  })
+
   test('throws 400 when email already exists (empty identities)', async () => {
     mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
     mockSupabaseSignUp.mockResolvedValueOnce({

@@ -116,6 +116,17 @@ describe('POST /api/auth/native/email/signup', () => {
       expect(result).toEqual({ confirmationRequired: true })
     })
 
+    // Same redirect as web signup — the confirmation link opens the web
+    // /auth/confirm page (no iOS deep links yet), which forwards to /login.
+    test('passes the confirm-page redirect to Supabase', async () => {
+      await handler(makeEvent())
+      expect(mockSupabaseSignUp).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        password: 'testpass123',
+        options: { emailRedirectTo: 'http://localhost:3000/auth/confirm' },
+      })
+    })
+
     // Safety invariant: findOrLinkUser auto-links accounts by email and must
     // only run for verified addresses (see the SAFETY note in
     // server/utils/auth.ts). No User/Identity row and no tokens may exist

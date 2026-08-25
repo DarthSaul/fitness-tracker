@@ -56,9 +56,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters.' })
   }
 
+  // Without an explicit redirect, confirmation links fall back to the Supabase
+  // dashboard Site URL and dump users on the site root. iOS has no deep links
+  // yet, so confirmations route through the web /auth/confirm page (same as
+  // web signup); the user then returns to the app and signs in. The URL must
+  // be in the Supabase redirect allowlist for each environment.
+  const config = useRuntimeConfig()
   const { data, error } = await supabase.auth.signUp({
     email: body.email,
     password: body.password,
+    options: {
+      emailRedirectTo: `${config.public.appUrl}/auth/confirm`,
+    },
   })
 
   if (error) {
