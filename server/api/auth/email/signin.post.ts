@@ -47,11 +47,15 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const dbUser = await findOrLinkUser({
+    let dbUser = await findOrLinkUser({
       provider: 'email',
       providerId: data.user.id,
       email: data.user.email!,
     })
+
+    // First sign-in after a confirmation-required signup creates the row with
+    // no name — recover the one captured on the signup form from metadata.
+    dbUser = await backfillNameFromMetadata(dbUser, data.user.user_metadata)
 
     await setUserSession(event, {
       user: {

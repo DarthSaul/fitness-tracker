@@ -35,3 +35,5 @@ coverage
 
 # Third-party agent skills (installed locally, not tracked)
 .agents/
+.vercel
+.env*

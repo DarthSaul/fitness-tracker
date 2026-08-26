@@ -20,9 +20,13 @@ const config = useRuntimeConfig()
 const { user } = useAuth()
 
 // `||`, not `??`: an empty name yields an empty string from charAt, which is
-// not nullish and would render a blank avatar.
-const userInitial = computed(() => user.value?.name?.charAt(0).toUpperCase() || '?')
-const userName = computed(() => user.value?.name || 'Unknown')
+// not nullish and would render a blank avatar. Accounts with no name (possible
+// for pre-backfill email signups) fall back to the email — this row is the
+// only place identity shows in the shell, so "Unknown" is a last resort.
+const userInitial = computed(() =>
+  (user.value?.name?.charAt(0) || user.value?.email?.charAt(0))?.toUpperCase() || '?',
+)
+const userName = computed(() => user.value?.name || user.value?.email || 'Unknown')
 </script>
 
 <template>

@@ -82,23 +82,7 @@ export default defineEventHandler(async (event) => {
       name: name ?? undefined,
     })
 
-    const accessToken = await signAccessToken(user.id)
-
-    // Generate raw refresh token — store only SHA-256 hash
-    const raw = crypto.randomUUID() + crypto.randomUUID()
-    const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))
-    const tokenHash = Buffer.from(hashBuffer).toString('hex')
-
-    await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        tokenHash,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        deviceInfo: getHeader(event, 'user-agent') ?? null,
-      },
-    })
-
-    return { accessToken, refreshToken: raw }
+    return await issueTokenPair(event, user.id)
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/auth/native/apple' }, '[POST /api/auth/native/apple] Failed')

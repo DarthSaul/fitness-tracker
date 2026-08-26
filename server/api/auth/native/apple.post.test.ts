@@ -4,10 +4,8 @@ import handler from './apple.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockVerifyAppleIdentityToken = verifyAppleIdentityToken as ReturnType<typeof vi.fn>
-const mockSignAccessToken = signAccessToken as ReturnType<typeof vi.fn>
-const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
-const mockPrismaRefreshTokenCreate = (prisma as any).refreshToken.create as ReturnType<typeof vi.fn>
+const mockIssueTokenPair = issueTokenPair as ReturnType<typeof vi.fn>
 
 function makeEvent() {
   return { path: '/api/auth/native/apple', context: {} } as any
@@ -29,10 +27,8 @@ describe('POST /api/auth/native/apple', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    mockSignAccessToken.mockResolvedValue('access-token-abc')
-    mockGetHeader.mockReturnValue('TestApp/1.0')
     mockFindOrLinkUser.mockResolvedValue(mockDbUser)
-    mockPrismaRefreshTokenCreate.mockResolvedValue({})
+    mockIssueTokenPair.mockResolvedValue({ accessToken: 'access-token-abc', refreshToken: 'refresh-raw-abc' })
   })
 
   afterEach(() => {
@@ -111,11 +107,9 @@ describe('POST /api/auth/native/apple', () => {
       mockVerifyAppleIdentityToken.mockResolvedValueOnce(mockApplePayload)
     })
 
-    test('returns accessToken and refreshToken', async () => {
+    test('returns the token pair from issueTokenPair', async () => {
       const result = await handler(makeEvent())
-      expect(result).toHaveProperty('accessToken', 'access-token-abc')
-      expect(result).toHaveProperty('refreshToken')
-      expect(typeof (result as any).refreshToken).toBe('string')
+      expect(result).toEqual({ accessToken: 'access-token-abc', refreshToken: 'refresh-raw-abc' })
     })
 
     test('calls findOrLinkUser with the apple provider profile', async () => {
@@ -128,34 +122,12 @@ describe('POST /api/auth/native/apple', () => {
       })
     })
 
-    test('creates a refresh token record', async () => {
-      await handler(makeEvent())
-      expect(mockPrismaRefreshTokenCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'cluser001',
-            expiresAt: expect.any(Date),
-          }),
-        }),
-      )
-    })
-
-    test('stores a hashed token (not the raw value)', async () => {
-      await handler(makeEvent())
-      const createArg = mockPrismaRefreshTokenCreate.mock.calls[0]?.[0] as {
-        data: { tokenHash: string }
-      }
-      // Raw token is 2× UUID = 72 chars; SHA-256 hex is always 64 chars
-      expect(createArg.data.tokenHash).toHaveLength(64)
-    })
-
-    test('stores deviceInfo from user-agent header', async () => {
-      await handler(makeEvent())
-      expect(mockPrismaRefreshTokenCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ deviceInfo: 'TestApp/1.0' }),
-        }),
-      )
+    // Minting mechanics (hashing, expiry, deviceInfo) are covered by
+    // server/utils/native-tokens.test.ts
+    test('issues the token pair for the resolved user', async () => {
+      const event = makeEvent()
+      await handler(event)
+      expect(mockIssueTokenPair).toHaveBeenCalledWith(event, 'cluser001')
     })
   })
 

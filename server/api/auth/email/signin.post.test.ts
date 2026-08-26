@@ -5,6 +5,7 @@ import handler from './signin.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
+const mockBackfillName = backfillNameFromMetadata as ReturnType<typeof vi.fn>
 const mockSetUserSession = setUserSession as ReturnType<typeof vi.fn>
 const mockSupabaseSignIn = (supabase as typeof supabase).auth.signInWithPassword as ReturnType<typeof vi.fn>
 
@@ -69,12 +70,30 @@ describe('POST /api/auth/email/signin', () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignIn.mockResolvedValueOnce({
         data: {
-          user: { id: 'supabase-uid-001', email: 'test@example.com' },
+          user: {
+            id: 'supabase-uid-001',
+            email: 'test@example.com',
+            user_metadata: { name: 'John Doe' },
+          },
           session: { access_token: 'token' },
         },
         error: null,
       })
       mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
+    })
+
+    // First sign-in after a confirmation-required signup: the row was created
+    // nameless, and the name typed on the signup form lives only in Supabase
+    // metadata. The session must carry the backfilled row, not the stale one.
+    test('backfills the signup name from metadata into the session', async () => {
+      mockBackfillName.mockResolvedValueOnce({ ...mockDbUser, name: 'John Doe' })
+      const event = makeEvent()
+      await handler(event)
+
+      expect(mockBackfillName).toHaveBeenCalledWith(mockDbUser, { name: 'John Doe' })
+      expect(mockSetUserSession).toHaveBeenCalledWith(event, {
+        user: expect.objectContaining({ name: 'John Doe' }),
+      })
     })
 
     test('calls findOrLinkUser with the email provider profile', async () => {

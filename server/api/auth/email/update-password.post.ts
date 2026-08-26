@@ -22,11 +22,14 @@ defineRouteMeta({
     responses: {
       200: { description: 'Password updated successfully', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessResponse' } } } },
       400: { description: 'Validation error or update failed' },
+      429: { description: 'Too many requests' },
     },
   },
 })
 
 export default defineEventHandler(async (event) => {
+  await rateLimitByIp(event)
+
   const body = await readBody<{
     accessToken?: string
     refreshToken?: string

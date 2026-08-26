@@ -12,6 +12,15 @@ onMounted(async () => {
   const params = new URLSearchParams(hash)
   const type = params.get('type') || route.query.type
 
+  // Failed verification (expired/used link) redirects here with an error hash
+  // instead of tokens: #error=access_denied&error_code=otp_expired&error_description=...
+  const errorDescription = params.get('error_description')
+  if (params.get('error') || errorDescription) {
+    status.value = 'error'
+    errorMessage.value = errorDescription || 'This confirmation link is invalid or has expired.'
+    return
+  }
+
   if (type === 'signup' || type === 'email') {
     status.value = 'success'
     // Redirect to login with confirmation success after a short delay
