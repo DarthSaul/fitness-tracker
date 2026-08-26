@@ -64,18 +64,26 @@ describe('POST /api/auth/native/email/signup', () => {
     })
   })
 
+  // Every failure shape returns the same generic 400: Supabase's message (and
+  // the confirmed-duplicate identities tell) must never reach the client — the
+  // provider detail is logged server-side instead, and the response never
+  // reveals whether an email is already registered.
   describe('Supabase sign-up failures', () => {
-    test('throws 400 with the Supabase message when signUp errors', async () => {
+    test('throws a generic 400 when signUp errors, logging the detail server-side', async () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: { user: null },
         error: { message: 'User already registered' },
       })
 
-      await expect(handler(makeEvent())).rejects.toThrow('User already registered')
+      await expect(handler(makeEvent())).rejects.toThrow('Sign-up failed. Please try again.')
+      expect(logger.warn).toHaveBeenCalledWith(
+        { err: expect.anything(), route: 'POST /api/auth/native/email/signup' },
+        '[POST /api/auth/native/email/signup] Supabase sign-up error',
+      )
     })
 
-    test('throws 400 when Supabase returns no user', async () => {
+    test('throws a generic 400 when Supabase returns no user', async () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: { user: null, session: null },
@@ -85,17 +93,17 @@ describe('POST /api/auth/native/email/signup', () => {
       await expect(handler(makeEvent())).rejects.toThrow('Sign-up failed. Please try again.')
     })
 
-    test('throws 400 when email already exists (empty identities)', async () => {
+    test('throws the same generic 400 when the email already exists (empty identities)', async () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: {
-          user: { id: 'supabase-uid-001', identities: [] },
+          user: { id: 'supabase-uid-001', email: 'test@example.com', identities: [] },
           session: null,
         },
         error: null,
       })
 
-      await expect(handler(makeEvent())).rejects.toThrow('An account with this email already exists.')
+      await expect(handler(makeEvent())).rejects.toThrow('Sign-up failed. Please try again.')
     })
   })
 
@@ -104,7 +112,7 @@ describe('POST /api/auth/native/email/signup', () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123', name: 'Test User' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: {
-          user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+          user: { id: 'supabase-uid-001', email: 'test@example.com', identities: [{ id: '1' }] },
           session: null,
         },
         error: null,
@@ -145,10 +153,10 @@ describe('POST /api/auth/native/email/signup', () => {
 
   describe('happy path (no confirmation required)', () => {
     beforeEach(() => {
-      mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123', name: 'Test User' })
+      mockReadBody.mockResolvedValueOnce({ email: 'Test@Example.com', password: 'testpass123', name: 'Test User' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: {
-          user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+          user: { id: 'supabase-uid-001', email: 'test@example.com', identities: [{ id: '1' }] },
           session: { access_token: 'token' },
         },
         error: null,
@@ -156,7 +164,9 @@ describe('POST /api/auth/native/email/signup', () => {
       mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
     })
 
-    test('calls findOrLinkUser with the email provider profile', async () => {
+    // The Supabase-normalized email (data.user.email), not the raw body value —
+    // sign-in resolves by the normalized form, so User.email must match it.
+    test('calls findOrLinkUser with the normalized email provider profile', async () => {
       await handler(makeEvent())
       expect(mockFindOrLinkUser).toHaveBeenCalledWith({
         provider: 'email',
@@ -189,7 +199,7 @@ describe('POST /api/auth/native/email/signup', () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: {
-          user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+          user: { id: 'supabase-uid-001', email: 'test@example.com', identities: [{ id: '1' }] },
           session: { access_token: 'token' },
         },
         error: null,
@@ -211,7 +221,7 @@ describe('POST /api/auth/native/email/signup', () => {
       mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
       mockSupabaseSignUp.mockResolvedValueOnce({
         data: {
-          user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+          user: { id: 'supabase-uid-001', email: 'test@example.com', identities: [{ id: '1' }] },
           session: { access_token: 'token' },
         },
         error: null,

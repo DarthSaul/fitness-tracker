@@ -75,17 +75,21 @@ export default defineEventHandler(async (event) => {
   })
 
   if (error) {
-    throw createError({ statusCode: 400, statusMessage: error.message })
+    // Log the provider detail server-side only; the client gets a fixed
+    // message so Supabase internals never reach it.
+    ;(event.context.logger ?? logger).warn({ err: error, route: 'POST /api/auth/native/email/signup' }, '[POST /api/auth/native/email/signup] Supabase sign-up error')
+    throw createError({ statusCode: 400, statusMessage: 'Sign-up failed. Please try again.' })
   }
 
   if (!data.user) {
     throw createError({ statusCode: 400, statusMessage: 'Sign-up failed. Please try again.' })
   }
 
-  // If email confirmation is required, Supabase returns a user with identities = []
-  // for an address that already has a confirmed account
+  // Supabase's confirmed-duplicate tell (identities = []). Same generic
+  // message as every other failure so the response never reveals whether an
+  // email is already registered.
   if (data.user.identities?.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: 'An account with this email already exists.' })
+    throw createError({ statusCode: 400, statusMessage: 'Sign-up failed. Please try again.' })
   }
 
   // Confirmation pending: no session yet. Do NOT create the User/Identity row —
@@ -100,7 +104,9 @@ export default defineEventHandler(async (event) => {
     const user = await findOrLinkUser({
       provider: 'email',
       providerId: data.user.id,
-      email: body.email,
+      // Supabase-normalized email (matches sign-in) so User.email can't
+      // drift from the address sign-in later resolves by.
+      email: data.user.email!,
       name: body.name ?? undefined,
     })
 
