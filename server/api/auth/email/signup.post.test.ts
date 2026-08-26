@@ -116,6 +116,28 @@ describe('POST /api/auth/email/signup', () => {
     })
   })
 
+  // The name can't be written to the DB on the confirmation-required path (no
+  // User row until the email is verified), so it must ride along in Supabase
+  // user metadata for the first sign-in to backfill.
+  test('stashes the optional name in Supabase user metadata', async () => {
+    mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123', name: 'John Doe' })
+    mockSupabaseSignUp.mockResolvedValueOnce({
+      data: {
+        user: { id: 'supabase-uid-001', identities: [{ id: '1' }] },
+        session: null,
+      },
+      error: null,
+    })
+
+    await handler(makeEvent())
+
+    expect(mockSupabaseSignUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ data: { name: 'John Doe' } }),
+      }),
+    )
+  })
+
   test('throws 400 when email already exists (empty identities)', async () => {
     mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
     mockSupabaseSignUp.mockResolvedValueOnce({

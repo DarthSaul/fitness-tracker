@@ -66,6 +66,10 @@ export default defineEventHandler(async (event) => {
       email: data.user.email!,
     })
 
+    // First sign-in after a confirmation-required signup creates the row with
+    // no name — recover the one captured on the signup form from metadata.
+    await backfillNameFromMetadata(user, data.user.user_metadata)
+
     return await issueTokenPair(event, user.id)
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error

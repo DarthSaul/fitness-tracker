@@ -127,3 +127,22 @@ async function refreshUser(userId: string, profile: ProviderProfile): Promise<Us
     throw error
   }
 }
+
+/**
+ * One-time backfill of the optional name captured at email/password sign-up.
+ *
+ * A confirmation-required signup cannot write the name to the database — no
+ * User row may exist until Supabase verifies the address (see the SAFETY note
+ * on findOrLinkUser) — so signup stashes it in Supabase user metadata and the
+ * first sign-in lands here. Only a null name is filled: a name set by a linked
+ * OAuth provider or edited in-app always wins.
+ */
+export async function backfillNameFromMetadata(user: User, metadata: unknown): Promise<User> {
+  if (user.name) return user
+
+  const rawName = (metadata as { name?: unknown } | null | undefined)?.name
+  const name = typeof rawName === 'string' ? rawName.trim() : ''
+  if (!name) return user
+
+  return prisma.user.update({ where: { id: user.id }, data: { name } })
+}

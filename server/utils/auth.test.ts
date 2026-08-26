@@ -15,7 +15,7 @@ vi.mock('./prisma', () => ({
   },
 }))
 
-const { findOrLinkUser } = await import('./auth')
+const { findOrLinkUser, backfillNameFromMetadata } = await import('./auth')
 const { prisma } = await import('./prisma')
 
 const mockIdentityFindUnique = prisma.identity.findUnique as ReturnType<typeof vi.fn>
@@ -260,5 +260,52 @@ describe('findOrLinkUser', () => {
 
       expect(mockUserUpdate).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('backfillNameFromMetadata', () => {
+  const namelessUser = {
+    id: 'cluser010',
+    email: 'nameless@example.com',
+    name: null,
+    avatarUrl: null,
+    ptRoutineInWorkout: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('fills a null name from metadata, trimmed', async () => {
+    mockUserUpdate.mockResolvedValueOnce({ ...namelessUser, name: 'John Doe' })
+
+    const result = await backfillNameFromMetadata(namelessUser, { name: '  John Doe  ' })
+
+    expect(mockUserUpdate).toHaveBeenCalledWith({
+      where: { id: 'cluser010' },
+      data: { name: 'John Doe' },
+    })
+    expect(result.name).toBe('John Doe')
+  })
+
+  // A name set by a linked OAuth provider or edited in-app must win — this is
+  // a one-time gap fill, never a refresh.
+  test('never overwrites an existing name', async () => {
+    const named = { ...namelessUser, name: 'Existing Name' }
+
+    const result = await backfillNameFromMetadata(named, { name: 'Different Name' })
+
+    expect(mockUserUpdate).not.toHaveBeenCalled()
+    expect(result).toBe(named)
+  })
+
+  test('no-ops when metadata has no usable name', async () => {
+    for (const metadata of [undefined, null, {}, { name: 42 }, { name: '   ' }]) {
+      const result = await backfillNameFromMetadata(namelessUser, metadata)
+      expect(result).toBe(namelessUser)
+    }
+    expect(mockUserUpdate).not.toHaveBeenCalled()
   })
 })

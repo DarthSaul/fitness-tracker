@@ -118,12 +118,17 @@ describe('POST /api/auth/native/email/signup', () => {
 
     // Same redirect as web signup — the confirmation link opens the web
     // /auth/confirm page (no iOS deep links yet), which forwards to /login.
-    test('passes the confirm-page redirect to Supabase', async () => {
+    // The name rides along in user metadata because no DB row may exist yet;
+    // the first post-confirmation sign-in backfills it.
+    test('passes the confirm-page redirect and name metadata to Supabase', async () => {
       await handler(makeEvent())
       expect(mockSupabaseSignUp).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'testpass123',
-        options: { emailRedirectTo: 'http://localhost:3000/auth/confirm' },
+        options: {
+          emailRedirectTo: 'http://localhost:3000/auth/confirm',
+          data: { name: 'Test User' },
+        },
       })
     })
 

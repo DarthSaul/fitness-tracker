@@ -67,6 +67,10 @@ export default defineEventHandler(async (event) => {
     password: body.password,
     options: {
       emailRedirectTo: `${config.public.appUrl}/auth/confirm`,
+      // Stash the optional name in Supabase user metadata: when confirmation
+      // is required no User row may be created yet, so the first sign-in
+      // backfills it from here (see backfillNameFromMetadata).
+      data: body.name ? { name: body.name } : undefined,
     },
   })
 

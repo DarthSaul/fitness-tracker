@@ -31,7 +31,14 @@ describe('POST /api/auth/native/email/signin', () => {
     mockFindOrLinkUser.mockResolvedValue(mockDbUser)
     mockIssueTokenPair.mockResolvedValue({ accessToken: 'access-token-xyz', refreshToken: 'refresh-raw-xyz' })
     mockSupabaseSignIn.mockResolvedValue({
-      data: { user: { id: 'supabase-uid-001', email: 'test@example.com' }, session: {} },
+      data: {
+        user: {
+          id: 'supabase-uid-001',
+          email: 'test@example.com',
+          user_metadata: { name: 'John Doe' },
+        },
+        session: {},
+      },
       error: null,
     })
   })
@@ -123,6 +130,13 @@ describe('POST /api/auth/native/email/signin', () => {
       const event = makeEvent()
       await handler(event)
       expect(mockIssueTokenPair).toHaveBeenCalledWith(event, 'cluser001')
+    })
+
+    // First sign-in after a confirmation-required signup creates the row
+    // nameless; the name typed on the signup form comes back via metadata.
+    test('backfills the signup name from Supabase metadata', async () => {
+      await handler(makeEvent())
+      expect(backfillNameFromMetadata).toHaveBeenCalledWith(mockDbUser, { name: 'John Doe' })
     })
   })
 

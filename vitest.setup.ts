@@ -142,6 +142,9 @@ vi.stubGlobal('supabase', {
 // Account-linking helper — default to a no-op vi.fn(); each route test overrides
 // with a resolved User. Real logic is exercised by server/utils/auth.test.ts.
 vi.stubGlobal('findOrLinkUser', vi.fn())
+// Signup-name backfill — pass-through by default so sign-in route tests see the
+// findOrLinkUser user unchanged. Real logic is exercised by server/utils/auth.test.ts.
+vi.stubGlobal('backfillNameFromMetadata', vi.fn(async (user: unknown) => user))
 // Native token-pair minting — default to a no-op vi.fn(); route tests override
 // with a resolved pair. Real logic is exercised by server/utils/native-tokens.test.ts.
 vi.stubGlobal('issueTokenPair', vi.fn())
