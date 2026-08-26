@@ -138,6 +138,7 @@ async function handleSubmit() {
           <form @submit.prevent="handleSubmit" class="space-y-3">
             <UInput
               v-model="newPassword"
+              class="w-full"
               type="password"
               placeholder="New password"
               size="lg"
@@ -149,6 +150,7 @@ async function handleSubmit() {
 
             <UInput
               v-model="confirmPassword"
+              class="w-full"
               type="password"
               placeholder="Confirm new password"
               size="lg"
