@@ -4,7 +4,6 @@ import handler from './reset-password.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockSupabaseResetPassword = (supabase as typeof supabase).auth.resetPasswordForEmail as ReturnType<typeof vi.fn>
-const mockGetRequestURL = getRequestURL as ReturnType<typeof vi.fn>
 
 function makeEvent() {
   return { path: '/api/auth/email/reset-password', context: {} } as any
@@ -13,7 +12,6 @@ function makeEvent() {
 describe('POST /api/auth/email/reset-password', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetRequestURL.mockReturnValue(new URL('http://localhost:3000/api/auth/email/reset-password'))
     mockSupabaseResetPassword.mockResolvedValue({ data: {}, error: null })
   })
 
@@ -37,7 +35,11 @@ describe('POST /api/auth/email/reset-password', () => {
     await expect(handler(makeEvent())).rejects.toThrow('Email is required.')
   })
 
-  test('calls Supabase resetPasswordForEmail with correct redirect', async () => {
+  // The redirect comes from runtimeConfig.public.appUrl, never the request
+  // origin: native iOS calls carry no meaningful web origin, and a
+  // header-derived value can miss the Supabase allowlist and drop the
+  // recovery tokens on the Site URL root.
+  test('calls Supabase resetPasswordForEmail with the config-derived redirect', async () => {
     mockReadBody.mockResolvedValueOnce({ email: 'test@example.com' })
 
     await handler(makeEvent())
@@ -46,6 +48,7 @@ describe('POST /api/auth/email/reset-password', () => {
       'test@example.com',
       { redirectTo: 'http://localhost:3000/auth/reset-password' },
     )
+    expect(getRequestURL).not.toHaveBeenCalled()
   })
 
   test('always returns success to avoid leaking email existence', async () => {

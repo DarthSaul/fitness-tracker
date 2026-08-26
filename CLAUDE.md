@@ -90,7 +90,7 @@ The API supports two authentication paths that share a single `server/middleware
 - `POST /api/auth/native/email/resend-confirmation` — resends the confirmation email; always `{ success: true }` (anti-enumeration)
 - `POST /api/auth/refresh` — exchange refresh token for new access token (optionally rotates)
 
-Native routes mint tokens via `issueTokenPair` (`server/utils/native-tokens.ts`). iOS password reset reuses the web `POST /api/auth/email/reset-password` (session-agnostic; the emailed link opens the web reset page). Both signup routes pass `emailRedirectTo: {appUrl}/auth/confirm` (from `runtimeConfig.public.appUrl`) so confirmation links land on the confirm page instead of the Supabase Site URL fallback — each environment's `/auth/confirm` URL must be in the Supabase redirect allowlist.
+Native routes mint tokens via `issueTokenPair` (`server/utils/native-tokens.ts`). iOS password reset reuses the web `POST /api/auth/email/reset-password` (session-agnostic; the emailed link opens the web reset page). Both signup routes pass `emailRedirectTo: {appUrl}/auth/confirm` (from `runtimeConfig.public.appUrl`) so confirmation links land on the confirm page instead of the Supabase Site URL fallback — each environment's `/auth/confirm` URL must be in the Supabase redirect allowlist. reset-password likewise builds its `redirectTo` from `appUrl` — never the request origin, since native calls have no meaningful web origin — and each environment's `/auth/reset-password` URL must be allowlisted too.
 
 **Native logout:** send `X-Client-Type: native` header; optionally include `refreshToken` in the body to revoke it.
 

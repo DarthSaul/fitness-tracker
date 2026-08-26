@@ -9,8 +9,32 @@ const loading = ref(false)
 const success = ref(false)
 const errorMessage = ref<string | null>(null)
 
-const accessToken = computed(() => route.query.access_token as string | undefined)
-const refreshToken = computed(() => route.query.refresh_token as string | undefined)
+// Recovery tokens arrive two ways: in the query string when /auth/confirm
+// forwards a recovery link that landed there (Site URL fallback), and in the
+// URL hash fragment when the reset email's redirectTo points here directly —
+// Supabase's implicit flow appends `#access_token=...&type=recovery`, which
+// only the browser ever sees. Parsed on mount because the hash never reaches
+// the server.
+const accessToken = ref<string | null>(null)
+const refreshToken = ref<string | null>(null)
+const linkError = ref<string | null>(null)
+const ready = ref(false)
+
+onMounted(() => {
+  const hash = new URLSearchParams(window.location.hash.substring(1))
+
+  // Expired/used links redirect with an error hash instead of tokens:
+  // #error=access_denied&error_code=otp_expired&error_description=...
+  if (hash.get('error') || hash.get('error_description')) {
+    linkError.value = hash.get('error_description') || 'This reset link is invalid or has expired.'
+  }
+
+  accessToken.value = (typeof route.query.access_token === 'string' ? route.query.access_token : null)
+    || hash.get('access_token')
+  refreshToken.value = (typeof route.query.refresh_token === 'string' ? route.query.refresh_token : null)
+    || hash.get('refresh_token')
+  ready.value = true
+})
 
 const hasTokens = computed(() => !!accessToken.value && !!refreshToken.value)
 
@@ -79,11 +103,16 @@ async function handleSubmit() {
         />
       </template>
 
-      <template v-else-if="!hasTokens">
+      <!-- Hash parsing happens on mount; don't flash the error state before it runs. -->
+      <template v-else-if="!ready">
+        <div class="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-separator border-t-tint" />
+      </template>
+
+      <template v-else-if="linkError || !hasTokens">
         <UAlert
           color="error"
           variant="subtle"
-          title="Invalid or expired reset link. Please request a new one."
+          :title="linkError ?? 'Invalid or expired reset link. Please request a new one.'"
           icon="i-lucide-alert-circle"
         />
         <UButton

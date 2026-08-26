@@ -34,8 +34,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Email is required.' })
   }
 
-  const requestUrl = getRequestURL(event)
-  const redirectTo = `${requestUrl.origin}/auth/reset-password`
+  // The redirect must come from config, never the request origin: native iOS
+  // calls carry no meaningful web origin, and a header-derived value can
+  // silently miss the Supabase redirect allowlist — the link then falls back
+  // to the bare Site URL and the recovery tokens are dropped on the site
+  // root, making the reset unrecoverable. appUrl is build-time validated and
+  // known to match the allowlisted /auth/reset-password entries.
+  const config = useRuntimeConfig()
+  const redirectTo = `${config.public.appUrl}/auth/reset-password`
 
   await supabase.auth.resetPasswordForEmail(body.email, { redirectTo })
 
