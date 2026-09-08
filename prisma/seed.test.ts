@@ -20,3 +20,29 @@ describe('seed.ts exercise name conventions', () => {
     })
   }
 })
+
+describe('seed.ts exercise slugs', () => {
+  // Every writer of the Exercise catalog must derive `slug` from `name` on both
+  // branches of the upsert: `create` is enforced by the Prisma types (the column
+  // is required), but `update` is not, and a seed that skips it there would let
+  // a renamed exercise keep a stale slug.
+  const upsertBlocks = seedSource
+    .split('prisma.exercise.upsert(')
+    .slice(1)
+    .map(block => block.slice(0, block.indexOf('});')))
+
+  test('the three catalog writers are all present', () => {
+    expect(upsertBlocks).toHaveLength(3)
+  })
+
+  test('every catalog upsert derives slug from name on create and update', () => {
+    for (const block of upsertBlocks) {
+      const occurrences = block.match(/slug: slugify\(name\)/g) ?? []
+      expect(occurrences, `upsert block missing slug derivation:\n${block}`).toHaveLength(2)
+    }
+  })
+
+  test('slugify is imported from the shared helper', () => {
+    expect(seedSource).toMatch(/import \{ slugify \} from '\.\.\/shared\/utils\/slug'/)
+  })
+})
