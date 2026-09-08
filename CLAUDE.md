@@ -64,6 +64,7 @@ workout-tracker/
 Domain organized around immutable program definitions, mutable user progress, and auth/push infrastructure:
 
 - **Program library (immutable):** `Program → ProgramWeek → ProgramDay → ProgramExercise → ExerciseSet`
+- **Exercise catalog:** `Exercise` is keyed by unique `name` and carries a unique URL-safe `slug` derived from it via `slugify` (`shared/utils/slug.ts`). The seed re-derives `slug` on every upsert, so it always tracks `name`; never hand-edit one without the other.
 - **User progress (mutable):** `User`, `UserProgram` (saved/active + current position), `WorkoutSession`, `CompletedSet`
 - **Auth identities:** `Identity` (one User can have many — Google, Apple, email — keyed on `(provider, providerId)`)
 - **Auth tokens:** `RefreshToken` (hashed, 30-day, revocable)

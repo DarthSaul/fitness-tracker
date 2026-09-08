@@ -1,4 +1,5 @@
 import { PrismaClient, ExerciseGroupType } from '@prisma/client';
+import { slugify } from '../shared/utils/slug';
 
 const prisma = new PrismaClient();
 
@@ -8674,8 +8675,8 @@ async function seedStandaloneWorkouts(): Promise<void> {
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: {},
-			create: { name },
+			update: { slug: slugify(name) },
+			create: { name, slug: slugify(name) },
 		});
 	}
 	console.log(
@@ -8770,8 +8771,8 @@ async function main(): Promise<void> {
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { ...(EXERCISE_MEDIA[name] ?? {}) },
-			create: { name, ...(EXERCISE_MEDIA[name] ?? {}) },
+			update: { slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
+			create: { name, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}
 	console.log(`Upserted ${exerciseNames.size} exercises\n`);
@@ -8792,8 +8793,8 @@ async function main(): Promise<void> {
 	for (const name of CORE_EXERCISES) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { isCore: true, ...(EXERCISE_MEDIA[name] ?? {}) },
-			create: { name, isCore: true, ...(EXERCISE_MEDIA[name] ?? {}) },
+			update: { isCore: true, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
+			create: { name, isCore: true, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}
 	// Converge: exercises flagged core by earlier seed versions but no longer in
