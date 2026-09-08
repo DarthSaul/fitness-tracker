@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Exercises'],
     summary: 'Get demonstration media for an exercise',
-    description: 'Returns an exercise\'s demonstration media (YouTube video link and, when available, a stored gif/animation URL). Global to the exercise — not user-specific.',
+    description: 'Returns an exercise\'s demonstration media: a YouTube video link and, when available, a hosted demo clip URL with its poster still (see media-manifest.json). Global to the exercise — not user-specific.',
     parameters: [
       { name: 'exerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'Exercise CUID' },
     ],
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   try {
     const exercise = await prisma.exercise.findUnique({
       where: { id: exerciseId },
-      select: { id: true, name: true, videoUrl: true, animationUrl: true },
+      select: { id: true, name: true, videoUrl: true, animationUrl: true, posterUrl: true },
     })
 
     if (!exercise) {

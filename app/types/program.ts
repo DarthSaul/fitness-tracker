@@ -72,5 +72,8 @@ export interface ExerciseInfo {
   id: string
   name: string
   videoUrl: string | null
+  /** Hosted 720x720 demo clip. Play inline only; never expose a download or share affordance. */
   animationUrl: string | null
+  /** Still frame for `animationUrl`, same dimensions. */
+  posterUrl: string | null
 }

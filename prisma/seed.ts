@@ -8675,7 +8675,7 @@ async function seedStandaloneWorkouts(): Promise<void> {
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { slug: slugify(name) },
+			update: {},
 			create: { name, slug: slugify(name) },
 		});
 	}
@@ -8771,7 +8771,7 @@ async function main(): Promise<void> {
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
+			update: { ...(EXERCISE_MEDIA[name] ?? {}) },
 			create: { name, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}
@@ -8793,7 +8793,7 @@ async function main(): Promise<void> {
 	for (const name of CORE_EXERCISES) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { isCore: true, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
+			update: { isCore: true, ...(EXERCISE_MEDIA[name] ?? {}) },
 			create: { name, isCore: true, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}

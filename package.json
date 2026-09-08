@@ -12,7 +12,10 @@
     "postinstall": "prisma generate && nuxt prepare",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "media:normalize": "bash scripts/media/normalize.sh",
+    "media:upload": "tsx --env-file=.env scripts/media/upload.ts",
+    "media:attach": "tsx --env-file=.env scripts/media/attach.ts"
   },
   "dependencies": {
     "@nuxt/ui": "^4.5.1",

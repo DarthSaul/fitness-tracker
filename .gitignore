@@ -37,3 +37,10 @@ coverage
 .agents/
 .vercel
 .env*
+
+# Licensed exercise media (MoveKit) — never committed; see docs/licenses/movekit.md.
+# Root-anchored: an unanchored "media/" would also swallow scripts/media/.
+/media/
+# Storage index with the random path tokens (see docs/licenses/movekit.md). Back it
+# up with the raw source files; media-manifest.json (the ledger) stays committed.
+/media-manifest.private.json

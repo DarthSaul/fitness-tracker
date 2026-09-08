@@ -6,7 +6,7 @@ const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUniqueExercise = (prisma as typeof prisma).exercise.findUnique as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
-type InfoResult = { id: string; name: string; videoUrl: string | null; animationUrl: string | null }
+type InfoResult = { id: string; name: string; videoUrl: string | null; animationUrl: string | null; posterUrl: string | null }
 
 function makeEvent(exerciseId = 'ex001') {
   mockGetRouterParam.mockReturnValue(exerciseId)
@@ -32,7 +32,8 @@ describe('GET /api/exercises/:exerciseId/info', () => {
       id: 'ex001',
       name: 'Barbell Back Squat',
       videoUrl: 'https://youtu.be/dQw4w9WgXcQ',
-      animationUrl: null,
+      animationUrl: 'https://example.supabase.co/storage/v1/object/public/exercise-media/exercises/barbell-back-squat/abc123/demo.mp4',
+      posterUrl: 'https://example.supabase.co/storage/v1/object/public/exercise-media/exercises/barbell-back-squat/abc123/poster.webp',
     }
     mockFindUniqueExercise.mockResolvedValueOnce(exercise)
 
@@ -42,12 +43,12 @@ describe('GET /api/exercises/:exerciseId/info', () => {
     expect(result).toEqual(exercise)
     expect(mockFindUniqueExercise).toHaveBeenCalledWith({
       where: { id: 'ex001' },
-      select: { id: true, name: true, videoUrl: true, animationUrl: true },
+      select: { id: true, name: true, videoUrl: true, animationUrl: true, posterUrl: true },
     })
   })
 
   test('returns null media URLs when they have not been set', async () => {
-    const exercise = { id: 'ex002', name: 'Plank', videoUrl: null, animationUrl: null }
+    const exercise = { id: 'ex002', name: 'Plank', videoUrl: null, animationUrl: null, posterUrl: null }
     mockFindUniqueExercise.mockResolvedValueOnce(exercise)
 
     const event = makeEvent('ex002')

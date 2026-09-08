@@ -168,7 +168,8 @@ model Exercise {
   description  String?
   isCore       Boolean @default(false)
   videoUrl     String? // YouTube demonstration link
-  animationUrl String? // stored gif/animation URL (iOS-rendered; null until assets exist)
+  animationUrl String? // stored demo clip URL (Supabase Storage; see media-manifest.json)
+  posterUrl    String? // still frame for the demo clip, same storage path scheme
 
   programExercises           ProgramExercise[]
   userExerciseNotes          UserExerciseNote[]

@@ -92,6 +92,7 @@ defineRouteMeta({
 							'name',
 							'videoUrl',
 							'animationUrl',
+							'posterUrl',
 						],
 						properties: {
 							id: {
@@ -114,7 +115,16 @@ defineRouteMeta({
 									'string',
 									'null',
 								],
-								example: null,
+								description: 'Hosted 720x720 demo clip (H.264 MP4, no audio). Stream inline only — never offer it for download.',
+								example: 'https://<project>.supabase.co/storage/v1/object/public/exercise-media/exercises/bench-press/<token>/demo.mp4',
+							},
+							posterUrl: {
+								type: [
+									'string',
+									'null',
+								],
+								description: 'Still frame for animationUrl, same dimensions and path scheme.',
+								example: 'https://<project>.supabase.co/storage/v1/object/public/exercise-media/exercises/bench-press/<token>/poster.webp',
 							},
 						},
 					},
