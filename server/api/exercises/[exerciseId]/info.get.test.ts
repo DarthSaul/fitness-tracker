@@ -44,12 +44,12 @@ describe('GET /api/exercises/:exerciseId/info', () => {
       id: 'ex001',
       name: 'Pull Up',
       videoUrl: 'https://youtu.be/dQw4w9WgXcQ',
-      animationPath: 'exercises/pull-up/Dsmuo9mKczX89uWg/demo.mp4',
-      posterPath: 'exercises/pull-up/Dsmuo9mKczX89uWg/poster.webp',
+      animationPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4',
+      posterPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp',
     }
     const signed = {
-      animationUrl: 'https://test.supabase.co/storage/v1/object/sign/exercise-media/exercises/pull-up/Dsmuo9mKczX89uWg/demo.mp4?token=sig',
-      posterUrl: 'https://test.supabase.co/storage/v1/object/sign/exercise-media/exercises/pull-up/Dsmuo9mKczX89uWg/poster.webp?token=sig',
+      animationUrl: 'https://test.supabase.co/storage/v1/object/sign/exercise-media/exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4?token=sig',
+      posterUrl: 'https://test.supabase.co/storage/v1/object/sign/exercise-media/exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp?token=sig',
       mediaExpiresAt: '2026-09-10T15:15:00.000Z',
     }
     mockFindUniqueExercise.mockResolvedValueOnce(row)
@@ -66,8 +66,8 @@ describe('GET /api/exercises/:exerciseId/info', () => {
   test('never leaks the raw storage keys in the response', async () => {
     mockFindUniqueExercise.mockResolvedValueOnce({
       id: 'ex001', name: 'Pull Up', videoUrl: null,
-      animationPath: 'exercises/pull-up/Dsmuo9mKczX89uWg/demo.mp4',
-      posterPath: 'exercises/pull-up/Dsmuo9mKczX89uWg/poster.webp',
+      animationPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4',
+      posterPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp',
     })
     mockSignExerciseMedia.mockResolvedValueOnce({
       animationUrl: 'https://test.supabase.co/signed/demo', posterUrl: 'https://test.supabase.co/signed/poster', mediaExpiresAt: '2026-09-10T15:15:00.000Z',
@@ -136,8 +136,8 @@ describe('GET /api/exercises/:exerciseId/info', () => {
   test('throws 500 and logs when storage cannot sign the media', async () => {
     mockFindUniqueExercise.mockResolvedValueOnce({
       id: 'ex001', name: 'Pull Up', videoUrl: null,
-      animationPath: 'exercises/pull-up/Dsmuo9mKczX89uWg/demo.mp4',
-      posterPath: 'exercises/pull-up/Dsmuo9mKczX89uWg/poster.webp',
+      animationPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4',
+      posterPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp',
     })
     const signError = new Error('exercise-media: signing failed: Bucket not found')
     mockSignExerciseMedia.mockRejectedValueOnce(signError)

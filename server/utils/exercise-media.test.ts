@@ -9,8 +9,8 @@ import {
 const mockFrom = (supabase as typeof supabase).storage.from as ReturnType<typeof vi.fn>
 const mockCreateSignedUrls = vi.fn()
 
-const ANIMATION = 'exercises/pull-up/Dsmuo9mKczX89uWg/demo.mp4'
-const POSTER = 'exercises/pull-up/Dsmuo9mKczX89uWg/poster.webp'
+const ANIMATION = 'exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4'
+const POSTER = 'exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp'
 const signed = (path: string) => `https://test.supabase.co/storage/v1/object/sign/exercise-media/${path}?token=sig`
 
 describe('signExerciseMedia', () => {
