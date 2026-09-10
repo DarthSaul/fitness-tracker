@@ -124,6 +124,23 @@ async function uploadFile(localPath: string, remotePath: string, contentType: st
   if (error) throw new Error(`upload ${remotePath}: ${error.message}`)
 }
 
+/**
+ * Best-effort removal of an object that landed before a later step failed.
+ * A retry mints a fresh token, so an object left under this one would be
+ * orphaned forever. Reports the outcome and never throws, so the caller can
+ * rethrow the original failure unmasked.
+ */
+async function removeOrReport(remotePath: string): Promise<void> {
+  try {
+    const { error } = await supabase.storage.from(BUCKET).remove([remotePath])
+    if (error) throw new Error(error.message)
+    console.error(`cleanup: removed ${remotePath} after a later upload failed`)
+  } catch (cleanupError) {
+    const reason = cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+    console.error(`cleanup: could not remove ${remotePath} — delete it by hand (${reason})`)
+  }
+}
+
 async function main(): Promise<void> {
   const ledger = await readJson<LedgerEntry[]>(LEDGER_PATH)
   const index = await readJson<StorageEntry[]>(INDEX_PATH, [])
@@ -155,8 +172,14 @@ async function main(): Promise<void> {
     const poster = `exercises/${entry.slug}/${token}/poster.webp`
 
     await uploadFile(demoLocal, animation, 'video/mp4')
-    await uploadFile(posterLocal, poster, 'image/webp')
+    try {
+      await uploadFile(posterLocal, poster, 'image/webp')
+    } catch (posterError) {
+      await removeOrReport(animation)
+      throw posterError
+    }
 
+    // Only a fully uploaded pair is recorded; a failure above leaves no entry.
     index.push({ slug: entry.slug, token, animation, poster })
     // Persist after each clip so a failure part-way leaves every completed
     // upload recorded in the index.
