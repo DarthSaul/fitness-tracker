@@ -5,8 +5,19 @@ import handler from './info.get'
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUniqueExercise = (prisma as typeof prisma).exercise.findUnique as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
+const mockSignExerciseMedia = signExerciseMedia as ReturnType<typeof vi.fn>
 
-type InfoResult = { id: string; name: string; videoUrl: string | null; animationUrl: string | null }
+type InfoResult = {
+  id: string
+  name: string
+  videoUrl: string | null
+  animationUrl: string | null
+  posterUrl: string | null
+  mediaExpiresAt: string | null
+}
+
+const SELECT = { id: true, name: true, videoUrl: true, animationPath: true, posterPath: true }
+const NO_MEDIA = { animationUrl: null, posterUrl: null, mediaExpiresAt: null }
 
 function makeEvent(exerciseId = 'ex001') {
   mockGetRouterParam.mockReturnValue(exerciseId)
@@ -25,35 +36,57 @@ describe('GET /api/exercises/:exerciseId/info', () => {
       err.statusMessage = opts.statusMessage
       return err
     })
+    mockSignExerciseMedia.mockResolvedValue(NO_MEDIA)
   })
 
-  test('returns id, name and media URLs for an existing exercise', async () => {
-    const exercise = {
+  test('returns id, name, the YouTube link and freshly signed media URLs', async () => {
+    const row = {
       id: 'ex001',
-      name: 'Barbell Back Squat',
+      name: 'Pull Up',
       videoUrl: 'https://youtu.be/dQw4w9WgXcQ',
-      animationUrl: null,
+      animationPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4',
+      posterPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp',
     }
-    mockFindUniqueExercise.mockResolvedValueOnce(exercise)
+    const signed = {
+      animationUrl: 'https://test.supabase.co/storage/v1/object/sign/exercise-media/exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4?token=sig',
+      posterUrl: 'https://test.supabase.co/storage/v1/object/sign/exercise-media/exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp?token=sig',
+      mediaExpiresAt: '2026-09-10T15:15:00.000Z',
+    }
+    mockFindUniqueExercise.mockResolvedValueOnce(row)
+    mockSignExerciseMedia.mockResolvedValueOnce(signed)
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<InfoResult>)(event)
 
-    expect(result).toEqual(exercise)
-    expect(mockFindUniqueExercise).toHaveBeenCalledWith({
-      where: { id: 'ex001' },
-      select: { id: true, name: true, videoUrl: true, animationUrl: true },
-    })
+    expect(mockFindUniqueExercise).toHaveBeenCalledWith({ where: { id: 'ex001' }, select: SELECT })
+    expect(mockSignExerciseMedia).toHaveBeenCalledWith({ animationPath: row.animationPath, posterPath: row.posterPath })
+    expect(result).toEqual({ id: 'ex001', name: 'Pull Up', videoUrl: row.videoUrl, ...signed })
   })
 
-  test('returns null media URLs when they have not been set', async () => {
-    const exercise = { id: 'ex002', name: 'Plank', videoUrl: null, animationUrl: null }
-    mockFindUniqueExercise.mockResolvedValueOnce(exercise)
+  test('never leaks the raw storage keys in the response', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce({
+      id: 'ex001', name: 'Pull Up', videoUrl: null,
+      animationPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4',
+      posterPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp',
+    })
+    mockSignExerciseMedia.mockResolvedValueOnce({
+      animationUrl: 'https://test.supabase.co/signed/demo', posterUrl: 'https://test.supabase.co/signed/poster', mediaExpiresAt: '2026-09-10T15:15:00.000Z',
+    })
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<Record<string, unknown>>)(event)
+
+    expect(result).not.toHaveProperty('animationPath')
+    expect(result).not.toHaveProperty('posterPath')
+  })
+
+  test('returns null media URLs when no clip is attached', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce({ id: 'ex002', name: 'Plank', videoUrl: null, animationPath: null, posterPath: null })
 
     const event = makeEvent('ex002')
     const result = await (handler as unknown as (e: typeof event) => Promise<InfoResult>)(event)
 
-    expect(result).toEqual(exercise)
+    expect(result).toEqual({ id: 'ex002', name: 'Plank', videoUrl: null, ...NO_MEDIA })
   })
 
   test('throws 400 when exerciseId is missing', async () => {
@@ -82,6 +115,7 @@ describe('GET /api/exercises/:exerciseId/info', () => {
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Exercise not found' })
+    expect(mockSignExerciseMedia).not.toHaveBeenCalled()
   })
 
   test('throws 500 on database error and logs it', async () => {
@@ -95,6 +129,26 @@ describe('GET /api/exercises/:exerciseId/info', () => {
 
     expect(logger.error).toHaveBeenCalledWith(
       { err: dbError, route: 'GET /api/exercises/:exerciseId/info' },
+      '[GET /api/exercises/:exerciseId/info] Failed to fetch exercise info',
+    )
+  })
+
+  test('throws 500 and logs when storage cannot sign the media', async () => {
+    mockFindUniqueExercise.mockResolvedValueOnce({
+      id: 'ex001', name: 'Pull Up', videoUrl: null,
+      animationPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/demo.mp4',
+      posterPath: 'exercises/pull-up/AbCdEfGhIjKlMnOp/poster.webp',
+    })
+    const signError = new Error('exercise-media: signing failed: Bucket not found')
+    mockSignExerciseMedia.mockRejectedValueOnce(signError)
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to fetch exercise info' })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      { err: signError, route: 'GET /api/exercises/:exerciseId/info' },
       '[GET /api/exercises/:exerciseId/info] Failed to fetch exercise info',
     )
   })

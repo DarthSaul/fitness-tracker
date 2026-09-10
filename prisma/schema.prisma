@@ -162,13 +162,14 @@ model ExerciseGroup {
 }
 
 model Exercise {
-  id           String  @id @default(cuid())
-  name         String  @unique
-  slug         String  @unique // URL-safe, derived from name (shared/utils/slug.ts); seed keeps it in sync
-  description  String?
-  isCore       Boolean @default(false)
-  videoUrl     String? // YouTube demonstration link
-  animationUrl String? // stored gif/animation URL (iOS-rendered; null until assets exist)
+  id            String  @id @default(cuid())
+  name          String  @unique
+  slug          String  @unique // URL-safe, derived from name at creation (shared/utils/slug.ts); write-once
+  description   String?
+  isCore        Boolean @default(false)
+  videoUrl      String? // YouTube demonstration link
+  animationPath String? // object key in the PRIVATE exercise-media bucket — never a URL; the API signs it on read
+  posterPath    String? // still frame for animationPath, same bucket and key scheme
 
   programExercises           ProgramExercise[]
   userExerciseNotes          UserExerciseNote[]

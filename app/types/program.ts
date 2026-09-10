@@ -67,10 +67,21 @@ export interface ExerciseSummary {
   description: string | null
 }
 
-/** Demonstration media returned by GET /api/exercises/:exerciseId/info. */
+/**
+ * Demonstration media returned by GET /api/exercises/:exerciseId/info.
+ *
+ * The two hosted-media URLs are short-lived signed links (about 15 minutes);
+ * re-fetch the route once `mediaExpiresAt` has passed. Play inline only and
+ * never expose a download, share, or copy-link affordance for them.
+ */
 export interface ExerciseInfo {
   id: string
   name: string
   videoUrl: string | null
+  /** Signed URL for the hosted 720x720 demo clip, or null when none is attached. */
   animationUrl: string | null
+  /** Signed URL for the still frame of `animationUrl`, same dimensions. */
+  posterUrl: string | null
+  /** ISO timestamp after which `animationUrl` and `posterUrl` stop working; null when there is no media. */
+  mediaExpiresAt: string | null
 }

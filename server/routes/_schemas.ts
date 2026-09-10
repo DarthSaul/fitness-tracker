@@ -92,6 +92,8 @@ defineRouteMeta({
 							'name',
 							'videoUrl',
 							'animationUrl',
+							'posterUrl',
+							'mediaExpiresAt',
 						],
 						properties: {
 							id: {
@@ -114,7 +116,25 @@ defineRouteMeta({
 									'string',
 									'null',
 								],
-								example: null,
+								description: 'Short-lived signed URL for the hosted 720x720 demo clip (H.264 MP4, no audio). Valid until mediaExpiresAt (about 15 minutes); re-request this route to refresh. Stream inline only — never offer it for download or sharing.',
+								example: 'https://<project>.supabase.co/storage/v1/object/sign/exercise-media/exercises/bench-press/<key>/demo.mp4?token=<signature>',
+							},
+							posterUrl: {
+								type: [
+									'string',
+									'null',
+								],
+								description: 'Short-lived signed URL for the still frame of animationUrl, same dimensions and expiry.',
+								example: 'https://<project>.supabase.co/storage/v1/object/sign/exercise-media/exercises/bench-press/<key>/poster.webp?token=<signature>',
+							},
+							mediaExpiresAt: {
+								type: [
+									'string',
+									'null',
+								],
+								format: 'date-time',
+								description: 'When animationUrl and posterUrl stop working. Null when the exercise has no hosted media.',
+								example: '2026-09-10T15:15:00.000Z',
 							},
 						},
 					},

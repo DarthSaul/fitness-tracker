@@ -1,0 +1,201 @@
+/**
+ * Upload normalized exercise media to the public `exercise-media` bucket.
+ *
+ * Two manifests drive this (see docs/licenses/movekit.md):
+ *
+ *   media-manifest.json          committed purchase ledger — slug, exerciseId,
+ *                                source, sourceName, purchasedAt
+ *   media-manifest.private.json  gitignored storage index — slug, token and the
+ *                                two storage paths. Never commit it: it is the
+ *                                list of otherwise-unguessable URLs.
+ *
+ * For every ledger entry with no private entry yet it mints a token (16
+ * base64url chars from crypto.randomBytes), uploads `media/out/<slug>/demo.mp4`
+ * and `poster.webp` to `exercises/<slug>/<token>/…`, and appends the result to
+ * the private index. Entries already in the index are skipped — uploads never
+ * overwrite (`upsert: false`); a new version of a clip is a new token, so old
+ * URLs keep working until retired.
+ *
+ * The bucket is PRIVATE: nothing in it is reachable without a signature, and
+ * `GET /api/exercises/:id/info` signs each key for 15 minutes on every read
+ * (server/utils/exercise-media.ts). This script converges the bucket to
+ * private if it ever finds it public. The random path token is kept as
+ * defence in depth so keys are unguessable even if a listing ever leaked.
+ *
+ * Requires the service role key: storage writes are gated by RLS and the app
+ * has no anon-key client. Never expose this key to the browser.
+ *
+ * Usage: pnpm media:upload      (= tsx --env-file=.env scripts/media/upload.ts)
+ */
+import { createClient } from '@supabase/supabase-js'
+import { randomBytes } from 'node:crypto'
+import { readFile, writeFile, stat } from 'node:fs/promises'
+import path from 'node:path'
+
+const BUCKET = 'exercise-media'
+const LEDGER_PATH = path.resolve('media-manifest.json')
+const INDEX_PATH = path.resolve('media-manifest.private.json')
+const OUT_DIR = path.resolve('media/out')
+const ONE_YEAR_SECONDS = '31536000'
+
+interface LedgerEntry {
+  slug: string
+  exerciseId: string
+  source: string
+  sourceName: string
+  purchasedAt: string
+}
+
+interface StorageEntry {
+  slug: string
+  token: string
+  animation: string
+  poster: string
+}
+
+function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`Missing ${name} — run via \`pnpm media:upload\` so .env is loaded`)
+  return value
+}
+
+const supabaseUrl = requireEnv('NUXT_SUPABASE_URL')
+const serviceRoleKey = requireEnv('NUXT_SUPABASE_SERVICE_ROLE_KEY')
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+})
+
+async function readJson<T>(filePath: string, fallbackIfMissing?: T): Promise<T> {
+  try {
+    return JSON.parse(await readFile(filePath, 'utf8')) as T
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT' && fallbackIfMissing !== undefined) {
+      return fallbackIfMissing
+    }
+    throw error
+  }
+}
+
+/** 12 random bytes → exactly 16 base64url characters, no padding. */
+function mintToken(): string {
+  return randomBytes(12).toString('base64url')
+}
+
+const BUCKET_OPTIONS = {
+  public: false,
+  allowedMimeTypes: ['video/mp4', 'image/webp'],
+  fileSizeLimit: 20 * 1024 * 1024,
+}
+
+/** Create the private bucket if missing; flip it to private if it exists public. */
+async function ensureBucket(): Promise<void> {
+  const { data: buckets, error } = await supabase.storage.listBuckets()
+  if (error) throw new Error(`listBuckets: ${error.message}`)
+  const existing = buckets.find(b => b.name === BUCKET)
+  if (!existing) {
+    const { error: createError } = await supabase.storage.createBucket(BUCKET, BUCKET_OPTIONS)
+    if (createError) throw new Error(`createBucket ${BUCKET}: ${createError.message}`)
+    console.log(`created private bucket "${BUCKET}"`)
+    return
+  }
+  if (existing.public) {
+    const { error: updateError } = await supabase.storage.updateBucket(BUCKET, BUCKET_OPTIONS)
+    if (updateError) throw new Error(`updateBucket ${BUCKET}: ${updateError.message}`)
+    console.log(`bucket "${BUCKET}" was public — now private`)
+    return
+  }
+  console.log(`bucket "${BUCKET}" already exists (private)`)
+}
+
+async function assertFile(filePath: string): Promise<void> {
+  try {
+    const info = await stat(filePath)
+    if (!info.isFile() || info.size === 0) throw new Error('empty')
+  } catch {
+    throw new Error(`missing or empty: ${path.relative(process.cwd(), filePath)} — run \`pnpm media:normalize\` first`)
+  }
+}
+
+async function uploadFile(localPath: string, remotePath: string, contentType: string): Promise<void> {
+  const body = await readFile(localPath)
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(remotePath, body, { cacheControl: ONE_YEAR_SECONDS, contentType, upsert: false })
+  if (error) throw new Error(`upload ${remotePath}: ${error.message}`)
+}
+
+/**
+ * Best-effort removal of an object that landed before a later step failed.
+ * A retry mints a fresh token, so an object left under this one would be
+ * orphaned forever. Reports the outcome and never throws, so the caller can
+ * rethrow the original failure unmasked.
+ */
+async function removeOrReport(remotePath: string): Promise<void> {
+  try {
+    const { error } = await supabase.storage.from(BUCKET).remove([remotePath])
+    if (error) throw new Error(error.message)
+    console.error(`cleanup: removed ${remotePath} after a later upload failed`)
+  } catch (cleanupError) {
+    const reason = cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+    console.error(`cleanup: could not remove ${remotePath} — delete it by hand (${reason})`)
+  }
+}
+
+async function main(): Promise<void> {
+  const ledger = await readJson<LedgerEntry[]>(LEDGER_PATH)
+  const index = await readJson<StorageEntry[]>(INDEX_PATH, [])
+
+  const orphan = index.find(entry => !ledger.some(l => l.slug === entry.slug))
+  if (orphan) {
+    throw new Error(`${path.basename(INDEX_PATH)} has "${orphan.slug}" but ${path.basename(LEDGER_PATH)} does not — add the ledger entry first`)
+  }
+
+  await ensureBucket()
+
+  let uploaded = 0
+  let skipped = 0
+  for (const entry of ledger) {
+    const existing = index.find(s => s.slug === entry.slug)
+    if (existing) {
+      console.log(`skip   ${entry.slug} — already uploaded under token ${existing.token}`)
+      skipped++
+      continue
+    }
+
+    const demoLocal = path.join(OUT_DIR, entry.slug, 'demo.mp4')
+    const posterLocal = path.join(OUT_DIR, entry.slug, 'poster.webp')
+    await assertFile(demoLocal)
+    await assertFile(posterLocal)
+
+    const token = mintToken()
+    const animation = `exercises/${entry.slug}/${token}/demo.mp4`
+    const poster = `exercises/${entry.slug}/${token}/poster.webp`
+
+    await uploadFile(demoLocal, animation, 'video/mp4')
+    try {
+      await uploadFile(posterLocal, poster, 'image/webp')
+    } catch (posterError) {
+      await removeOrReport(animation)
+      throw posterError
+    }
+
+    // Only a fully uploaded pair is recorded; a failure above leaves no entry.
+    index.push({ slug: entry.slug, token, animation, poster })
+    // Persist after each clip so a failure part-way leaves every completed
+    // upload recorded in the index.
+    await writeFile(INDEX_PATH, JSON.stringify(index, null, 2) + '\n')
+
+    // Keys only — there is no public URL to print for a private bucket.
+    console.log(`upload ${entry.slug}`)
+    console.log(`         ${animation}`)
+    console.log(`         ${poster}`)
+    uploaded++
+  }
+
+  console.log(`\n${uploaded} uploaded, ${skipped} skipped, index written to ${path.relative(process.cwd(), INDEX_PATH)}`)
+}
+
+main().catch((error: unknown) => {
+  console.error('media:upload failed:', error instanceof Error ? error.message : error)
+  process.exit(1)
+})

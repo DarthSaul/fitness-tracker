@@ -22,10 +22,10 @@ describe('seed.ts exercise name conventions', () => {
 })
 
 describe('seed.ts exercise slugs', () => {
-  // Every writer of the Exercise catalog must derive `slug` from `name` on both
-  // branches of the upsert: `create` is enforced by the Prisma types (the column
-  // is required), but `update` is not, and a seed that skips it there would let
-  // a renamed exercise keep a stale slug.
+  // Slugs are write-once: exercise-media storage paths and deep links are filed
+  // under them. Every writer of the Exercise catalog must derive `slug`
+  // from `name` on the `create` branch of its upsert and must never touch it on
+  // `update`, so a renamed exercise keeps the slug its media is filed under.
   const upsertBlocks = seedSource
     .split('prisma.exercise.upsert(')
     .slice(1)
@@ -35,10 +35,16 @@ describe('seed.ts exercise slugs', () => {
     expect(upsertBlocks).toHaveLength(3)
   })
 
-  test('every catalog upsert derives slug from name on create and update', () => {
+  test('every catalog upsert derives slug from name on create only', () => {
     for (const block of upsertBlocks) {
-      const occurrences = block.match(/slug: slugify\(name\)/g) ?? []
-      expect(occurrences, `upsert block missing slug derivation:\n${block}`).toHaveLength(2)
+      const updateStart = block.indexOf('update:')
+      const createStart = block.indexOf('create:')
+      expect(updateStart, `upsert block has no update branch:\n${block}`).toBeGreaterThan(-1)
+      expect(createStart, `upsert block has no create branch:\n${block}`).toBeGreaterThan(updateStart)
+      const updateBranch = block.slice(updateStart, createStart)
+      const createBranch = block.slice(createStart)
+      expect(createBranch, `create branch missing slug derivation:\n${block}`).toMatch(/slug: slugify\(name\)/)
+      expect(updateBranch, `update branch must not regenerate slug:\n${block}`).not.toMatch(/slug/)
     }
   })
 

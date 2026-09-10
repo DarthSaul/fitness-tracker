@@ -64,7 +64,7 @@ workout-tracker/
 Domain organized around immutable program definitions, mutable user progress, and auth/push infrastructure:
 
 - **Program library (immutable):** `Program → ProgramWeek → ProgramDay → ProgramExercise → ExerciseSet`
-- **Exercise catalog:** `Exercise` is keyed by unique `name` and carries a unique URL-safe `slug` derived from it via `slugify` (`shared/utils/slug.ts`). The seed re-derives `slug` on every upsert, so it always tracks `name`; never hand-edit one without the other.
+- **Exercise catalog:** `Exercise` is keyed by unique `name` and carries a unique URL-safe `slug`, derived via `slugify` (`shared/utils/slug.ts`) only when the row is created. Slugs are write-once — exercise-media storage paths and deep links are filed under them — so the seed never regenerates one and a renamed exercise keeps its slug. Purchased demo clips live in the **private** `exercise-media` Storage bucket; rows store only object keys (`animationPath`/`posterPath`) and `GET /api/exercises/:id/info` signs them for 15 minutes on every read (`server/utils/exercise-media.ts`). The ledger is `media-manifest.json` (committed) plus the gitignored `media-manifest.private.json` (keys); see `docs/licenses/movekit.md`.
 - **User progress (mutable):** `User`, `UserProgram` (saved/active + current position), `WorkoutSession`, `CompletedSet`
 - **Auth identities:** `Identity` (one User can have many — Google, Apple, email — keyed on `(provider, providerId)`)
 - **Auth tokens:** `RefreshToken` (hashed, 30-day, revocable)

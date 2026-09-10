@@ -2,12 +2,12 @@ defineRouteMeta({
   openAPI: {
     tags: ['Exercises'],
     summary: 'Get demonstration media for an exercise',
-    description: 'Returns an exercise\'s demonstration media (YouTube video link and, when available, a stored gif/animation URL). Global to the exercise — not user-specific.',
+    description: 'Returns an exercise\'s demonstration media: a YouTube video link and, when available, short-lived signed URLs for its hosted demo clip and poster still. The signed URLs expire at `mediaExpiresAt` (about 15 minutes); re-request this route to refresh them. Play inline only — never expose a download or share affordance. Global to the exercise — not user-specific.',
     parameters: [
       { name: 'exerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'Exercise CUID' },
     ],
     responses: {
-      200: { description: 'Exercise media (URLs may be null when not yet set)', content: { 'application/json': { schema: { $ref: '#/components/schemas/ExerciseInfo' } } } },
+      200: { description: 'Exercise media (URLs are null when no media is attached)', content: { 'application/json': { schema: { $ref: '#/components/schemas/ExerciseInfo' } } } },
       400: { description: 'Missing exercise ID' },
       401: { description: 'Unauthorized' },
       404: { description: 'Exercise not found' },
@@ -26,14 +26,26 @@ export default defineEventHandler(async (event) => {
   try {
     const exercise = await prisma.exercise.findUnique({
       where: { id: exerciseId },
-      select: { id: true, name: true, videoUrl: true, animationUrl: true },
+      select: { id: true, name: true, videoUrl: true, animationPath: true, posterPath: true },
     })
 
     if (!exercise) {
       throw createError({ statusCode: 404, statusMessage: 'Exercise not found' })
     }
 
-    return exercise
+    // Rows hold object keys in a private bucket, never URLs. Sign on every
+    // read so what the client receives dies after EXERCISE_MEDIA_TTL_SECONDS.
+    const media = await signExerciseMedia({
+      animationPath: exercise.animationPath,
+      posterPath: exercise.posterPath,
+    })
+
+    return {
+      id: exercise.id,
+      name: exercise.name,
+      videoUrl: exercise.videoUrl,
+      ...media,
+    }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/exercises/:exerciseId/info' }, '[GET /api/exercises/:exerciseId/info] Failed to fetch exercise info')

@@ -1,0 +1,37 @@
+[
+  {
+    "slug": "bench-press",
+    "exerciseId": "3d8e069c-feb6-438e-8769-ae91bfe0d190",
+    "source": "movekit",
+    "sourceName": "Barbell Bench Press",
+    "purchasedAt": "2026-09-08"
+  },
+  {
+    "slug": "barbell-standing-overhead-press",
+    "exerciseId": "bc6fcdf5-f762-4d5d-8905-148517f7907e",
+    "source": "movekit",
+    "sourceName": "Barbell Overhead Press",
+    "purchasedAt": "2026-09-08"
+  },
+  {
+    "slug": "chin-up",
+    "exerciseId": "1d6a23fc-35ce-4afc-98e3-e610e826616a",
+    "source": "movekit",
+    "sourceName": "Chin Ups",
+    "purchasedAt": "2026-09-08"
+  },
+  {
+    "slug": "pull-up",
+    "exerciseId": "83d6919c-b389-4e2e-a302-b5b56fac3fc5",
+    "source": "movekit",
+    "sourceName": "Pull Ups",
+    "purchasedAt": "2026-09-08"
+  },
+  {
+    "slug": "db-zottman-curls",
+    "exerciseId": "cmo6joils001crqwkyrq2crik",
+    "source": "movekit",
+    "sourceName": "Zottman Curl",
+    "purchasedAt": "2026-09-08"
+  }
+]

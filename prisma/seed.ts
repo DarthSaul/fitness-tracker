@@ -8675,7 +8675,7 @@ async function seedStandaloneWorkouts(): Promise<void> {
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { slug: slugify(name) },
+			update: {},
 			create: { name, slug: slugify(name) },
 		});
 	}
@@ -8742,11 +8742,12 @@ async function seedStandaloneWorkouts(): Promise<void> {
 	);
 }
 
-// Sparse demonstration-media map keyed by canonical exercise name. Fill entries
-// in over time as YouTube links (and later stored gif/animation URLs) are
-// gathered; missing entries leave videoUrl/animationUrl null. Spread into both
-// catalog upserts below so re-seeding is idempotent and updates existing rows.
-const EXERCISE_MEDIA: Record<string, { videoUrl?: string; animationUrl?: string }> = {
+// Sparse YouTube-link map keyed by canonical exercise name. Fill entries in
+// over time; missing entries leave videoUrl null. Spread into both catalog
+// upserts below so re-seeding is idempotent and updates existing rows.
+// Hosted demo clips are NOT seeded here: scripts/media/attach.ts owns
+// animationPath/posterPath from media-manifest.json.
+const EXERCISE_MEDIA: Record<string, { videoUrl?: string }> = {
 	// 'Deadlift': { videoUrl: 'https://youtu.be/...' },
 	// 'Plank': { videoUrl: 'https://youtu.be/...' },
 };
@@ -8771,7 +8772,7 @@ async function main(): Promise<void> {
 	for (const name of exerciseNames) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
+			update: { ...(EXERCISE_MEDIA[name] ?? {}) },
 			create: { name, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}
@@ -8793,7 +8794,7 @@ async function main(): Promise<void> {
 	for (const name of CORE_EXERCISES) {
 		await prisma.exercise.upsert({
 			where: { name },
-			update: { isCore: true, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
+			update: { isCore: true, ...(EXERCISE_MEDIA[name] ?? {}) },
 			create: { name, isCore: true, slug: slugify(name), ...(EXERCISE_MEDIA[name] ?? {}) },
 		});
 	}

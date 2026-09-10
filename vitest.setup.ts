@@ -169,6 +169,9 @@ vi.stubGlobal('verifyAppleIdentityToken', vi.fn())
 vi.stubGlobal('verifyGoogleIdToken', vi.fn())
 // Rate limiting — no-op by default in tests (Upstash not configured)
 vi.stubGlobal('rateLimitByIp', vi.fn().mockResolvedValue(undefined))
+// Signed exercise-media URLs — default no-op; the info route test overrides it.
+// Real logic is exercised by server/utils/exercise-media.test.ts.
+vi.stubGlobal('signExerciseMedia', vi.fn())
 
 // ── H3 request helpers ───────────────────────────────────────────────────────
 vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/email/test')))
