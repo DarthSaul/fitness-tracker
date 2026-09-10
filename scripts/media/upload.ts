@@ -16,9 +16,11 @@
  * overwrite (`upsert: false`); a new version of a clip is a new token, so old
  * URLs keep working until retired.
  *
- * The bucket is public because the app streams these clips straight from
- * storage; the random token keeps each object path unguessable so the bucket
- * cannot be walked slug-by-slug.
+ * The bucket is PRIVATE: nothing in it is reachable without a signature, and
+ * `GET /api/exercises/:id/info` signs each key for 15 minutes on every read
+ * (server/utils/exercise-media.ts). This script converges the bucket to
+ * private if it ever finds it public. The random path token is kept as
+ * defence in depth so keys are unguessable even if a listing ever leaked.
  *
  * Requires the service role key: storage writes are gated by RLS and the app
  * has no anon-key client. Never expose this key to the browser.
@@ -79,20 +81,30 @@ function mintToken(): string {
   return randomBytes(12).toString('base64url')
 }
 
+const BUCKET_OPTIONS = {
+  public: false,
+  allowedMimeTypes: ['video/mp4', 'image/webp'],
+  fileSizeLimit: 20 * 1024 * 1024,
+}
+
+/** Create the private bucket if missing; flip it to private if it exists public. */
 async function ensureBucket(): Promise<void> {
   const { data: buckets, error } = await supabase.storage.listBuckets()
   if (error) throw new Error(`listBuckets: ${error.message}`)
-  if (buckets.some(b => b.name === BUCKET)) {
-    console.log(`bucket "${BUCKET}" already exists`)
+  const existing = buckets.find(b => b.name === BUCKET)
+  if (!existing) {
+    const { error: createError } = await supabase.storage.createBucket(BUCKET, BUCKET_OPTIONS)
+    if (createError) throw new Error(`createBucket ${BUCKET}: ${createError.message}`)
+    console.log(`created private bucket "${BUCKET}"`)
     return
   }
-  const { error: createError } = await supabase.storage.createBucket(BUCKET, {
-    public: true,
-    allowedMimeTypes: ['video/mp4', 'image/webp'],
-    fileSizeLimit: 20 * 1024 * 1024,
-  })
-  if (createError) throw new Error(`createBucket ${BUCKET}: ${createError.message}`)
-  console.log(`created public bucket "${BUCKET}"`)
+  if (existing.public) {
+    const { error: updateError } = await supabase.storage.updateBucket(BUCKET, BUCKET_OPTIONS)
+    if (updateError) throw new Error(`updateBucket ${BUCKET}: ${updateError.message}`)
+    console.log(`bucket "${BUCKET}" was public — now private`)
+    return
+  }
+  console.log(`bucket "${BUCKET}" already exists (private)`)
 }
 
 async function assertFile(filePath: string): Promise<void> {
@@ -104,13 +116,12 @@ async function assertFile(filePath: string): Promise<void> {
   }
 }
 
-async function uploadFile(localPath: string, remotePath: string, contentType: string): Promise<string> {
+async function uploadFile(localPath: string, remotePath: string, contentType: string): Promise<void> {
   const body = await readFile(localPath)
   const { error } = await supabase.storage
     .from(BUCKET)
     .upload(remotePath, body, { cacheControl: ONE_YEAR_SECONDS, contentType, upsert: false })
   if (error) throw new Error(`upload ${remotePath}: ${error.message}`)
-  return supabase.storage.from(BUCKET).getPublicUrl(remotePath).data.publicUrl
 }
 
 async function main(): Promise<void> {
@@ -143,17 +154,18 @@ async function main(): Promise<void> {
     const animation = `exercises/${entry.slug}/${token}/demo.mp4`
     const poster = `exercises/${entry.slug}/${token}/poster.webp`
 
-    const demoUrl = await uploadFile(demoLocal, animation, 'video/mp4')
-    const posterUrl = await uploadFile(posterLocal, poster, 'image/webp')
+    await uploadFile(demoLocal, animation, 'video/mp4')
+    await uploadFile(posterLocal, poster, 'image/webp')
 
     index.push({ slug: entry.slug, token, animation, poster })
     // Persist after each clip so a failure part-way leaves every completed
     // upload recorded in the index.
     await writeFile(INDEX_PATH, JSON.stringify(index, null, 2) + '\n')
 
+    // Keys only — there is no public URL to print for a private bucket.
     console.log(`upload ${entry.slug}`)
-    console.log(`         ${demoUrl}`)
-    console.log(`         ${posterUrl}`)
+    console.log(`         ${animation}`)
+    console.log(`         ${poster}`)
     uploaded++
   }
 

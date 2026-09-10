@@ -3,11 +3,13 @@
  *
  * Joins the committed ledger (`media-manifest.json`) with the gitignored
  * storage index (`media-manifest.private.json`, written by upload.ts) on
- * `slug`, builds the public URLs from NUXT_SUPABASE_URL + bucket + the index's
- * storage paths, and sets `animationUrl` and `posterUrl` on the Exercise
- * matched by `slug`. `videoUrl` (the YouTube link) is never touched.
+ * `slug`, and writes the index's bucket-relative object keys onto the
+ * Exercise matched by `slug` as `animationPath` / `posterPath`. Rows never
+ * hold URLs: the bucket is private and `GET /api/exercises/:id/info` signs
+ * the keys for 15 minutes on every read (server/utils/exercise-media.ts).
+ * `videoUrl` (the YouTube link) is never touched.
  *
- * Idempotent: rows already carrying the index's URLs are reported as
+ * Idempotent: rows already carrying the index's keys are reported as
  * unchanged, so it is safe to re-run every time the ledger grows. The ledger's
  * `exerciseId` must agree with the row found by slug — a mismatch means the
  * ledger drifted from the catalog and is reported as an error rather than
@@ -19,7 +21,6 @@ import { PrismaClient } from '@prisma/client'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const BUCKET = 'exercise-media'
 const LEDGER_PATH = path.resolve('media-manifest.json')
 const INDEX_PATH = path.resolve('media-manifest.private.json')
 
@@ -35,12 +36,6 @@ interface StorageEntry {
   poster: string
 }
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
-  if (!value) throw new Error(`Missing ${name} — run via \`pnpm media:attach\` so .env is loaded`)
-  return value
-}
-
 async function readJson<T>(filePath: string, fallbackIfMissing?: T): Promise<T> {
   try {
     return JSON.parse(await readFile(filePath, 'utf8')) as T
@@ -52,7 +47,13 @@ async function readJson<T>(filePath: string, fallbackIfMissing?: T): Promise<T> 
   }
 }
 
-const publicBase = `${requireEnv('NUXT_SUPABASE_URL').replace(/\/$/, '')}/storage/v1/object/public/${BUCKET}/`
+/** Object keys are bucket-relative and must never arrive as URLs. */
+function assertKey(slug: string, field: string, value: string): void {
+  if (/^https?:\/\//i.test(value) || value.startsWith('/')) {
+    throw new Error(`${slug}: ${field} must be a bucket-relative object key, got ${value}`)
+  }
+}
+
 const prisma = new PrismaClient()
 
 async function main(): Promise<void> {
@@ -71,10 +72,12 @@ async function main(): Promise<void> {
       pending++
       continue
     }
+    assertKey(entry.slug, 'animation', stored.animation)
+    assertKey(entry.slug, 'poster', stored.poster)
 
     const exercise = await prisma.exercise.findUnique({
       where: { slug: entry.slug },
-      select: { id: true, name: true, animationUrl: true, posterUrl: true },
+      select: { id: true, name: true, animationPath: true, posterPath: true },
     })
     if (!exercise) {
       errors.push(`${entry.slug}: no Exercise with that slug`)
@@ -85,9 +88,7 @@ async function main(): Promise<void> {
       continue
     }
 
-    const animationUrl = publicBase + stored.animation
-    const posterUrl = publicBase + stored.poster
-    if (exercise.animationUrl === animationUrl && exercise.posterUrl === posterUrl) {
+    if (exercise.animationPath === stored.animation && exercise.posterPath === stored.poster) {
       console.log(`unchanged ${entry.slug}`)
       unchanged++
       continue
@@ -95,7 +96,7 @@ async function main(): Promise<void> {
 
     await prisma.exercise.update({
       where: { id: exercise.id },
-      data: { animationUrl, posterUrl },
+      data: { animationPath: stored.animation, posterPath: stored.poster },
     })
     console.log(`updated   ${entry.slug} (${exercise.name})`)
     updated++

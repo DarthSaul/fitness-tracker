@@ -8742,11 +8742,12 @@ async function seedStandaloneWorkouts(): Promise<void> {
 	);
 }
 
-// Sparse demonstration-media map keyed by canonical exercise name. Fill entries
-// in over time as YouTube links (and later stored gif/animation URLs) are
-// gathered; missing entries leave videoUrl/animationUrl null. Spread into both
-// catalog upserts below so re-seeding is idempotent and updates existing rows.
-const EXERCISE_MEDIA: Record<string, { videoUrl?: string; animationUrl?: string }> = {
+// Sparse YouTube-link map keyed by canonical exercise name. Fill entries in
+// over time; missing entries leave videoUrl null. Spread into both catalog
+// upserts below so re-seeding is idempotent and updates existing rows.
+// Hosted demo clips are NOT seeded here: scripts/media/attach.ts owns
+// animationPath/posterPath from media-manifest.json.
+const EXERCISE_MEDIA: Record<string, { videoUrl?: string }> = {
 	// 'Deadlift': { videoUrl: 'https://youtu.be/...' },
 	// 'Plank': { videoUrl: 'https://youtu.be/...' },
 };
