@@ -77,7 +77,12 @@ Every non-archived run of that program is processed:
 
 Response: `{ "success": true, "archived": boolean }` — `archived` is true when
 any run was kept as history. Completed workouts on archived runs still appear in
-`/api/history` and remain editable.
+`/api/history`, and archiving changes nothing about what can be edited: notes and
+`completedAt` via `PATCH /api/workouts/:id`, and logged sets via
+`POST /api/workouts/:id/sets` and `PATCH|DELETE /api/workouts/:id/sets/:setId`,
+all work on a completed session. Structural edits (extra sets, ad-hoc sets,
+skip, swap, core-circuit setup) still require an in-progress session until the
+completed-workout editing change (#126) lands.
 
 ### `PATCH /api/workouts/:id/complete`
 
