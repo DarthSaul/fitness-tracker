@@ -208,6 +208,46 @@ describe('useWorkoutSession — loadSession ordering', () => {
     expect(session.value?.id).toBe('new')
   })
 
+  // A reload's GET can be served before a date PATCH lands yet arrive after it,
+  // carrying the old date.
+  test('a delayed same-session load does not undo a date update made meanwhile', async () => {
+    let resolveLoad: (v: unknown) => void = () => {}
+    mockFetch
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveLoad = resolve })) // slow GET
+      .mockResolvedValueOnce({}) // date PATCH
+    const { session, exerciseSwaps, loadSession, updateCompletedAt } = useWorkoutSession()
+    session.value = { ...completedSession }
+
+    const load = loadSession('session-1')
+    await updateCompletedAt('2026-03-08')
+    const updated = session.value?.completedAt
+    expect(new Date(updated!).getDate()).toBe(8)
+
+    // The stale response still has the pre-update date, plus genuinely new data
+    resolveLoad({
+      session: { ...completedSession, completedSets: [], workoutExerciseSwaps: [{ programExerciseId: 'pe1' }] },
+      day: { id: 'd1', exerciseGroups: [] },
+    })
+    await load
+
+    expect(session.value?.completedAt).toBe(updated)
+    // ...while the rest of the reload is applied
+    expect(exerciseSwaps.value).toHaveLength(1)
+  })
+
+  test('a load with no overlapping date update takes the server date as-is', async () => {
+    mockFetch.mockResolvedValueOnce({
+      session: { ...completedSession, completedAt: '2026-02-01T09:00:00.000Z', completedSets: [], workoutExerciseSwaps: [] },
+      day: { id: 'd1', exerciseGroups: [] },
+    })
+    const { session, loadSession } = useWorkoutSession()
+    session.value = { ...completedSession }
+
+    await loadSession('session-1')
+
+    expect(session.value?.completedAt).toBe('2026-02-01T09:00:00.000Z')
+  })
+
   test('the latest request still clears state on its own 404', async () => {
     mockFetch.mockRejectedValueOnce(Object.assign(new Error('not found'), { statusCode: 404 }))
     const { session, loadSession } = useWorkoutSession()

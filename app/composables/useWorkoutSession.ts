@@ -184,13 +184,21 @@ export function useWorkoutSession() {
 
   // Bumped per loadSession call so a slow, superseded response cannot win
   let loadSessionToken = 0
+  // Bumped per date update so overlapping updates resolve as "latest wins"
+  let completedAtToken = 0
 
   async function loadSession(sessionId: string): Promise<boolean> {
     const token = ++loadSessionToken
+    const dateTokenAtStart = completedAtToken
     try {
       const data = await $fetch<ActiveWorkoutResponse>(`/api/workouts/${sessionId}`)
       if (token !== loadSessionToken) return false
-      session.value = data.session
+      // A date update for this same session began after this GET was sent, so
+      // the response may predate it: keep the local date, take everything else.
+      const dateChangedMeanwhile = completedAtToken !== dateTokenAtStart && session.value?.id === data.session.id
+      session.value = dateChangedMeanwhile && session.value
+        ? { ...data.session, completedAt: session.value.completedAt }
+        : data.session
       day.value = data.day
       const allCompleted = data.session.completedSets
       completedSets.value = new Map(
@@ -310,9 +318,6 @@ export function useWorkoutSession() {
       }
     }, 800)
   }
-
-  // Bumped per date update so overlapping updates resolve as "latest wins"
-  let completedAtToken = 0
 
   /**
    * Moves a finished session to another calendar day (`YYYY-MM-DD`, local).
