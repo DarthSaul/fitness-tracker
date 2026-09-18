@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { EditingContext, AdHocExerciseGroup } from '~/types/workout'
 
 interface ExerciseCardHandle { collapseAll: () => void }
 
@@ -9,14 +8,29 @@ const route = useRoute()
 const router = useRouter()
 const sessionId = computed(() => route.params.id as string)
 
+const workout = useWorkoutSession()
 const {
   session, day, completedSets, completing, abandoning, recordingSetId,
   totalSets, completedSetCount, progressPercent,
-  loadActiveSession, recordSet, updateSet, deleteCompletedSet,
+  loadActiveSession, recordSet,
   extraCompletedSets, exerciseSwaps, adHocGroups, notesSaving,
-  addExtraSet, deleteExtraSet, updateExtraSet, addAdHocSet, saveWorkoutNotes,
+  addAdHocSet, saveWorkoutNotes,
   swapExercise, completeWorkout, abandonWorkout,
-} = useWorkoutSession()
+} = workout
+
+// Set log drawer state — shared with the finished-session editor
+const {
+  editingContext,
+  editingSet,
+  completedSet: editingCompletedSet,
+  isSwapped: editingIsSwapped,
+  canDelete: editingCanDelete,
+  handleEdit,
+  cancelEdit,
+  handleLog,
+  handleDelete,
+  handleAddExtraSet,
+} = useSetEditing(workout)
 
 const toast = useToast()
 const exerciseCardRefs = ref<(ExerciseCardHandle | null)[]>([])
@@ -31,9 +45,6 @@ const restarting = ref(false)
 const restartError = ref(false)
 const endDialogOpen = ref(false)
 const completeDialogOpen = ref(false)
-
-// Set log drawer state
-const editingContext = ref<EditingContext | null>(null)
 
 // Exercise swap drawer state
 const swapDrawerOpen = ref(false)
@@ -77,139 +88,6 @@ onMounted(async () => {
     pageLoading.value = false
   }
 })
-
-// Computed helpers for drawer bindings to avoid TypeScript narrowing issues in templates
-const editingCompletedSet = computed(() => {
-  const ctx = editingContext.value
-  if (!ctx) return null
-  if (ctx.type === 'template') return completedSets.value.get(ctx.exerciseSetId) ?? null
-  if (ctx.type === 'extra') return extraCompletedSets.value.get(ctx.completedSetId) ?? null
-  if (ctx.type === 'adhoc') return extraCompletedSets.value.get(ctx.completedSetId) ?? null
-  return null
-})
-
-const editingIsSwapped = computed(() => {
-  const ctx = editingContext.value
-  if (!ctx || ctx.type !== 'template' || !day.value) return false
-  for (const group of day.value.exerciseGroups) {
-    for (const ex of group.exercises) {
-      if (ex.sets.some(s => s.id === ctx.exerciseSetId)) {
-        return exerciseSwaps.value.some(swap => swap.programExerciseId === ex.id)
-      }
-    }
-  }
-  return false
-})
-
-const editingCanDelete = computed(() => {
-  const ctx = editingContext.value
-  if (!ctx) return false
-  if (ctx.type === 'template') return completedSets.value.has(ctx.exerciseSetId)
-  return true
-})
-
-// Find the full set detail object for the currently-editing set
-const editingSet = computed(() => {
-  if (!editingContext.value) return null
-  const ctx = editingContext.value
-  if (ctx.type === 'template') {
-    if (!day.value) return null
-    for (const group of day.value.exerciseGroups) {
-      for (const ex of group.exercises) {
-        const found = ex.sets.find(s => s.id === ctx.exerciseSetId)
-        if (found) return found
-      }
-    }
-    return null
-  }
-
-  if (ctx.type === 'extra') {
-    if (!day.value) return null
-    const existing = extraCompletedSets.value.get(ctx.completedSetId)
-    const peId = ctx.programExerciseId
-    let templateSetCount = 0
-    for (const group of day.value.exerciseGroups) {
-      const ex = group.exercises.find(e => e.id === peId)
-      if (ex) { templateSetCount = ex.sets.length; break }
-    }
-    const extrasForExercise = Array.from(extraCompletedSets.value.values())
-      .filter(s => s.programExerciseId === peId)
-    const extraIndex = extrasForExercise.findIndex(s => s.id === ctx.completedSetId)
-    return {
-      id: ctx.completedSetId,
-      setNumber: templateSetCount + (extraIndex >= 0 ? extraIndex + 1 : extrasForExercise.length + 1),
-      reps: existing?.reps ?? null,
-      weight: existing?.weight ?? null,
-      rpe: existing?.rpe ?? null,
-      notes: existing?.notes ?? null,
-      effortTarget: null,
-    }
-  }
-
-  if (ctx.type === 'adhoc') {
-    const cs = extraCompletedSets.value.get(ctx.completedSetId)
-    if (!cs) return null
-    const group = adHocGroups.value.find((g: AdHocExerciseGroup) => g.sets.some(s => s.id === ctx.completedSetId))
-    const setNumber = group ? group.sets.findIndex(s => s.id === ctx.completedSetId) + 1 : 1
-    return {
-      id: ctx.completedSetId,
-      setNumber,
-      reps: cs.reps,
-      weight: cs.weight,
-      rpe: cs.rpe,
-      notes: cs.notes,
-      effortTarget: null,
-    }
-  }
-
-  return null
-})
-
-function handleEdit(context: EditingContext): void {
-  editingContext.value = context
-}
-
-function cancelEdit(): void {
-  editingContext.value = null
-}
-
-async function handleLog(reps: number | null, weight: number | null): Promise<void> {
-  const ctx = editingContext.value
-  if (!ctx) return
-  editingContext.value = null
-
-  if (ctx.type === 'template') {
-    const existing = completedSets.value.get(ctx.exerciseSetId)
-    if (existing) {
-      await updateSet(ctx.exerciseSetId, { reps, weight })
-    } else {
-      await recordSet(ctx.exerciseSetId, { reps, weight })
-    }
-  } else if (ctx.type === 'extra') {
-    await updateExtraSet(ctx.completedSetId, { reps, weight })
-  } else if (ctx.type === 'adhoc') {
-    await updateExtraSet(ctx.completedSetId, { reps, weight })
-  }
-}
-
-async function handleDelete(): Promise<void> {
-  const ctx = editingContext.value
-  if (!ctx) return
-  editingContext.value = null
-
-  if (ctx.type === 'template') {
-    await deleteCompletedSet(ctx.exerciseSetId)
-  } else if (ctx.type === 'extra') {
-    await deleteExtraSet(ctx.completedSetId)
-  } else if (ctx.type === 'adhoc') {
-    await deleteExtraSet(ctx.completedSetId)
-  }
-}
-
-async function handleAddExtraSet(programExerciseId: string): Promise<void> {
-  const newSet = await addExtraSet(programExerciseId, {})
-  editingContext.value = { type: 'extra', completedSetId: newSet.id, programExerciseId }
-}
 
 async function handleExerciseSelected(exerciseName: string): Promise<void> {
   addExerciseDrawerOpen.value = false

@@ -379,6 +379,14 @@ complete apart from Exercise skip UI and Core workouts)
 - [x] Real Settings screen (replaces the drawer and the stub page)
 - [x] Strength on the Go (library, detail, live session)
 - [x] Between-sets rest timer
+- [x] Edit completed workouts from History — `/history/:id/edit` renders
+      `<WorkoutSessionEditor>` (`app/components/workout/SessionEditor.vue`),
+      which loads a session by id alone and so needs no active program. The
+      program day page renders the same component. Set-drawer logic shared with
+      the live workout lives in `useSetEditing`. On a COMPLETED session every
+      change — including the date — persists immediately; only an EDITING
+      session has a Save step. Skip/un-skip is API-only until the skip UI below
+      lands.
 - [ ] **Exercise skip UI** — `POST|DELETE /api/workouts/:id/exercises/:peId/skip`
       exist and are tested server-side, but nothing calls them from the web
       client. Needs `useWorkoutSession` actions plus a control on

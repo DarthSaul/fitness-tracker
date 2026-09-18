@@ -305,6 +305,29 @@ export function useWorkoutSession() {
     }, 800)
   }
 
+  /**
+   * Moves a finished session to another calendar day (`YYYY-MM-DD`, local).
+   * Keeps the original time of day so same-day workouts stay in order, and
+   * clamps to now because the API rejects a future completedAt.
+   */
+  async function updateCompletedAt(localDate: string): Promise<void> {
+    if (!session.value) return
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate)
+    if (!match) return
+
+    const current = new Date(session.value.completedAt ?? session.value.startedAt)
+    const next = new Date(
+      Number(match[1]), Number(match[2]) - 1, Number(match[3]),
+      current.getHours(), current.getMinutes(), current.getSeconds(),
+    )
+    if (isNaN(next.getTime())) return
+    if (next.toDateString() === current.toDateString()) return
+
+    const completedAt = new Date(Math.min(next.getTime(), Date.now())).toISOString()
+    await $fetch<{ id: string }>(`/api/workouts/${session.value.id}`, { method: 'PATCH', body: { completedAt } })
+    if (session.value) session.value = { ...session.value, completedAt }
+  }
+
   async function addAdHocSet(exerciseName: string): Promise<CompletedSetRecord> {
     if (!session.value) throw new Error('No active session')
     const result = await $fetch<CompletedSetRecord>(
@@ -321,7 +344,8 @@ export function useWorkoutSession() {
       `/api/workouts/${session.value.id}/exercises/${programExerciseId}/swap`,
       { method: 'POST', body: { replacementExerciseId } },
     )
-    await loadActiveSession()
+    // By id, not /active: a swap can be made on a finished session too
+    await loadSession(session.value.id)
   }
 
   return {
@@ -353,6 +377,7 @@ export function useWorkoutSession() {
     updateExtraSet,
     addAdHocSet,
     saveWorkoutNotes,
+    updateCompletedAt,
     swapExercise,
     completeWorkout,
     abandonWorkout,
