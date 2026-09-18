@@ -181,6 +181,38 @@ describe('useSetEditing', () => {
     expect(editing.editingContext.value).toEqual({ type: 'extra', completedSetId: 'x9', programExerciseId: 'pe1' })
   })
 
+  // A double-tap before the first request returned created two blank sets
+  test('ignores a second Add Set while the first is still being created', async () => {
+    const workout = makeWorkout()
+    let finish: (v: CompletedSetRecord) => void = () => {}
+    workout.addExtraSet.mockImplementationOnce(() => new Promise<CompletedSetRecord>((resolve) => { finish = resolve }))
+    const editing = setup(workout)
+
+    const first = editing.handleAddExtraSet('pe1')
+    expect(editing.addingExtraSet.value).toBe(true)
+    await editing.handleAddExtraSet('pe1')
+
+    expect(workout.addExtraSet).toHaveBeenCalledTimes(1)
+
+    finish(record('x9', { programExerciseId: 'pe1' }))
+    await first
+    expect(editing.addingExtraSet.value).toBe(false)
+  })
+
+  test('Add Set works again after a failed attempt', async () => {
+    const workout = makeWorkout()
+    workout.addExtraSet
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(record('x9', { programExerciseId: 'pe1' }))
+    const editing = setup(workout)
+
+    await expect(editing.handleAddExtraSet('pe1')).rejects.toThrow('offline')
+    expect(editing.addingExtraSet.value).toBe(false)
+
+    await editing.handleAddExtraSet('pe1')
+    expect(workout.addExtraSet).toHaveBeenCalledTimes(2)
+  })
+
   test('flags a template set whose exercise was swapped', () => {
     const workout = makeWorkout()
     workout.exerciseSwaps.value = [{ programExerciseId: 'pe1' }]

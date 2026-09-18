@@ -30,6 +30,7 @@ const {
   handleLog,
   handleDelete,
   handleAddExtraSet,
+  addingExtraSet,
 } = useSetEditing(workout)
 
 const toast = useToast()
@@ -106,8 +107,17 @@ function handleAdHocLogSet(completedSetId: string): void {
   editingContext.value = { type: 'adhoc', completedSetId }
 }
 
+// Guarded here, not inside addAdHocSet: handleExerciseSelected calls that three times at once
+const addingAdHocSet = ref(false)
+
 async function handleAdHocAddSet(exerciseName: string): Promise<void> {
-  await addAdHocSet(exerciseName)
+  if (addingAdHocSet.value) return
+  addingAdHocSet.value = true
+  try {
+    await addAdHocSet(exerciseName)
+  } finally {
+    addingAdHocSet.value = false
+  }
 }
 
 async function handleGroupComplete(completedGroupIdx: number): Promise<void> {
@@ -345,6 +355,7 @@ async function handleDiscard(): Promise<void> {
               :editable="true"
               :recording-set-id="recordingSetId"
               :completing-group="completingGroupIdx === groupIdx"
+              :adding-extra-set="addingExtraSet"
               @edit="handleEdit"
               @add-extra-set="handleAddExtraSet"
               @swap="handleSwap"
@@ -356,6 +367,7 @@ async function handleDiscard(): Promise<void> {
               :group="group"
               :editable="true"
               @log-set="handleAdHocLogSet"
+              :adding-set="addingAdHocSet"
               @add-set="handleAdHocAddSet"
             />
           </div>

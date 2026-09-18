@@ -4,6 +4,8 @@ import type { AdHocExerciseGroup } from '~/types/workout'
 const props = defineProps<{
   group: AdHocExerciseGroup
   editable: boolean
+  /** A set is being added to an ad-hoc exercise — blocks a second Add Set tap. */
+  addingSet?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -83,7 +85,8 @@ function isLogged(set: AdHocExerciseGroup['sets'][number]): boolean {
           <button
             v-if="editable"
             type="button"
-            class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary"
+            class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary disabled:pointer-events-none disabled:opacity-50"
+            :disabled="addingSet"
             @click.stop="emit('add-set', group.exerciseName)"
           >
             <UIcon name="i-lucide-plus" class="size-3" />

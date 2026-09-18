@@ -157,10 +157,19 @@ export function useSetEditing(workout: SetEditingSource) {
     })
   }
 
+  // True while a blank extra set is being created; a second tap would add another
+  const addingExtraSet = ref(false)
+
   /** Creates a blank extra set and opens it so the user can fill it in. */
   async function handleAddExtraSet(programExerciseId: string): Promise<void> {
-    const newSet = await workout.addExtraSet(programExerciseId, {})
-    editingContext.value = { type: 'extra', completedSetId: newSet.id, programExerciseId }
+    if (addingExtraSet.value) return
+    addingExtraSet.value = true
+    try {
+      const newSet = await workout.addExtraSet(programExerciseId, {})
+      editingContext.value = { type: 'extra', completedSetId: newSet.id, programExerciseId }
+    } finally {
+      addingExtraSet.value = false
+    }
   }
 
   return {
@@ -169,6 +178,7 @@ export function useSetEditing(workout: SetEditingSource) {
     completedSet,
     isSwapped,
     canDelete,
+    addingExtraSet,
     handleEdit,
     cancelEdit,
     handleLog,

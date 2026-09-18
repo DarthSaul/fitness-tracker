@@ -30,8 +30,12 @@ watch([weekNumber, dayNumber, sessions], ([week, day], previous) => {
 async function handleStartLogging(): Promise<void> {
   pageError.value = null
   startingSession.value = true
+  // The page is reused across days; a response for the day we left must not land here
+  const week = weekNumber.value
+  const day = dayNumber.value
   try {
-    sessionId.value = await startRetroactiveSession(weekNumber.value, dayNumber.value)
+    const createdId = await startRetroactiveSession(week, day)
+    if (week === weekNumber.value && day === dayNumber.value) sessionId.value = createdId
   } catch (e) {
     const err = e as { statusCode?: number; statusMessage?: string }
     if (err.statusCode === 409) {

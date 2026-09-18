@@ -97,6 +97,22 @@ describe('useWorkoutSession — updateCompletedAt', () => {
     })
   })
 
+  test('does not stamp the date onto a different session loaded while the PATCH was in flight', async () => {
+    let finish: (v: unknown) => void = () => {}
+    mockFetch.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    const { session, updateCompletedAt } = useWorkoutSession()
+    session.value = { ...completedSession }
+
+    const pending = updateCompletedAt('2026-03-08')
+    const other = { ...completedSession, id: 'session-2', completedAt: '2026-01-01T10:00:00.000Z' }
+    session.value = other
+    finish({})
+    await pending
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/workouts/session-1', expect.anything())
+    expect(session.value).toEqual(other)
+  })
+
   test('leaves the session untouched and rethrows when the PATCH fails', async () => {
     mockFetch.mockRejectedValueOnce(new Error('boom'))
     const { session, updateCompletedAt } = useWorkoutSession()

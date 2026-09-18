@@ -330,8 +330,10 @@ export function useWorkoutSession() {
     if (next.toDateString() === current.toDateString()) return
 
     const completedAt = new Date(Math.min(next.getTime(), Date.now())).toISOString()
-    await $fetch<{ id: string }>(`/api/workouts/${session.value.id}`, { method: 'PATCH', body: { completedAt } })
-    if (session.value) session.value = { ...session.value, completedAt }
+    const sessionId = session.value.id
+    await $fetch<{ id: string }>(`/api/workouts/${sessionId}`, { method: 'PATCH', body: { completedAt } })
+    // Another session may have been loaded while the request was in flight
+    if (session.value?.id === sessionId) session.value = { ...session.value, completedAt }
   }
 
   async function addAdHocSet(exerciseName: string): Promise<CompletedSetRecord> {

@@ -34,7 +34,7 @@ const {
 } = workout
 
 const {
-  editingContext, editingSet, completedSet, isSwapped, canDelete,
+  editingContext, editingSet, completedSet, isSwapped, canDelete, addingExtraSet,
   handleEdit, cancelEdit, handleLog, handleDelete, handleAddExtraSet,
 } = useSetEditing(workout)
 
@@ -49,6 +49,7 @@ const swapDrawerOpen = ref(false)
 const swappingProgramExerciseId = ref<string | null>(null)
 const swapConfirming = ref(false)
 const dateSaving = ref(false)
+const addingAdHocSet = ref(false)
 
 function toLocalDateString(d: Date): string {
   const year = d.getFullYear()
@@ -131,6 +132,22 @@ async function handleExerciseSelected(exerciseName: string): Promise<void> {
   } else if (added < results.length) {
     // The saved sets are already on screen — adding the exercise again would duplicate them
     notifyFailure(`Added ${added} of ${results.length} sets. Use Add Set on the exercise card for the rest.`)
+  }
+}
+
+/**
+ * Add Set on an ad-hoc card. Guarded here rather than inside addAdHocSet, which
+ * handleExerciseSelected deliberately calls three times at once.
+ */
+async function handleAdHocAddSet(exerciseName: string): Promise<void> {
+  if (addingAdHocSet.value) return
+  addingAdHocSet.value = true
+  try {
+    await addAdHocSet(exerciseName)
+  } catch {
+    notifyFailure('Couldn\'t add the set')
+  } finally {
+    addingAdHocSet.value = false
   }
 }
 
@@ -259,6 +276,7 @@ async function confirmDiscard(): Promise<void> {
           :exercise-swaps="exerciseSwaps"
           :editable="true"
           :recording-set-id="recordingSetId"
+          :adding-extra-set="addingExtraSet"
           @edit="handleEdit"
           @add-extra-set="(peId) => attempt(() => handleAddExtraSet(peId), 'Couldn\'t add the set')"
           @swap="handleSwap"
@@ -268,8 +286,9 @@ async function confirmDiscard(): Promise<void> {
           :key="group.exerciseName"
           :group="group"
           :editable="true"
+          :adding-set="addingAdHocSet"
           @log-set="(completedSetId) => handleEdit({ type: 'adhoc', completedSetId })"
-          @add-set="(name) => attempt(async () => { await addAdHocSet(name) }, 'Couldn\'t add the set')"
+          @add-set="handleAdHocAddSet"
         />
       </div>
 

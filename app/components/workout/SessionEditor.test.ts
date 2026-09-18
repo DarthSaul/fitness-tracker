@@ -32,6 +32,7 @@ vi.stubGlobal('useSetEditing', () => ({
   handleLog: vi.fn(),
   handleDelete: vi.fn(),
   handleAddExtraSet: vi.fn(),
+  addingExtraSet: ref(true),
 }))
 
 const day = { id: 'd1', warmUp: null, exerciseGroups: [{ id: 'g1', exercises: [] }] }
@@ -81,10 +82,13 @@ const stubs = {
   UButton: { template: '<button><slot /></button>' },
   UModal: { props: ['open'], template: '<div v-if="open"><slot name="body" /></div>' },
   WorkoutExerciseCard: {
-    props: ['extraCompletedSets', 'exerciseSwaps', 'disableExtraSets', 'disableExerciseSwaps'],
+    props: ['extraCompletedSets', 'exerciseSwaps', 'disableExtraSets', 'disableExerciseSwaps', 'addingExtraSet'],
     template: '<div data-testid="exercise-card" />',
   },
-  WorkoutAdHocExerciseCard: true,
+  WorkoutAdHocExerciseCard: {
+    props: ['addingSet'],
+    template: '<button data-testid="adhoc-add" :data-adding="String(!!addingSet)" @click="$emit(\'add-set\', \'Face Pulls\')" />',
+  },
   WorkoutSetLogDrawer: true,
   WorkoutExerciseSearchDrawer: { template: '<button data-testid="pick-exercise" @click="$emit(\'select\', \'Face Pulls\')" />' },
   WorkoutExerciseSwapDrawer: true,
@@ -210,6 +214,32 @@ describe('WorkoutSessionEditor', () => {
     await flushPromises()
 
     expect(toastAdd.mock.calls[0]![0].title).toMatch(/try again/i)
+  })
+
+  test('passes the extra-set pending state to the exercise card', async () => {
+    const wrapper = await mountEditor('COMPLETED')
+    const card = wrapper.findComponent('[data-testid="exercise-card"]') as unknown as { props: (k: string) => unknown }
+
+    expect(card.props('addingExtraSet')).toBe(true)
+  })
+
+  test('ignores a second ad-hoc Add Set while the first is in flight, and disables the control', async () => {
+    const wrapper = await mountEditor('COMPLETED')
+    workoutRef.adHocGroups.value = [{ exerciseName: 'Face Pulls', sets: [] }] as never
+    await nextTick()
+    let finish: (v: unknown) => void = () => {}
+    workoutRef.addAdHocSet.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+
+    const button = wrapper.find('[data-testid="adhoc-add"]')
+    await button.trigger('click')
+    expect(button.attributes('data-adding')).toBe('true')
+    await button.trigger('click')
+
+    expect(workoutRef.addAdHocSet).toHaveBeenCalledTimes(1)
+
+    finish({ id: 'a1' })
+    await flushPromises()
+    expect(button.attributes('data-adding')).toBe('false')
   })
 
   test('renders an error when the session does not exist', async () => {
