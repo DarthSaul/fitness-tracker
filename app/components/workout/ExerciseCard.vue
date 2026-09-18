@@ -16,6 +16,8 @@ const props = defineProps<{
   completingGroup?: boolean
   disableExtraSets?: boolean
   disableExerciseSwaps?: boolean
+  /** An extra set is being created — blocks a second Add Set tap. */
+  addingExtraSet?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -325,7 +327,8 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
               <button
                 v-if="editable && !disableExtraSets"
                 type="button"
-                class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary"
+                class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary disabled:pointer-events-none disabled:opacity-50"
+                :disabled="addingExtraSet"
                 @click.stop="emit('add-extra-set', ex.id)"
               >
                 <UIcon name="i-lucide-plus" class="size-3" />
@@ -485,7 +488,8 @@ async function saveUserNotes(exerciseId: string, notes: string): Promise<void> {
             <button
               v-if="editable && !disableExtraSets"
               type="button"
-              class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary"
+              class="mt-1 flex w-full items-center justify-center gap-1.5 rounded-chip py-2 text-xs text-label-tertiary transition-colors hover:text-label-secondary disabled:pointer-events-none disabled:opacity-50"
+              :disabled="addingExtraSet"
               @click.stop="emit('add-extra-set', group.exercises[0].id)"
             >
               <UIcon name="i-lucide-plus" class="size-3" />

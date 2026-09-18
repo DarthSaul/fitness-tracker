@@ -1,5 +1,6 @@
 /**
- * Read-only detail for a completed program workout.
+ * Detail for a completed program workout. Read-only here; "Edit workout" opens
+ * the editor, which needs no active program.
  */
 <script setup lang="ts">
 import type { CompletedSetRecord, WorkoutSession } from '~/types/workout'
@@ -69,13 +70,15 @@ const logged = computed<DetailLoggedSet[]>(() =>
       <UButton variant="soft" label="Back to history" to="/history" class="mt-1" />
     </div>
 
-    <HistorySessionDetail
-      v-else
-      :completed-at="data.session.completedAt ?? data.session.startedAt"
-      :groups="groups"
-      :logged="logged"
-      :warm-up="data.day.warmUp"
-      :notes="data.session.notes"
-    />
+    <div v-else class="space-y-4">
+      <HistorySessionDetail
+        :completed-at="data.session.completedAt ?? data.session.startedAt"
+        :groups="groups"
+        :logged="logged"
+        :warm-up="data.day.warmUp"
+        :notes="data.session.notes"
+      />
+      <AppActionPill label="Edit workout" :to="`/history/${sessionId}/edit`" />
+    </div>
   </div>
 </template>

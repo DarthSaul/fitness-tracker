@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import type { EditingContext } from '~/types/workout'
-import type { CompletedSetRecord, WorkoutExerciseSwap } from '~/types/workout'
-
 definePageMeta({ layout: 'app', header: { title: 'Log Workout', style: 'inline' } })
 
 const route = useRoute()
@@ -10,75 +7,35 @@ const router = useRouter()
 const weekNumber = computed(() => Number(route.params.week))
 const dayNumber = computed(() => Number(route.params.day))
 
-const {
-  session,
-  day,
-  completedSets,
-  completing,
-  abandoning,
-  recordingSetId,
-  totalSets,
-  completedSetCount,
-  progressPercent,
-  isSetCompleted,
-  loadSession,
-  recordSet,
-  updateSet,
-  deleteCompletedSet,
-  completeWorkout,
-  abandonWorkout,
-} = useWorkoutSession()
+const { sessions, isLoading, startRetroactiveSession, getSessionForDay, refreshSessions } = useProgramManager()
 
-const { startRetroactiveSession, getSessionForDay, refreshSessions } = useProgramManager()
-
-const pageLoading = ref(true)
+// The editor loads the session itself; this page only resolves which one.
+const sessionId = ref<string | null>(null)
 const pageError = ref<string | null>(null)
 const startingSession = ref(false)
-const editingSetId = ref<string | null>(null)
-const discardDialogOpen = ref(false)
-const saveDialogOpen = ref(false)
 
-// Empty stubs for the new ExerciseCard props not needed in retroactive mode
-const emptyExtraCompletedSets = new Map<string, CompletedSetRecord>()
-const emptyExerciseSwaps: WorkoutExerciseSwap[] = []
-
-function toLocalDateString(d: Date): string {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const dayNum = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${dayNum}`
-}
-
-// Date picker for backdating
-const todayLocal = toLocalDateString(new Date())
-const workoutDate = ref(todayLocal)
-
-onMounted(async () => {
-  try {
-    // Check if a session already exists for this day
-    const existingSession = getSessionForDay(weekNumber.value, dayNumber.value)
-    if (existingSession) {
-      await loadSession(existingSession.id)
-      // Pre-fill date from session
-      if (session.value?.completedAt) {
-        workoutDate.value = toLocalDateString(new Date(session.value.completedAt))
-      } else if (session.value?.startedAt) {
-        workoutDate.value = toLocalDateString(new Date(session.value.startedAt))
-      }
-    }
-  } catch {
-    pageError.value = 'Failed to load workout data'
-  } finally {
-    pageLoading.value = false
+// The session list loads asynchronously and the page can be reused across
+// days, so resolve on every change rather than once at mount.
+watch([weekNumber, dayNumber, sessions], ([week, day], previous) => {
+  const found = getSessionForDay(week, day)?.id
+  if (found) {
+    sessionId.value = found
+  } else if (previous && (week !== previous[0] || day !== previous[1])) {
+    sessionId.value = null
   }
-})
+  // Otherwise keep the current id: a session just created by Start Logging is
+  // not in the list until it refreshes.
+}, { immediate: true })
 
 async function handleStartLogging(): Promise<void> {
   pageError.value = null
   startingSession.value = true
+  // The page is reused across days; a response for the day we left must not land here
+  const week = weekNumber.value
+  const day = dayNumber.value
   try {
-    const sessionId = await startRetroactiveSession(weekNumber.value, dayNumber.value)
-    await loadSession(sessionId)
+    const createdId = await startRetroactiveSession(week, day)
+    if (week === weekNumber.value && day === dayNumber.value) sessionId.value = createdId
   } catch (e) {
     const err = e as { statusCode?: number; statusMessage?: string }
     if (err.statusCode === 409) {
@@ -93,235 +50,53 @@ async function handleStartLogging(): Promise<void> {
   }
 }
 
-// Find the full set detail object for the currently-editing set
-const editingSet = computed(() => {
-  if (!editingSetId.value || !day.value) return null
-  for (const group of day.value.exerciseGroups) {
-    for (const ex of group.exercises) {
-      const found = ex.sets.find(s => s.id === editingSetId.value)
-      if (found) return found
-    }
-  }
-  return null
-})
-
-function handleEdit(exerciseSetId: string): void {
-  editingSetId.value = exerciseSetId
-}
-
-function cancelEdit(): void {
-  editingSetId.value = null
-}
-
-async function handleLog(exerciseSetId: string, reps: number | null, weight: number | null): Promise<void> {
-  editingSetId.value = null
-  if (isSetCompleted(exerciseSetId)) {
-    await updateSet(exerciseSetId, { reps, weight })
-  } else {
-    await recordSet(exerciseSetId, { reps, weight })
-  }
-}
-
-async function onDeleteSet(): Promise<void> {
-  if (!editingSetId.value) return
-  const id = editingSetId.value
-  try {
-    await deleteCompletedSet(id)
-    cancelEdit()
-  } catch {
-    pageError.value = 'Failed to delete set'
-  }
-}
-
-async function confirmSave(): Promise<void> {
-  saveDialogOpen.value = false
-  try {
-    const completedAt = workoutDate.value
-      ? new Date(workoutDate.value + 'T12:00:00').toISOString()
-      : null
-    await completeWorkout(completedAt)
-  } catch {
-    pageError.value = 'Failed to save workout'
-    return
-  }
+async function onSaved(): Promise<void> {
   // Save succeeded — navigate away; don't let refresh failure block the user
   refreshSessions().catch(() => {})
   await router.push('/program')
 }
 
-async function confirmDiscard(): Promise<void> {
-  try {
-    await abandonWorkout()
-    await refreshSessions()
-    discardDialogOpen.value = false
-    await router.push('/program')
-  } catch {
-    discardDialogOpen.value = false
-    pageError.value = 'Failed to discard session'
-  }
+async function onDiscarded(): Promise<void> {
+  await refreshSessions().catch(() => {})
+  await router.push('/program')
 }
 </script>
 
 <template>
   <div class="space-y-4">
     <!-- Header -->
-    <div class="flex items-center gap-3">
-      <h2 class="flex-1 text-title3 font-semibold">
-        Week {{ weekNumber }}, Day {{ dayNumber }}
-      </h2>
-      <UButton
-        v-if="session && session.status === 'EDITING'"
-        color="error"
-        variant="ghost"
-        size="sm"
-        icon="i-lucide-trash-2"
-        :loading="abandoning"
-        @click="discardDialogOpen = true"
-      />
-    </div>
-
-    <!-- Loading -->
-    <template v-if="pageLoading">
-      <AppSkeleton :height="40" />
-      <AppSkeleton :height="16" width="100%" />
-      <AppSkeleton :height="128" :count="3" />
-    </template>
+    <h2 class="text-title3 font-semibold">
+      Week {{ weekNumber }}, Day {{ dayNumber }}
+    </h2>
 
     <!-- Error -->
-    <UAlert v-else-if="pageError" color="error" variant="subtle" :title="pageError" icon="i-lucide-alert-circle" />
-
-    <!-- No session yet — show start logging prompt -->
-    <template v-else-if="!session">
-      <div class="flex flex-col items-center gap-4 py-8 text-center">
-        <UIcon name="i-lucide-clipboard-list" class="size-12 text-label-tertiary" />
-        <p class="text-label-secondary">
-          No workout logged for this day yet.
-        </p>
-        <UButton
-          color="primary"
-          size="lg"
-          :loading="startingSession"
-          @click="handleStartLogging"
-        >
-          Start Logging
-        </UButton>
-      </div>
-    </template>
+    <UAlert v-if="pageError" color="error" variant="subtle" :title="pageError" icon="i-lucide-alert-circle" />
 
     <!-- Session exists — show editor -->
-    <template v-else-if="day">
-      <!-- Date picker -->
-      <div class="flex items-center gap-3 rounded-tile bg-surface px-3 py-2.5">
-        <UIcon name="i-lucide-calendar" class="size-4 text-label-secondary" />
-        <label for="workout-date" class="text-sm text-label-secondary">Date <span class="text-label-secondary">(optional)</span></label>
-        <input
-          id="workout-date"
-          v-model="workoutDate"
-          type="date"
-          :max="todayLocal"
-          class="flex-1 bg-transparent text-sm tnum text-label outline-none"
-        >
-      </div>
+    <WorkoutSessionEditor
+      v-if="sessionId"
+      :session-id="sessionId"
+      @saved="onSaved"
+      @discarded="onDiscarded"
+    />
 
-      <!-- Completed badge -->
-      <div v-if="session.status === 'COMPLETED'" class="flex items-center gap-2 rounded-tile bg-ios-green/15 px-3 py-2 text-sm text-ios-green">
-        <UIcon name="i-lucide-check-circle" class="size-4" />
-        Workout completed
-      </div>
+    <!-- Sessions still loading — don't offer Start Logging for a day that may have one -->
+    <AppSkeleton v-else-if="isLoading" :height="128" :count="3" />
 
-      <!-- Progress bar -->
-      <div class="space-y-1">
-        <div class="flex items-center justify-between text-xs text-label-secondary">
-          <span>Progress</span>
-          <span>{{ completedSetCount }} / {{ totalSets }} sets</span>
-        </div>
-        <div class="h-3 overflow-hidden rounded-full bg-fill">
-          <div
-            class="h-full rounded-full bg-tint transition-all duration-300"
-            :style="{ width: `${progressPercent}%` }"
-          />
-        </div>
-      </div>
-
-      <!-- Warm-up -->
-      <div v-if="day.warmUp" class="rounded-tile bg-ios-orange/15 px-3 py-2.5">
-        <p class="text-caption2 font-medium text-ios-orange/70">Warm-up</p>
-        <p class="mt-0.5 text-sm text-ios-orange">{{ day.warmUp }}</p>
-      </div>
-
-      <!-- Exercise groups -->
-      <div class="space-y-3">
-        <WorkoutExerciseCard
-          v-for="group in day.exerciseGroups"
-          :key="group.id"
-          :group="group"
-          :completed-sets="completedSets"
-          :extra-completed-sets="emptyExtraCompletedSets"
-          :exercise-swaps="emptyExerciseSwaps"
-          :editable="true"
-          :recording-set-id="recordingSetId"
-          :disable-extra-sets="true"
-          :disable-exercise-swaps="true"
-          @edit="(ctx) => ctx.type === 'template' && handleEdit(ctx.exerciseSetId)"
-          @add-extra-set="() => {}"
-          @swap="() => {}"
-        />
-      </div>
-
-      <!-- Set log drawer -->
-      <WorkoutSetLogDrawer
-        v-if="editingSet"
-        :open="editingSetId !== null"
-        :set="editingSet"
-        :completed-set="editingSetId ? (completedSets.get(editingSetId) ?? null) : null"
-        :loading="recordingSetId !== null"
-        :can-delete="editingSetId ? completedSets.has(editingSetId) : false"
-        @log="(reps, weight) => editingSetId && handleLog(editingSetId, reps, weight)"
-        @delete="onDeleteSet"
-        @close="cancelEdit"
-      />
-
-      <!-- Save button (only for EDITING sessions) -->
-      <div v-if="session.status === 'EDITING'" class="pt-4 pb-2">
-        <UButton
-          color="primary"
-          size="lg"
-          block
-          class="py-5 text-base"
-          :loading="completing"
-          @click="saveDialogOpen = true"
-        >
-          Save
-        </UButton>
-      </div>
-    </template>
-
-    <!-- Discard confirmation dialog -->
-    <UModal v-model:open="discardDialogOpen" title="Discard Session" description="Discard this session and all logged sets?">
-      <template #body>
-        <div class="flex justify-end gap-3">
-          <UButton color="neutral" variant="ghost" @click="discardDialogOpen = false">
-            Cancel
-          </UButton>
-          <UButton color="error" :loading="abandoning" @click="confirmDiscard">
-            Discard
-          </UButton>
-        </div>
-      </template>
-    </UModal>
-
-    <!-- Save confirmation dialog -->
-    <UModal v-model:open="saveDialogOpen" title="Save Workout" description="Mark this workout as complete?">
-      <template #body>
-        <div class="flex justify-end gap-3">
-          <UButton color="neutral" variant="ghost" @click="saveDialogOpen = false">
-            Cancel
-          </UButton>
-          <UButton color="primary" :loading="completing" @click="confirmSave">
-            Save
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    <!-- No session yet — show start logging prompt -->
+    <div v-else-if="!pageError" class="flex flex-col items-center gap-4 py-8 text-center">
+      <UIcon name="i-lucide-clipboard-list" class="size-12 text-label-tertiary" />
+      <p class="text-label-secondary">
+        No workout logged for this day yet.
+      </p>
+      <UButton
+        color="primary"
+        size="lg"
+        :loading="startingSession"
+        @click="handleStartLogging"
+      >
+        Start Logging
+      </UButton>
+    </div>
   </div>
 </template>

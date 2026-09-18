@@ -14,6 +14,7 @@ describe('resolveBreadcrumbs', () => {
     test.each([
       ['history-id', 'History', '/history'],
       ['history-standalone-id', 'History', '/history'],
+      ['history-id-edit', 'History', '/history'],
       ['programs-id', 'Programs', '/programs'],
       ['feedback', 'Settings', '/settings'],
       ['pt-routines', 'Settings', '/settings'],

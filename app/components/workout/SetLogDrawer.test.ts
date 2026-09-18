@@ -125,6 +125,21 @@ describe('SetLogDrawer', () => {
     expect(wrapper.emitted('delete')).toBeTruthy()
   })
 
+  // Closing is the parent's call: it clears the editing context once the delete
+  // has persisted. Emitting close here as well shut the drawer on a FAILED
+  // delete, so the set looked deleted when it was not.
+  test('does not close itself when delete is clicked', async () => {
+    const wrapper = mount(SetLogDrawer, {
+      props: { set: mockSet, completedSet: null, open: true, loading: false, canDelete: true },
+      global: { stubs },
+    })
+    const deleteBtn = wrapper.findAll('button').find(b => b.text() === 'Delete Set')
+    await deleteBtn!.trigger('click')
+
+    expect(wrapper.emitted('delete')).toBeTruthy()
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+
   test('inputs are blank when isSwapped is true and completedSet is null', async () => {
     const wrapper = mount(SetLogDrawer, {
       props: { set: mockSet, completedSet: null, open: true, loading: false, isSwapped: true },

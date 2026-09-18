@@ -182,10 +182,23 @@ export function useWorkoutSession() {
     }
   }
 
+  // Bumped per loadSession call so a slow, superseded response cannot win
+  let loadSessionToken = 0
+  // Bumped per date update so overlapping updates resolve as "latest wins"
+  let completedAtToken = 0
+
   async function loadSession(sessionId: string): Promise<boolean> {
+    const token = ++loadSessionToken
+    const dateTokenAtStart = completedAtToken
     try {
       const data = await $fetch<ActiveWorkoutResponse>(`/api/workouts/${sessionId}`)
-      session.value = data.session
+      if (token !== loadSessionToken) return false
+      // A date update for this same session began after this GET was sent, so
+      // the response may predate it: keep the local date, take everything else.
+      const dateChangedMeanwhile = completedAtToken !== dateTokenAtStart && session.value?.id === data.session.id
+      session.value = dateChangedMeanwhile && session.value
+        ? { ...data.session, completedAt: session.value.completedAt }
+        : data.session
       day.value = data.day
       const allCompleted = data.session.completedSets
       completedSets.value = new Map(
@@ -201,6 +214,7 @@ export function useWorkoutSession() {
       exerciseSwaps.value = data.session.workoutExerciseSwaps ?? []
       return true
     } catch (e) {
+      if (token !== loadSessionToken) return false
       if ((e as { statusCode?: number }).statusCode === 404) {
         session.value = null
         day.value = null
@@ -305,6 +319,37 @@ export function useWorkoutSession() {
     }, 800)
   }
 
+  /**
+   * Moves a finished session to another calendar day (`YYYY-MM-DD`, local).
+   * Keeps the original time of day so same-day workouts stay in order, and
+   * clamps to now because the API rejects a future completedAt.
+   */
+  async function updateCompletedAt(localDate: string): Promise<void> {
+    if (!session.value) return
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate)
+    if (!match) return
+
+    const current = new Date(session.value.completedAt ?? session.value.startedAt)
+    const next = new Date(
+      Number(match[1]), Number(match[2]) - 1, Number(match[3]),
+      current.getHours(), current.getMinutes(), current.getSeconds(),
+    )
+    if (isNaN(next.getTime())) return
+    if (next.toDateString() === current.toDateString()) return
+
+    const completedAt = new Date(Math.min(next.getTime(), Date.now())).toISOString()
+    const sessionId = session.value.id
+    const token = ++completedAtToken
+    await $fetch<{ id: string }>(`/api/workouts/${sessionId}`, { method: 'PATCH', body: { completedAt } })
+    // Skip if a later date update superseded this one, or another session was
+    // loaded meanwhile. A same-session reload deliberately does NOT supersede
+    // it: the PATCH succeeded, so this is the server's value, and a reload that
+    // raced ahead of it may be showing the old date.
+    if (token === completedAtToken && session.value?.id === sessionId) {
+      session.value = { ...session.value, completedAt }
+    }
+  }
+
   async function addAdHocSet(exerciseName: string): Promise<CompletedSetRecord> {
     if (!session.value) throw new Error('No active session')
     const result = await $fetch<CompletedSetRecord>(
@@ -321,7 +366,8 @@ export function useWorkoutSession() {
       `/api/workouts/${session.value.id}/exercises/${programExerciseId}/swap`,
       { method: 'POST', body: { replacementExerciseId } },
     )
-    await loadActiveSession()
+    // By id, not /active: a swap can be made on a finished session too
+    await loadSession(session.value.id)
   }
 
   return {
@@ -353,6 +399,7 @@ export function useWorkoutSession() {
     updateExtraSet,
     addAdHocSet,
     saveWorkoutNotes,
+    updateCompletedAt,
     swapExercise,
     completeWorkout,
     abandonWorkout,

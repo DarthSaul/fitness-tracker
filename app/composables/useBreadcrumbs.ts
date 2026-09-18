@@ -17,6 +17,8 @@ export type Crumb = {
 const PARENTS: Record<string, Crumb[]> = {
   'history-id': [{ label: 'History', to: '/history' }],
   'history-standalone-id': [{ label: 'History', to: '/history' }],
+  // The trail is static, so the workout being edited is not a crumb of its own
+  'history-id-edit': [{ label: 'History', to: '/history' }],
   'programs-id': [{ label: 'Programs', to: '/programs' }],
   'program': [{ label: 'Home', to: '/home' }],
   'program-week-week-day-day': [
