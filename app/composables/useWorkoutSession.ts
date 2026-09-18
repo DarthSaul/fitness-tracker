@@ -182,9 +182,14 @@ export function useWorkoutSession() {
     }
   }
 
+  // Bumped per loadSession call so a slow, superseded response cannot win
+  let loadSessionToken = 0
+
   async function loadSession(sessionId: string): Promise<boolean> {
+    const token = ++loadSessionToken
     try {
       const data = await $fetch<ActiveWorkoutResponse>(`/api/workouts/${sessionId}`)
+      if (token !== loadSessionToken) return false
       session.value = data.session
       day.value = data.day
       const allCompleted = data.session.completedSets
@@ -201,6 +206,7 @@ export function useWorkoutSession() {
       exerciseSwaps.value = data.session.workoutExerciseSwaps ?? []
       return true
     } catch (e) {
+      if (token !== loadSessionToken) return false
       if ((e as { statusCode?: number }).statusCode === 404) {
         session.value = null
         day.value = null

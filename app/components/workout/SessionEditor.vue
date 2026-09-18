@@ -66,10 +66,14 @@ function syncDateFromSession(): void {
 }
 
 async function load(): Promise<void> {
+  const requestedId = props.sessionId
+  // A newer load owns the loading/error state once the id has moved on
+  const superseded = () => requestedId !== props.sessionId
   loading.value = true
   loadError.value = null
   try {
-    const found = await loadSession(props.sessionId)
+    const found = await loadSession(requestedId)
+    if (superseded()) return
     if (!found || !session.value) {
       loadError.value = 'Workout not found'
       return
@@ -77,9 +81,9 @@ async function load(): Promise<void> {
     syncDateFromSession()
     emit('loaded', session.value)
   } catch {
-    loadError.value = 'Failed to load workout data'
+    if (!superseded()) loadError.value = 'Failed to load workout data'
   } finally {
-    loading.value = false
+    if (!superseded()) loading.value = false
   }
 }
 
@@ -121,8 +125,12 @@ async function handleExerciseSelected(exerciseName: string): Promise<void> {
     addAdHocSet(exerciseName),
     addAdHocSet(exerciseName),
   ])
-  if (results.some(r => r.status === 'rejected')) {
-    notifyFailure('Some sets could not be added. Please try again.')
+  const added = results.filter(r => r.status === 'fulfilled').length
+  if (added === 0) {
+    notifyFailure('Couldn\'t add the exercise. Please try again.')
+  } else if (added < results.length) {
+    // The saved sets are already on screen — adding the exercise again would duplicate them
+    notifyFailure(`Added ${added} of ${results.length} sets. Use Add Set on the exercise card for the rest.`)
   }
 }
 

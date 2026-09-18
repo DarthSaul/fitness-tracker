@@ -191,6 +191,55 @@ describe('useSetEditing', () => {
     expect(editing.isSwapped.value).toBe(true)
   })
 
+  // Clearing the context before the save resolved closed the drawer on a failed
+  // request and threw away what the user had typed.
+  test('keeps the set open when saving fails, so the input is not lost', async () => {
+    const workout = makeWorkout()
+    workout.recordSet.mockRejectedValueOnce(new Error('offline'))
+    const editing = setup(workout)
+
+    editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+    await expect(editing.handleLog(5, 80)).rejects.toThrow('offline')
+
+    expect(editing.editingContext.value).toEqual({ type: 'template', exerciseSetId: 's1' })
+
+    // ...and a retry still works
+    await editing.handleLog(5, 80)
+    expect(workout.recordSet).toHaveBeenCalledTimes(2)
+    expect(editing.editingContext.value).toBeNull()
+  })
+
+  test('keeps the set open when deleting fails', async () => {
+    const workout = makeWorkout()
+    workout.completedSets.value.set('s1', record('cs1', { exerciseSetId: 's1' }))
+    workout.deleteCompletedSet.mockRejectedValueOnce(new Error('offline'))
+    const editing = setup(workout)
+
+    editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+    await expect(editing.handleDelete()).rejects.toThrow('offline')
+
+    expect(editing.editingContext.value).not.toBeNull()
+  })
+
+  test('ignores a second submission while the first is in flight', async () => {
+    const workout = makeWorkout()
+    let finish: () => void = () => {}
+    workout.recordSet.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve }))
+    const editing = setup(workout)
+
+    editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+    const first = editing.handleLog(5, 80)
+    await editing.handleLog(5, 80)
+    await editing.handleDelete()
+
+    expect(workout.recordSet).toHaveBeenCalledTimes(1)
+    expect(workout.deleteCompletedSet).not.toHaveBeenCalled()
+
+    finish()
+    await first
+    expect(editing.editingContext.value).toBeNull()
+  })
+
   test('log and delete are no-ops when nothing is being edited', async () => {
     const workout = makeWorkout()
     const editing = setup(workout)

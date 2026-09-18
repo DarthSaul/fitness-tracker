@@ -30,7 +30,9 @@ function invalidateSessionCaches(): void {
   clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
 }
 
+// Edits to a completed session save as they are made, so "Done" needs this too
 async function backToDetail(): Promise<void> {
+  invalidateSessionCaches()
   await router.push(`/history/${sessionId.value}`)
 }
 
@@ -41,7 +43,6 @@ async function onDiscarded(): Promise<void> {
 }
 
 async function onSaved(): Promise<void> {
-  invalidateSessionCaches()
   await backToDetail()
 }
 </script>

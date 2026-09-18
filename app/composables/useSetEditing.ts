@@ -21,6 +21,8 @@ export function useSetEditing(workout: SetEditingSource) {
   const { day, completedSets, extraCompletedSets, exerciseSwaps, adHocGroups } = workout
 
   const editingContext = ref<EditingContext | null>(null)
+  // True while a log/delete is being persisted; blocks a second submission
+  const persisting = ref(false)
 
   /** The logged record behind the open set, if it has been logged. */
   const completedSet = computed<CompletedSetRecord | null>(() => {
@@ -114,32 +116,45 @@ export function useSetEditing(workout: SetEditingSource) {
     editingContext.value = null
   }
 
-  async function handleLog(reps: number | null, weight: number | null): Promise<void> {
+  /**
+   * Runs a write for the open set. The context is cleared only once the write
+   * succeeds, so a failed save leaves the drawer — and what was typed — in place.
+   */
+  async function persist(write: (ctx: EditingContext) => Promise<void>): Promise<void> {
     const ctx = editingContext.value
-    if (!ctx) return
-    editingContext.value = null
-
-    if (ctx.type === 'template') {
-      if (completedSets.value.has(ctx.exerciseSetId)) {
-        await workout.updateSet(ctx.exerciseSetId, { reps, weight })
-      } else {
-        await workout.recordSet(ctx.exerciseSetId, { reps, weight })
-      }
-    } else {
-      await workout.updateExtraSet(ctx.completedSetId, { reps, weight })
+    if (!ctx || persisting.value) return
+    persisting.value = true
+    try {
+      await write(ctx)
+      // Leave a set the user opened in the meantime alone
+      if (editingContext.value === ctx) editingContext.value = null
+    } finally {
+      persisting.value = false
     }
   }
 
-  async function handleDelete(): Promise<void> {
-    const ctx = editingContext.value
-    if (!ctx) return
-    editingContext.value = null
+  function handleLog(reps: number | null, weight: number | null): Promise<void> {
+    return persist(async (ctx) => {
+      if (ctx.type === 'template') {
+        if (completedSets.value.has(ctx.exerciseSetId)) {
+          await workout.updateSet(ctx.exerciseSetId, { reps, weight })
+        } else {
+          await workout.recordSet(ctx.exerciseSetId, { reps, weight })
+        }
+      } else {
+        await workout.updateExtraSet(ctx.completedSetId, { reps, weight })
+      }
+    })
+  }
 
-    if (ctx.type === 'template') {
-      await workout.deleteCompletedSet(ctx.exerciseSetId)
-    } else {
-      await workout.deleteExtraSet(ctx.completedSetId)
-    }
+  function handleDelete(): Promise<void> {
+    return persist(async (ctx) => {
+      if (ctx.type === 'template') {
+        await workout.deleteCompletedSet(ctx.exerciseSetId)
+      } else {
+        await workout.deleteExtraSet(ctx.completedSetId)
+      }
+    })
   }
 
   /** Creates a blank extra set and opens it so the user can fill it in. */

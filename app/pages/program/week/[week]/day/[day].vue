@@ -7,16 +7,25 @@ const router = useRouter()
 const weekNumber = computed(() => Number(route.params.week))
 const dayNumber = computed(() => Number(route.params.day))
 
-const { startRetroactiveSession, getSessionForDay, refreshSessions } = useProgramManager()
+const { sessions, isLoading, startRetroactiveSession, getSessionForDay, refreshSessions } = useProgramManager()
 
 // The editor loads the session itself; this page only resolves which one.
 const sessionId = ref<string | null>(null)
 const pageError = ref<string | null>(null)
 const startingSession = ref(false)
 
-onMounted(() => {
-  sessionId.value = getSessionForDay(weekNumber.value, dayNumber.value)?.id ?? null
-})
+// The session list loads asynchronously and the page can be reused across
+// days, so resolve on every change rather than once at mount.
+watch([weekNumber, dayNumber, sessions], ([week, day], previous) => {
+  const found = getSessionForDay(week, day)?.id
+  if (found) {
+    sessionId.value = found
+  } else if (previous && (week !== previous[0] || day !== previous[1])) {
+    sessionId.value = null
+  }
+  // Otherwise keep the current id: a session just created by Start Logging is
+  // not in the list until it refreshes.
+}, { immediate: true })
 
 async function handleStartLogging(): Promise<void> {
   pageError.value = null
@@ -66,6 +75,9 @@ async function onDiscarded(): Promise<void> {
       @saved="onSaved"
       @discarded="onDiscarded"
     />
+
+    <!-- Sessions still loading — don't offer Start Logging for a day that may have one -->
+    <AppSkeleton v-else-if="isLoading" :height="128" :count="3" />
 
     <!-- No session yet — show start logging prompt -->
     <div v-else-if="!pageError" class="flex flex-col items-center gap-4 py-8 text-center">

@@ -134,3 +134,52 @@ describe('useWorkoutSession — swapExercise', () => {
     expect(exerciseSwaps.value).toHaveLength(1)
   })
 })
+
+describe('useWorkoutSession — loadSession ordering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function response(id: string) {
+    return { session: { ...completedSession, id, completedSets: [], workoutExerciseSwaps: [] }, day: { id: `day-${id}`, exerciseGroups: [] } }
+  }
+
+  test('a slow earlier request does not overwrite a newer one', async () => {
+    let resolveSlow: (v: unknown) => void = () => {}
+    mockFetch
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveSlow = resolve }))
+      .mockResolvedValueOnce(response('new'))
+    const { session, loadSession } = useWorkoutSession()
+
+    const slow = loadSession('old')
+    await loadSession('new')
+    resolveSlow(response('old'))
+    await slow
+
+    expect(session.value?.id).toBe('new')
+  })
+
+  test('a stale 404 does not clear the session a newer request loaded', async () => {
+    let rejectSlow: (e: unknown) => void = () => {}
+    mockFetch
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSlow = reject }))
+      .mockResolvedValueOnce(response('new'))
+    const { session, loadSession } = useWorkoutSession()
+
+    const slow = loadSession('gone')
+    await loadSession('new')
+    rejectSlow(Object.assign(new Error('not found'), { statusCode: 404 }))
+    await slow
+
+    expect(session.value?.id).toBe('new')
+  })
+
+  test('the latest request still clears state on its own 404', async () => {
+    mockFetch.mockRejectedValueOnce(Object.assign(new Error('not found'), { statusCode: 404 }))
+    const { session, loadSession } = useWorkoutSession()
+    session.value = { ...completedSession }
+
+    expect(await loadSession('gone')).toBe(false)
+    expect(session.value).toBeNull()
+  })
+})

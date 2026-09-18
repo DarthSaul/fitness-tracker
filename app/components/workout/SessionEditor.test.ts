@@ -86,7 +86,7 @@ const stubs = {
   },
   WorkoutAdHocExerciseCard: true,
   WorkoutSetLogDrawer: true,
-  WorkoutExerciseSearchDrawer: true,
+  WorkoutExerciseSearchDrawer: { template: '<button data-testid="pick-exercise" @click="$emit(\'select\', \'Face Pulls\')" />' },
   WorkoutExerciseSwapDrawer: true,
 }
 
@@ -181,6 +181,35 @@ describe('WorkoutSessionEditor', () => {
 
     expect(workoutRef.abandonWorkout).toHaveBeenCalled()
     expect(wrapper.emitted('discarded')).toHaveLength(1)
+  })
+
+  // Retrying after a partial failure would add three MORE sets on top of the
+  // ones that did save.
+  test('reports how many ad-hoc sets were added instead of inviting a full retry', async () => {
+    const wrapper = await mountEditor('COMPLETED')
+    workoutRef.addAdHocSet
+      .mockResolvedValueOnce({ id: 'a1' })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ id: 'a3' })
+
+    await wrapper.find('[data-testid="pick-exercise"]').trigger('click')
+    await flushPromises()
+
+    expect(workoutRef.addAdHocSet).toHaveBeenCalledTimes(3)
+    const title = toastAdd.mock.calls[0]![0].title as string
+    expect(title).toContain('2 of 3')
+    expect(title).toContain('Add Set')
+    expect(title).not.toMatch(/try again/i)
+  })
+
+  test('invites a retry only when no ad-hoc set was added at all', async () => {
+    const wrapper = await mountEditor('COMPLETED')
+    workoutRef.addAdHocSet.mockRejectedValue(new Error('offline'))
+
+    await wrapper.find('[data-testid="pick-exercise"]').trigger('click')
+    await flushPromises()
+
+    expect(toastAdd.mock.calls[0]![0].title).toMatch(/try again/i)
   })
 
   test('renders an error when the session does not exist', async () => {
