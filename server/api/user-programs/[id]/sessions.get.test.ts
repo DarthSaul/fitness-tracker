@@ -63,7 +63,7 @@ describe('GET /api/user-programs/:id/sessions', () => {
     expect(mockFindFirst).not.toHaveBeenCalled()
     expect(mockFindManySessions).toHaveBeenCalledWith({
       where: { userProgramId: 'up001' },
-      orderBy: [{ weekNumber: 'asc' }, { dayNumber: 'asc' }, { startedAt: 'asc' }],
+      orderBy: [{ weekNumber: 'asc' }, { dayNumber: 'asc' }, { startedAt: 'asc' }, { id: 'asc' }],
       include: { _count: { select: { completedSets: true } } },
     })
   })

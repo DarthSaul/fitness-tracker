@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Add an extra set for an exercise',
-    description: 'Records an additional (non-template) set for an exercise within an active workout session. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
+    description: 'Records an additional (non-template) set for an exercise within a workout session. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
       { name: 'programExerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'ProgramExercise CUID' },

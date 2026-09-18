@@ -23,7 +23,7 @@ program still has editable history.
 | One session + its day template | `GET /api/workouts/:id` | No |
 
 `/:id/sessions` and `/active/sessions` return the same `{ sessions }` shape
-(each with `_count.completedSets`), ordered by week, day, then `startedAt`. Use
+(each with `_count.completedSets`), ordered by week, day, `startedAt`, then `id`. Use
 `/:id/sessions` to build a manage-style grid for an inactive or finished
 program; the ids come from `GET /api/user-programs`.
 

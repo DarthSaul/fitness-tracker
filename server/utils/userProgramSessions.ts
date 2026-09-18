@@ -9,8 +9,8 @@
 export function listRunSessions(userProgramId: string) {
   return prisma.workoutSession.findMany({
     where: { userProgramId },
-    // startedAt breaks ties so a day logged twice lists in a stable order
-    orderBy: [{ weekNumber: 'asc' }, { dayNumber: 'asc' }, { startedAt: 'asc' }],
+    // startedAt orders a day logged twice; id makes equal timestamps deterministic
+    orderBy: [{ weekNumber: 'asc' }, { dayNumber: 'asc' }, { startedAt: 'asc' }, { id: 'asc' }],
     include: {
       _count: { select: { completedSets: true } },
     },
