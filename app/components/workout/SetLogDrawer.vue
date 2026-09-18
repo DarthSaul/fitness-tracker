@@ -142,7 +142,7 @@ function formatTarget(): string {
           size="sm"
           block
           class="mt-2"
-          @click="emit('delete'); emit('close')"
+          @click="emit('delete')"
         >
           Delete Set
         </UButton>

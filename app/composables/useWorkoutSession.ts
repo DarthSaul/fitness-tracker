@@ -311,6 +311,9 @@ export function useWorkoutSession() {
     }, 800)
   }
 
+  // Bumped per date update so overlapping updates resolve as "latest wins"
+  let completedAtToken = 0
+
   /**
    * Moves a finished session to another calendar day (`YYYY-MM-DD`, local).
    * Keeps the original time of day so same-day workouts stay in order, and
@@ -331,9 +334,15 @@ export function useWorkoutSession() {
 
     const completedAt = new Date(Math.min(next.getTime(), Date.now())).toISOString()
     const sessionId = session.value.id
+    const token = ++completedAtToken
     await $fetch<{ id: string }>(`/api/workouts/${sessionId}`, { method: 'PATCH', body: { completedAt } })
-    // Another session may have been loaded while the request was in flight
-    if (session.value?.id === sessionId) session.value = { ...session.value, completedAt }
+    // Skip if a later date update superseded this one, or another session was
+    // loaded meanwhile. A same-session reload deliberately does NOT supersede
+    // it: the PATCH succeeded, so this is the server's value, and a reload that
+    // raced ahead of it may be showing the old date.
+    if (token === completedAtToken && session.value?.id === sessionId) {
+      session.value = { ...session.value, completedAt }
+    }
   }
 
   async function addAdHocSet(exerciseName: string): Promise<CompletedSetRecord> {

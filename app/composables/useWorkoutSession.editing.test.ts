@@ -113,6 +113,24 @@ describe('useWorkoutSession — updateCompletedAt', () => {
     expect(session.value).toEqual(other)
   })
 
+  test('when two date updates overlap, the later one wins even if it resolves first', async () => {
+    let finishFirst: (v: unknown) => void = () => {}
+    mockFetch
+      .mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve }))
+      .mockResolvedValueOnce({})
+    const { session, updateCompletedAt } = useWorkoutSession()
+    session.value = { ...completedSession }
+
+    const first = updateCompletedAt('2026-03-08')
+    await updateCompletedAt('2026-03-05')
+    const afterSecond = session.value?.completedAt
+    finishFirst({})
+    await first
+
+    expect(new Date(afterSecond!).getDate()).toBe(5)
+    expect(session.value?.completedAt).toBe(afterSecond)
+  })
+
   test('leaves the session untouched and rethrows when the PATCH fails', async () => {
     mockFetch.mockRejectedValueOnce(new Error('boom'))
     const { session, updateCompletedAt } = useWorkoutSession()
