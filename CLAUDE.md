@@ -431,8 +431,6 @@ complete apart from Exercise skip UI and Core workouts)
 
 ### Backlog
 - [ ] `user_program_runs_reconcile` migration — once the runs deploy is live everywhere: re-run the `completedAt` backfill and the duplicate-session cleanup from `20260918120000_user_program_runs` (idempotent) — but tighten the cleanup so a session also survives if it has `notes`, a `WorkoutExerciseSwap` or a `WorkoutExerciseSkip`, not only a `CompletedSet`/`CoreWorkout` (the applied migration omitted those three; its 3 deletions were checked beforehand and had none) — force `isActive = false` on terminal rows, and add `CHECK (NOT ("isActive" AND ("completedAt" IS NOT NULL OR "archivedAt" IS NOT NULL)))`. Deliberately not in the first migration: the previous deploy's activate route re-activates completed rows and would 500 against the CHECK.
-- [ ] Edit completed workouts, API (PR2) — drop the `IN_PROGRESS`-only gate on extra sets, ad-hoc sets, skip/unskip, swap and core-workout setup; add `GET /api/user-programs/:id/sessions` for any owned run.
-- [ ] Edit completed workouts, web (PR3) — `/history/:id/edit` reusing the day editor with no active program required; wire the completed-date picker to `PATCH /api/workouts/:id`.
 - [ ] Show `runNumber` on History rows so repeat runs of one program are distinguishable.
 - [ ] Configure Apple OAuth (web redirect flow — needed only when web frontend is built)
 - [ ] RPE tracking (optional, user-enabled in settings)
