@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Create or replace the core workout for a session',
-    description: 'Saves the timed core circuit plan for a workout session: global work/rest seconds and an ordered list of core exercise IDs (each entry is one interval; array index drives the order). Replaces any previously saved plan and clears its completion state. The interval timer runs client-side.',
+    description: 'Saves the timed core circuit plan for a workout session: global work/rest seconds and an ordered list of core exercise IDs (each entry is one interval; array index drives the order). Replaces any previously saved plan; on an in-progress session it also clears the plan\'s completion state, while on an editing or completed session completion is left untouched. The interval timer runs client-side. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
     ],
@@ -11,7 +11,7 @@ defineRouteMeta({
       400: { description: 'Missing or invalid fields, or a non-core exercise' },
       401: { description: 'Unauthorized' },
       404: { description: 'Session or exercise not found' },
-      409: { description: 'Session is not in progress or concurrent save' },
+      409: { description: 'Concurrent save' },
       500: { description: 'Internal server error' },
     },
   },
@@ -58,10 +58,6 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, statusMessage: 'Not Found' })
       }
 
-      if (session.status !== 'IN_PROGRESS') {
-        throw createError({ statusCode: 409, statusMessage: 'Session is not in progress' })
-      }
-
       // Duplicates in the circuit are allowed; validate each distinct exercise once
       const uniqueIds = [...new Set(exerciseIds as string[])]
       const exercises = await tx.exercise.findMany({
@@ -79,7 +75,11 @@ export default defineEventHandler(async (event) => {
 
       const saved = await tx.coreWorkout.upsert({
         where: { workoutSessionId: id },
-        update: { timeSeconds, restSeconds, completedAt: null },
+        // Re-planning restarts the circuit mid-workout, but must not un-complete
+        // it when a finished session is being edited.
+        update: session.status === 'IN_PROGRESS'
+          ? { timeSeconds, restSeconds, completedAt: null }
+          : { timeSeconds, restSeconds },
         create: { workoutSessionId: id, timeSeconds, restSeconds },
       })
 

@@ -179,13 +179,17 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/extra-sets', () =>
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Session not found' })
   })
 
-  test('throws 409 when session is not IN_PROGRESS', async () => {
-    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+  // Finished workouts are editable in isolation — no IN_PROGRESS gate
+  test.each(['COMPLETED', 'EDITING'])('adds an extra set to a %s session', async (status) => {
+    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status })
+    txMocks.findFirstProgramExercise.mockResolvedValueOnce({ id: 'pe001' })
+    txMocks.createCompletedSet.mockResolvedValueOnce(mockCompletedSet)
 
     const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session is not in progress' })
+    const result = await (handler as unknown as (e: typeof event) => Promise<typeof mockCompletedSet>)(event)
+
+    expect(result).toEqual(mockCompletedSet)
+    expect(event.node.res.statusCode).toBe(201)
   })
 
   test("throws 400 when programExerciseId does not belong to session's day", async () => {

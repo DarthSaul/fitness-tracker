@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Un-skip an exercise in a workout session',
-    description: 'Removes the skip record so the exercise reappears in session reads. Completed sets deleted when the exercise was skipped are not restored.',
+    description: 'Removes the skip record so the exercise reappears in session reads. Completed sets deleted when the exercise was skipped are not restored. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
       { name: 'programExerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'ProgramExercise CUID' },
@@ -12,7 +12,6 @@ defineRouteMeta({
       400: { description: 'Missing IDs' },
       401: { description: 'Unauthorized' },
       404: { description: 'Session not found or exercise is not skipped' },
-      409: { description: 'Session is not in progress' },
       500: { description: 'Internal server error' },
     },
   },
@@ -39,10 +38,6 @@ export default defineEventHandler(async (event) => {
 
       if (!session || session.userId !== userId) {
         throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-      }
-
-      if (session.status !== 'IN_PROGRESS') {
-        throw createError({ statusCode: 409, statusMessage: 'Session is not in progress' })
       }
 
       // deleteMany + count check avoids a separate find/delete round-trip on the skip row

@@ -83,7 +83,7 @@ describe('GET /api/user-programs/active/sessions', () => {
 
     expect(mockFindManySessions).toHaveBeenCalledWith({
       where: { userProgramId: 'up001' },
-      orderBy: [{ weekNumber: 'asc' }, { dayNumber: 'asc' }],
+      orderBy: [{ weekNumber: 'asc' }, { dayNumber: 'asc' }, { startedAt: 'asc' }],
       include: {
         _count: { select: { completedSets: true } },
       },
@@ -118,7 +118,7 @@ describe('GET /api/user-programs/active/sessions', () => {
     expect(mockFindManySessions).not.toHaveBeenCalled()
   })
 
-  test('sessions are ordered by weekNumber then dayNumber ascending', async () => {
+  test('sessions are ordered by weekNumber, dayNumber, then startedAt ascending', async () => {
     mockFindFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
     mockFindManySessions.mockResolvedValueOnce(mockSessions)
 
@@ -126,7 +126,7 @@ describe('GET /api/user-programs/active/sessions', () => {
     await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     const callArgs = mockFindManySessions.mock.calls[0]![0] as { orderBy: unknown[] }
-    expect(callArgs.orderBy).toEqual([{ weekNumber: 'asc' }, { dayNumber: 'asc' }])
+    expect(callArgs.orderBy).toEqual([{ weekNumber: 'asc' }, { dayNumber: 'asc' }, { startedAt: 'asc' }])
   })
 
   test('includes completed set counts in the response', async () => {

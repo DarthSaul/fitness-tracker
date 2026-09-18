@@ -182,13 +182,20 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/swap', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Session not found' })
   })
 
-  test('throws 409 when session is not IN_PROGRESS', async () => {
-    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+  // Finished workouts are editable in isolation — no IN_PROGRESS gate
+  test.each(['COMPLETED', 'EDITING'])('swaps an exercise on a %s session', async (status) => {
+    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status })
+    txMocks.findFirstProgramExercise.mockResolvedValueOnce(mockProgramExercise)
+    txMocks.findUniqueExercise.mockResolvedValueOnce({ id: 'ex002' })
+    txMocks.findFirstExistingSwap.mockResolvedValueOnce(null)
+    txMocks.deleteManyTemplateSets.mockResolvedValueOnce({ count: 0 })
+    txMocks.deleteManyExtraSets.mockResolvedValueOnce({ count: 0 })
+    txMocks.upsertSwap.mockResolvedValueOnce(mockSwap)
 
     const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session is not in progress' })
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ swap: typeof mockSwap }>)(event)
+
+    expect(result.swap).toEqual(mockSwap)
   })
 
   test("throws 400 when programExerciseId does not belong to session's day", async () => {

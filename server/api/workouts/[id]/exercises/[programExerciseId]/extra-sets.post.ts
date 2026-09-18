@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Add an extra set for an exercise',
-    description: 'Records an additional (non-template) set for an exercise within an active workout session.',
+    description: 'Records an additional (non-template) set for an exercise within an active workout session. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
       { name: 'programExerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'ProgramExercise CUID' },
@@ -12,7 +12,7 @@ defineRouteMeta({
       400: { description: 'Missing or invalid fields' },
       401: { description: 'Unauthorized' },
       404: { description: 'Session or exercise not found' },
-      409: { description: 'Session is not in progress or exercise is skipped' },
+      409: { description: 'Exercise is skipped for this session' },
       500: { description: 'Internal server error' },
     },
   },
@@ -55,10 +55,6 @@ export default defineEventHandler(async (event) => {
 
       if (!session || session.userId !== userId) {
         throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-      }
-
-      if (session.status !== 'IN_PROGRESS') {
-        throw createError({ statusCode: 409, statusMessage: 'Session is not in progress' })
       }
 
       const programExercise = await tx.programExercise.findFirst({
