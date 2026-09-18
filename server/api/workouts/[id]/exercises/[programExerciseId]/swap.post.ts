@@ -2,17 +2,17 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Swap an exercise in a workout session',
-    description: 'Replaces an exercise with an alternative for the current session. Clears all completed sets (template and extra) for the original exercise and upserts the swap record.',
+    description: 'Replaces an exercise with an alternative for the current session. Clears all completed sets (template and extra) for the original exercise and upserts the swap record. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
       { name: 'programExerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'ProgramExercise CUID' },
     ],
     responses: {
       200: { description: 'Swap recorded with count of deleted sets' },
-      400: { description: 'Missing or invalid fields' },
+      400: { description: 'Missing or invalid fields, programExerciseId does not belong to this session\'s day, or the replacement is the current exercise' },
       401: { description: 'Unauthorized' },
-      404: { description: 'Session, exercise, or replacement not found' },
-      409: { description: 'Session is not in progress or exercise is skipped' },
+      404: { description: 'Session or replacement exercise not found' },
+      409: { description: 'Exercise is skipped for this session' },
       500: { description: 'Internal server error' },
     },
   },
@@ -46,10 +46,6 @@ export default defineEventHandler(async (event) => {
 
       if (!session || session.userId !== userId) {
         throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-      }
-
-      if (session.status !== 'IN_PROGRESS') {
-        throw createError({ statusCode: 409, statusMessage: 'Session is not in progress' })
       }
 
       const programExercise = await tx.programExercise.findFirst({

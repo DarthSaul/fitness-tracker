@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Skip an exercise in a workout session',
-    description: 'Removes an exercise from the current session: deletes all its completed sets (template and extra) and records a skip so the exercise no longer appears in session reads. Skipping one exercise of a superset group leaves the other exercises untouched. An existing swap for the slot is preserved and re-applies on un-skip.',
+    description: 'Removes an exercise from the current session: deletes all its completed sets (template and extra) and records a skip so the exercise no longer appears in session reads. Skipping one exercise of a superset group leaves the other exercises untouched. An existing swap for the slot is preserved and re-applies on un-skip. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
       { name: 'programExerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'ProgramExercise CUID' },
@@ -12,7 +12,7 @@ defineRouteMeta({
       400: { description: 'Missing or invalid fields' },
       401: { description: 'Unauthorized' },
       404: { description: 'Session not found' },
-      409: { description: 'Session is not in progress or exercise already skipped' },
+      409: { description: 'Exercise already skipped' },
       500: { description: 'Internal server error' },
     },
   },
@@ -39,10 +39,6 @@ export default defineEventHandler(async (event) => {
 
       if (!session || session.userId !== userId) {
         throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-      }
-
-      if (session.status !== 'IN_PROGRESS') {
-        throw createError({ statusCode: 409, statusMessage: 'Session is not in progress' })
       }
 
       const programExercise = await tx.programExercise.findFirst({

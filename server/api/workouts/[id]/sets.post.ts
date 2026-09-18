@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Record a completed set',
-    description: 'Records a completed set within an active workout session. Validates that the exercise set belongs to the current workout day.',
+    description: 'Records a completed set for a workout session. Validates that the exercise set belongs to the session\'s own week and day (not the program\'s current position). Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
     ],
@@ -12,7 +12,7 @@ defineRouteMeta({
       401: { description: 'Unauthorized' },
 
       404: { description: 'Session not found' },
-      409: { description: 'Session already completed, duplicate set submission, or exercise skipped' },
+      409: { description: 'Duplicate set submission or exercise skipped' },
       500: { description: 'Internal server error' },
     },
   },
@@ -35,8 +35,8 @@ export default defineEventHandler(async (event) => {
     }
 
     // Validate numeric fields when present
-    if (reps !== undefined && reps !== null && (!Number.isFinite(reps) || reps < 0)) {
-      throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    if (reps !== undefined && reps !== null && (!Number.isInteger(reps) || reps < 0)) {
+      throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
     }
     if (weight !== undefined && weight !== null && (!Number.isFinite(weight) || weight < 0)) {
       throw createError({ statusCode: 400, statusMessage: 'weight must be a non-negative number' })

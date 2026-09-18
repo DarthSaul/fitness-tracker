@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Add an ad-hoc exercise set',
-    description: 'Creates a blank completed set for a user-defined exercise not in the program. Used for the "Add Exercise Group" feature during a workout.',
+    description: 'Creates a blank completed set for a user-defined exercise not in the program. Used for the "Add Exercise Group" feature. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
     ],
@@ -11,7 +11,6 @@ defineRouteMeta({
       400: { description: 'Missing or invalid fields' },
       401: { description: 'Unauthorized' },
       404: { description: 'Session not found' },
-      409: { description: 'Session is not in progress' },
       500: { description: 'Internal server error' },
     },
   },
@@ -41,10 +40,6 @@ export default defineEventHandler(async (event) => {
 
     if (!session || session.userId !== userId) {
       throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-    }
-
-    if (session.status !== 'IN_PROGRESS') {
-      throw createError({ statusCode: 409, statusMessage: 'Session is not in progress' })
     }
 
     const completedSet = await prisma.completedSet.create({

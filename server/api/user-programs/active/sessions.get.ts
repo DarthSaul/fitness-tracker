@@ -1,8 +1,10 @@
+import { listRunSessions } from '../../../utils/userProgramSessions'
+
 defineRouteMeta({
   openAPI: {
     tags: ['User Programs'],
     summary: 'List sessions for active program',
-    description: 'Returns all workout sessions for the user\'s active program, with completed set counts per session.',
+    description: 'Returns all workout sessions for the user\'s active program, with completed set counts per session. For an inactive or finished program use /api/user-programs/{id}/sessions, which returns the same shape.',
     responses: {
       200: { description: 'List of workout sessions' },
       401: { description: 'Unauthorized' },
@@ -24,13 +26,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: 'No active program' })
     }
 
-    const sessions = await prisma.workoutSession.findMany({
-      where: { userProgramId: activeProgram.id },
-      orderBy: [{ weekNumber: 'asc' }, { dayNumber: 'asc' }],
-      include: {
-        _count: { select: { completedSets: true } },
-      },
-    })
+    const sessions = await listRunSessions(activeProgram.id)
 
     return { sessions }
   } catch (error) {

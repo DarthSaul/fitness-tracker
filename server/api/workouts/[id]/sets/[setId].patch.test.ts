@@ -112,6 +112,18 @@ describe('PATCH /api/workouts/:id/sets/:setId', () => {
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Missing set ID' })
   })
 
+  // reps is an Int column: a fraction used to reach Prisma and surface as a 500
+  test('throws 400 when reps is fractional, without touching the database', async () => {
+    mockReadBody.mockResolvedValueOnce({ reps: 1.5 })
+    mockGetRouterParam.mockReturnValueOnce('ws001').mockReturnValueOnce('cs001')
+    const event = { path: '/api/workouts/ws001/sets/cs001', context: { userId: 'user001' } }
+
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
+    expect(mockUpdateCompletedSet).not.toHaveBeenCalled()
+  })
+
   test('throws 400 when reps is negative', async () => {
     mockReadBody.mockResolvedValueOnce({ reps: -1 })
     mockGetRouterParam.mockReturnValueOnce('ws001').mockReturnValueOnce('cs001')
@@ -119,7 +131,7 @@ describe('PATCH /api/workouts/:id/sets/:setId', () => {
 
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   test('throws 400 when reps is Infinity', async () => {
@@ -129,7 +141,7 @@ describe('PATCH /api/workouts/:id/sets/:setId', () => {
 
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   test('throws 400 when weight is negative', async () => {

@@ -214,6 +214,7 @@ top, in two stages at Tailwind's default breakpoints.
 - Return objects directly from `defineEventHandler` — Nitro serializes to JSON.
 - Use `createError` from `h3` for error responses with appropriate status codes.
 - Validate request bodies with manual inline checks (no Zod) consistent with the existing pattern.
+- **Workout sessions are editable in isolation.** Routes that mutate a `WorkoutSession` or its sets gate on ownership only — never on session status, on an active program, or on the program's current week/day — so a finished workout can always be corrected. Do not reintroduce an `IN_PROGRESS` check. The two deliberate exceptions are `PATCH …/complete` and `DELETE /api/workouts/:id`, which reject a `COMPLETED` session. Client contract: `docs/API_CONTRACT_EDITING_COMPLETED_WORKOUTS.md`.
 
 ### Error Handling
 

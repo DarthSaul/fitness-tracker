@@ -108,13 +108,15 @@ describe('DELETE /api/workouts/:id/exercises/:programExerciseId/skip', () => {
     expect(mockDeleteManySkips).not.toHaveBeenCalled()
   })
 
-  test('throws 409 when session is not IN_PROGRESS', async () => {
-    mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+  // Finished workouts are editable in isolation — no IN_PROGRESS gate
+  test.each(['COMPLETED', 'EDITING'])('un-skips an exercise on a %s session', async (status) => {
+    mockFindUniqueSession.mockResolvedValueOnce({ ...mockSession, status })
+    mockDeleteManySkips.mockResolvedValueOnce({ count: 1 })
 
     const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session is not in progress' })
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ deleted: boolean }>)(event)
+
+    expect(result).toEqual({ deleted: true })
   })
 
   test('throws 404 when the exercise is not skipped', async () => {

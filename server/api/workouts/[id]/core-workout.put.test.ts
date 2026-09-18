@@ -258,13 +258,25 @@ describe('PUT /api/workouts/:id/core-workout', () => {
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Not Found' })
   })
 
-  test('throws 409 when session is not in progress', async () => {
-    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+  // Finished workouts are editable in isolation. Re-planning the circuit on a
+  // finished session must not un-complete it, so completedAt is left alone.
+  test.each(['COMPLETED', 'EDITING'])('saves the plan on a %s session without resetting completion', async (status) => {
+    txMocks.findUniqueSession.mockResolvedValueOnce({ ...mockSession, status })
+    txMocks.findManyExercise.mockResolvedValueOnce(mockCoreExercises)
+    txMocks.upsertCoreWorkout.mockResolvedValueOnce({ id: 'cw001' })
+    txMocks.deleteManyEntries.mockResolvedValueOnce({ count: 0 })
+    txMocks.createManyEntries.mockResolvedValueOnce({ count: 2 })
+    txMocks.findUniqueCoreWorkout.mockResolvedValueOnce(mockCoreWorkout)
 
     const event = makeEvent()
-    await expect(
-      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session is not in progress' })
+    const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(result).toEqual(mockCoreWorkout)
+    expect(txMocks.upsertCoreWorkout).toHaveBeenCalledWith({
+      where: { workoutSessionId: 'ws001' },
+      update: { timeSeconds: 45, restSeconds: 15 },
+      create: { workoutSessionId: 'ws001', timeSeconds: 45, restSeconds: 15 },
+    })
   })
 
   test('throws 404 when an exercise does not exist', async () => {

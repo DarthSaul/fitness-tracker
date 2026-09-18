@@ -18,7 +18,11 @@ A run is **open** until one of two terminal states is reached:
 | `completedAt` | the final day of the program is completed | Finished. Shown as "Completed" in the library. |
 | `archivedAt` | the user unsaves a run that has completed workouts | Removed from the library; history kept. |
 
-Terminal runs are never resumed and never modified again. At most one open run
+A terminal run is never resumed: its position and `completedAt` do not change
+again, and the only transition left is a completed run being archived when the
+user unsaves it. That is about the run's lifecycle, not its workouts — completed
+sessions inside a completed or archived run remain fully editable, and editing
+them never reopens or advances the run. At most one open run
 exists per `(user, program)`, and at most one run is active per user.
 
 ## Endpoints
@@ -80,9 +84,10 @@ any run was kept as history. Completed workouts on archived runs still appear in
 `/api/history`, and archiving changes nothing about what can be edited: notes and
 `completedAt` via `PATCH /api/workouts/:id`, and logged sets via
 `POST /api/workouts/:id/sets` and `PATCH|DELETE /api/workouts/:id/sets/:setId`,
-all work on a completed session. Structural edits (extra sets, ad-hoc sets,
-skip, swap, core-circuit setup) still require an in-progress session until the
-completed-workout editing change (#126) lands.
+all work on a completed session — as do the structural edits (extra sets, ad-hoc
+sets, skip, swap, core-circuit setup). Every edit route gates on ownership only
+(`404` otherwise), never on session status or program state; the full contract is
+in [`API_CONTRACT_EDITING_COMPLETED_WORKOUTS.md`](./API_CONTRACT_EDITING_COMPLETED_WORKOUTS.md).
 
 ### `PATCH /api/workouts/:id/complete`
 

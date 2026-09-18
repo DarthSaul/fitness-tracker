@@ -2,17 +2,17 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Add an extra set for an exercise',
-    description: 'Records an additional (non-template) set for an exercise within an active workout session.',
+    description: 'Records an additional (non-template) set for an exercise within a workout session. Works on a session in any status (in progress, editing or completed), so a finished workout can be corrected without an active program.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
       { name: 'programExerciseId', in: 'path', required: true, schema: { type: 'string' }, description: 'ProgramExercise CUID' },
     ],
     responses: {
       201: { description: 'Extra set recorded' },
-      400: { description: 'Missing or invalid fields' },
+      400: { description: 'Missing or invalid fields, or programExerciseId does not belong to this session\'s day' },
       401: { description: 'Unauthorized' },
-      404: { description: 'Session or exercise not found' },
-      409: { description: 'Session is not in progress or exercise is skipped' },
+      404: { description: 'Session not found' },
+      409: { description: 'Exercise is skipped for this session' },
       500: { description: 'Internal server error' },
     },
   },
@@ -34,8 +34,8 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { reps, weight, rpe, notes } = body || {}
 
-    if (reps !== undefined && reps !== null && (!Number.isFinite(reps) || reps < 0)) {
-      throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    if (reps !== undefined && reps !== null && (!Number.isInteger(reps) || reps < 0)) {
+      throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
     }
     if (weight !== undefined && weight !== null && (!Number.isFinite(weight) || weight < 0)) {
       throw createError({ statusCode: 400, statusMessage: 'weight must be a non-negative number' })
@@ -55,10 +55,6 @@ export default defineEventHandler(async (event) => {
 
       if (!session || session.userId !== userId) {
         throw createError({ statusCode: 404, statusMessage: 'Session not found' })
-      }
-
-      if (session.status !== 'IN_PROGRESS') {
-        throw createError({ statusCode: 409, statusMessage: 'Session is not in progress' })
       }
 
       const programExercise = await tx.programExercise.findFirst({
