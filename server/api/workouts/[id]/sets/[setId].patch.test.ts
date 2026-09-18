@@ -120,7 +120,7 @@ describe('PATCH /api/workouts/:id/sets/:setId', () => {
 
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
     expect(mockUpdateCompletedSet).not.toHaveBeenCalled()
   })
 
@@ -131,7 +131,7 @@ describe('PATCH /api/workouts/:id/sets/:setId', () => {
 
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   test('throws 400 when reps is Infinity', async () => {
@@ -141,7 +141,7 @@ describe('PATCH /api/workouts/:id/sets/:setId', () => {
 
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   test('throws 400 when weight is negative', async () => {

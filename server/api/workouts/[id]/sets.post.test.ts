@@ -135,7 +135,7 @@ describe('POST /api/workouts/:id/sets', () => {
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   test('throws 400 when weight is Infinity', async () => {
@@ -222,7 +222,7 @@ describe('POST /api/workouts/:id/sets', () => {
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
     expect(mockTransaction).not.toHaveBeenCalled()
     expect(txMocks.createCompletedSet).not.toHaveBeenCalled()
   })
@@ -233,7 +233,7 @@ describe('POST /api/workouts/:id/sets', () => {
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   test('throws 400 when weight is negative', async () => {

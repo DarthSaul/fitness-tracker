@@ -131,7 +131,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/extra-sets', () =>
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   // reps is an Int column: a fraction used to reach Prisma and surface as a 500
@@ -141,7 +141,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/extra-sets', () =>
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
     expect(mockTransaction).not.toHaveBeenCalled()
     expect(txMocks.createCompletedSet).not.toHaveBeenCalled()
   })
@@ -152,7 +152,7 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/extra-sets', () =>
     const event = makeEvent()
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
   })
 
   test('throws 400 when weight is not a valid number (Infinity)', async () => {

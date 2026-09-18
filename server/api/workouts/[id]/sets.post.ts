@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
 
     // Validate numeric fields when present
     if (reps !== undefined && reps !== null && (!Number.isInteger(reps) || reps < 0)) {
-      throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+      throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative integer' })
     }
     if (weight !== undefined && weight !== null && (!Number.isFinite(weight) || weight < 0)) {
       throw createError({ statusCode: 400, statusMessage: 'weight must be a non-negative number' })
