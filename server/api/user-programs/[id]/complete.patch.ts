@@ -44,6 +44,16 @@ export default defineEventHandler(async (event) => {
     }
 
     return await prisma.$transaction(async (tx) => {
+      // Guarded write: a concurrent complete or unsave may have finished the run
+      // since the read above. Done first so a lost race deletes nothing.
+      const { count } = await tx.userProgram.updateMany({
+        where: { id, completedAt: null, archivedAt: null },
+        data: { isActive: false, completedAt: new Date() },
+      })
+      if (count === 0) {
+        throw createError({ statusCode: 409, statusMessage: 'Program already completed' })
+      }
+
       // GET /api/workouts/active finds IN_PROGRESS sessions by user alone, so
       // an unfinished session left on a completed run would keep resurfacing.
       await tx.workoutSession.deleteMany({
@@ -51,9 +61,8 @@ export default defineEventHandler(async (event) => {
       })
       await tx.scheduledWorkout.deleteMany({ where: { userProgramId: id } })
 
-      return tx.userProgram.update({
+      return tx.userProgram.findUnique({
         where: { id },
-        data: { isActive: false, completedAt: new Date() },
         include: {
           program: { select: { id: true, name: true, description: true } },
         },

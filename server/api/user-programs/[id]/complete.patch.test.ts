@@ -9,6 +9,7 @@
  *  - Ownership: throws 404 when user program belongs to another user
  *  - Terminal run: throws 409 when the run is already completed or archived
  *  - Empty run: throws 409 when the run has no completed workouts
+ *  - Race: throws 409 and deletes nothing when the run turned terminal concurrently
  *  - Error propagation: throws 500 on unexpected error
  *  - H3 error pass-through: re-throws H3 errors without wrapping as 500
  */
@@ -17,7 +18,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import handler from './complete.patch'
 
 const mockFindUnique = (prisma as typeof prisma).userProgram.findUnique as ReturnType<typeof vi.fn>
-const mockUpdate = (prisma as typeof prisma).userProgram.update as ReturnType<typeof vi.fn>
+const mockUpdateMany = (prisma as typeof prisma).userProgram.updateMany as ReturnType<typeof vi.fn>
 const mockCountSessions = (prisma as typeof prisma).workoutSession.count as ReturnType<typeof vi.fn>
 const mockDeleteManySessions = (prisma as typeof prisma).workoutSession.deleteMany as ReturnType<typeof vi.fn>
 const mockDeleteManyScheduled = (prisma as typeof prisma).scheduledWorkout.deleteMany as ReturnType<typeof vi.fn>
@@ -62,19 +63,23 @@ describe('PATCH /api/user-programs/:id/complete', () => {
   })
 
   test('ends an active run early and returns the completed run', async () => {
-    mockFindUnique.mockResolvedValueOnce(mockOpenRun)
+    mockFindUnique.mockResolvedValueOnce(mockOpenRun).mockResolvedValueOnce(mockCompletedRun)
     mockCountSessions.mockResolvedValueOnce(5)
-    mockUpdate.mockResolvedValueOnce(mockCompletedRun)
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 })
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual(mockCompletedRun)
     expect(mockCountSessions).toHaveBeenCalledWith({ where: { userProgramId: 'up001', status: 'COMPLETED' } })
-    // Position is left where the user stopped — only the lifecycle fields change
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: 'up001' },
+    // Position is left where the user stopped — only the lifecycle fields change.
+    // The write is guarded on the run still being open.
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'up001', completedAt: null, archivedAt: null },
       data: { isActive: false, completedAt: expect.any(Date) },
+    })
+    expect(mockFindUnique).toHaveBeenLastCalledWith({
+      where: { id: 'up001' },
       include: {
         program: { select: { id: true, name: true, description: true } },
       },
@@ -82,21 +87,21 @@ describe('PATCH /api/user-programs/:id/complete', () => {
   })
 
   test('ends a paused run early', async () => {
-    mockFindUnique.mockResolvedValueOnce({ ...mockOpenRun, isActive: false })
+    mockFindUnique.mockResolvedValueOnce({ ...mockOpenRun, isActive: false }).mockResolvedValueOnce(mockCompletedRun)
     mockCountSessions.mockResolvedValueOnce(1)
-    mockUpdate.mockResolvedValueOnce(mockCompletedRun)
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 })
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
     expect(result).toEqual(mockCompletedRun)
-    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockUpdateMany).toHaveBeenCalledTimes(1)
   })
 
   test('deletes the run\'s unfinished sessions and scheduled workouts', async () => {
-    mockFindUnique.mockResolvedValueOnce(mockOpenRun)
+    mockFindUnique.mockResolvedValueOnce(mockOpenRun).mockResolvedValueOnce(mockCompletedRun)
     mockCountSessions.mockResolvedValueOnce(5)
-    mockUpdate.mockResolvedValueOnce(mockCompletedRun)
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 })
 
     const event = makeEvent()
     await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
@@ -142,7 +147,7 @@ describe('PATCH /api/user-programs/:id/complete', () => {
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'User program not found' })
-    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
   })
 
   test('throws 409 when the run is already completed', async () => {
@@ -152,7 +157,7 @@ describe('PATCH /api/user-programs/:id/complete', () => {
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Program already completed' })
-    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
     expect(mockDeleteManySessions).not.toHaveBeenCalled()
   })
 
@@ -163,7 +168,7 @@ describe('PATCH /api/user-programs/:id/complete', () => {
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Program already completed' })
-    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
   })
 
   test('throws 409 when the run has no completed workouts', async () => {
@@ -174,8 +179,22 @@ describe('PATCH /api/user-programs/:id/complete', () => {
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'No completed workouts in this run' })
-    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockUpdateMany).not.toHaveBeenCalled()
     expect(mockDeleteManySessions).not.toHaveBeenCalled()
+  })
+
+  // A concurrent complete/unsave can finish the run between the read and the write
+  test('throws 409 and deletes nothing when the run turned terminal concurrently', async () => {
+    mockFindUnique.mockResolvedValueOnce(mockOpenRun)
+    mockCountSessions.mockResolvedValueOnce(5)
+    mockUpdateMany.mockResolvedValueOnce({ count: 0 })
+
+    const event = makeEvent('up001')
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Program already completed' })
+    expect(mockDeleteManySessions).not.toHaveBeenCalled()
+    expect(mockDeleteManyScheduled).not.toHaveBeenCalled()
   })
 
   test('throws 500 on unexpected error', async () => {
