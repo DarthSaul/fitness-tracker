@@ -7,6 +7,19 @@
 // is applied via a raw SQL migration after the initial migrate:
 //   CREATE UNIQUE INDEX "UserProgram_userId_isActive_partial_idx"
 //   ON "UserProgram" ("userId") WHERE "isActive" = true;
+//
+// Note on UserProgram runs:
+// Each UserProgram row is one RUN through a program, so a user may hold many
+// rows per program. A run is "open" until it is completed (completedAt) or
+// unsaved-with-history (archivedAt); both are terminal. At most one open run
+// per (userId, programId) is enforced by a raw partial unique index:
+//   CREATE UNIQUE INDEX "UserProgram_userId_programId_open_partial_idx"
+//   ON "UserProgram" ("userId", "programId")
+//   WHERE "completedAt" IS NULL AND "archivedAt" IS NULL;
+//
+// Note on WorkoutSession in-progress uniqueness (also raw SQL):
+//   CREATE UNIQUE INDEX "WorkoutSession_userProgramId_in_progress_partial_idx"
+//   ON "WorkoutSession" ("userProgramId") WHERE "status" = 'IN_PROGRESS';
 
 generator client {
   provider = "prisma-client-js"
@@ -236,6 +249,11 @@ model UserProgram {
   currentWeek Int      @default(1)
   currentDay  Int      @default(1)
   startedAt   DateTime @default(now())
+  // Set when the final day of the program is completed. Terminal.
+  completedAt DateTime?
+  // Set when the user unsaves a run that has completed workouts: the run leaves
+  // the library but its history is kept. Terminal — never un-archived.
+  archivedAt  DateTime?
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
@@ -243,7 +261,7 @@ model UserProgram {
   workoutSessions   WorkoutSession[]
   scheduledWorkouts ScheduledWorkout[]
 
-  @@unique([userId, programId])
+  @@index([userId, programId])
 }
 
 model WorkoutSession {

@@ -108,6 +108,17 @@ describe('POST /api/user-programs', () => {
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Program already saved' })
   })
 
+  test('saving relies on the open-run index, not a lookup, so finished runs never block a re-save', async () => {
+    mockProgramFindUnique.mockResolvedValueOnce({ id: 'prog001' })
+    mockCreate.mockResolvedValueOnce(mockCreatedProgram)
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect((prisma as typeof prisma).userProgram.findFirst).not.toHaveBeenCalled()
+    expect((prisma as typeof prisma).userProgram.findMany).not.toHaveBeenCalled()
+  })
+
   test('throws 500 on unexpected error', async () => {
     const dbError = new Error('connection reset')
     mockProgramFindUnique.mockRejectedValueOnce(dbError)

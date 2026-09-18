@@ -7,7 +7,7 @@ defineRouteMeta({
       201: { description: 'Workout session started with day template' },
       400: { description: 'No active program or invalid parameters' },
       401: { description: 'Unauthorized' },
-      409: { description: 'Session already in progress or duplicate at position' },
+      409: { description: 'Session already in progress, duplicate at position, or the current day is already completed in this run' },
       500: { description: 'Internal server error' },
     },
   },
@@ -88,6 +88,16 @@ export default defineEventHandler(async (event) => {
 
         if (existingSession) {
           throw createError({ statusCode: 409, statusMessage: 'Session already in progress' })
+        }
+
+        // A run never repeats a day. Unreachable once runs restart as fresh
+        // rows; guards finished runs an older deploy re-activated on their last day.
+        const completedAtPosition = await tx.workoutSession.findFirst({
+          where: { userProgramId: lockedProgram.id, weekNumber: targetWeek, dayNumber: targetDay, status: 'COMPLETED' },
+        })
+
+        if (completedAtPosition) {
+          throw createError({ statusCode: 409, statusMessage: 'This day is already completed' })
         }
       }
 
