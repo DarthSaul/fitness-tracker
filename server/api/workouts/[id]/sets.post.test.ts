@@ -215,6 +215,18 @@ describe('POST /api/workouts/:id/sets', () => {
     ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Exercise set does not belong to this workout day' })
   })
 
+  // reps is an Int column: a fraction used to reach Prisma and surface as a 500
+  test('throws 400 when reps is fractional, without touching the database', async () => {
+    mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', reps: 1.5 })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
+    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(txMocks.createCompletedSet).not.toHaveBeenCalled()
+  })
+
   test('throws 400 when reps is negative', async () => {
     mockReadBody.mockResolvedValueOnce({ exerciseSetId: 'es001', reps: -1 })
 

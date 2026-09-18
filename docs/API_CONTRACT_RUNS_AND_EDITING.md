@@ -80,9 +80,10 @@ any run was kept as history. Completed workouts on archived runs still appear in
 `/api/history`, and archiving changes nothing about what can be edited: notes and
 `completedAt` via `PATCH /api/workouts/:id`, and logged sets via
 `POST /api/workouts/:id/sets` and `PATCH|DELETE /api/workouts/:id/sets/:setId`,
-all work on a completed session. Structural edits (extra sets, ad-hoc sets,
-skip, swap, core-circuit setup) still require an in-progress session until the
-completed-workout editing change (#126) lands.
+all work on a completed session — as do the structural edits (extra sets, ad-hoc
+sets, skip, swap, core-circuit setup). Every edit route gates on ownership only
+(`404` otherwise), never on session status or program state; the full contract is
+in [`API_CONTRACT_EDITING_COMPLETED_WORKOUTS.md`](./API_CONTRACT_EDITING_COMPLETED_WORKOUTS.md).
 
 ### `PATCH /api/workouts/:id/complete`
 

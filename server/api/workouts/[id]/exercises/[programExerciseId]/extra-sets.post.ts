@@ -9,9 +9,9 @@ defineRouteMeta({
     ],
     responses: {
       201: { description: 'Extra set recorded' },
-      400: { description: 'Missing or invalid fields' },
+      400: { description: 'Missing or invalid fields, or programExerciseId does not belong to this session\'s day' },
       401: { description: 'Unauthorized' },
-      404: { description: 'Session or exercise not found' },
+      404: { description: 'Session not found' },
       409: { description: 'Exercise is skipped for this session' },
       500: { description: 'Internal server error' },
     },
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { reps, weight, rpe, notes } = body || {}
 
-    if (reps !== undefined && reps !== null && (!Number.isFinite(reps) || reps < 0)) {
+    if (reps !== undefined && reps !== null && (!Number.isInteger(reps) || reps < 0)) {
       throw createError({ statusCode: 400, statusMessage: 'reps must be a non-negative number' })
     }
     if (weight !== undefined && weight !== null && (!Number.isFinite(weight) || weight < 0)) {
