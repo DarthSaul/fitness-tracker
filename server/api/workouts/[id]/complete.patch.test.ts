@@ -30,6 +30,8 @@ function makeSession(weekNumber: number, dayNumber: number, weeks: Array<{ weekN
       programId: 'prog001',
       currentWeek: weekNumber,
       currentDay: dayNumber,
+      isActive: true,
+      completedAt: null as Date | null,
       program: {
         weeks: weeks.map((w) => ({
           weekNumber: w.weekNumber,
@@ -114,7 +116,7 @@ describe('PATCH /api/workouts/:id/complete', () => {
     expect(result.programCompleted).toBe(true)
     expect(mockUpdateUserProgram).toHaveBeenCalledWith({
       where: { id: 'up001' },
-      data: { isActive: false },
+      data: { isActive: false, completedAt: expect.any(Date) },
     })
   })
 
@@ -182,8 +184,72 @@ describe('PATCH /api/workouts/:id/complete', () => {
     expect(result.programCompleted).toBe(true)
     expect(mockUpdateUserProgram).toHaveBeenCalledWith({
       where: { id: 'up001' },
-      data: { isActive: false },
+      data: { isActive: false, completedAt: expect.any(Date) },
     })
+  })
+
+  test('stamps the run with the backdated completedAt when the program completes', async () => {
+    ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ completedAt: '2026-06-01T10:00:00.000Z' })
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1] }])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+    mockUpdateSession.mockResolvedValueOnce({ ...session, status: 'COMPLETED' })
+    mockUpdateUserProgram.mockResolvedValueOnce({ id: 'up001', isActive: false })
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockUpdateUserProgram).toHaveBeenCalledWith({
+      where: { id: 'up001' },
+      data: { isActive: false, completedAt: new Date('2026-06-01T10:00:00.000Z') },
+    })
+  })
+
+  test('falls back to now for the run when the session is completed with a null date', async () => {
+    ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ completedAt: null })
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1] }])
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+    mockUpdateSession.mockResolvedValueOnce({ ...session, status: 'COMPLETED' })
+    mockUpdateUserProgram.mockResolvedValueOnce({ id: 'up001', isActive: false })
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockUpdateUserProgram).toHaveBeenCalledWith({
+      where: { id: 'up001' },
+      data: { isActive: false, completedAt: expect.any(Date) },
+    })
+  })
+
+  test('does not write to the run when the session is behind the current position', async () => {
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
+    session.userProgram.currentDay = 3
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+    const updatedSession = { ...session, status: 'COMPLETED' }
+    mockUpdateSession.mockResolvedValueOnce(updatedSession)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ userProgram: Record<string, unknown>; programCompleted: boolean }>)(event)
+
+    expect(mockUpdateUserProgram).not.toHaveBeenCalled()
+    expect(result.programCompleted).toBe(false)
+    expect(result.userProgram).toEqual({
+      id: 'up001', programId: 'prog001', currentWeek: 1, currentDay: 3, isActive: true, completedAt: null,
+    })
+  })
+
+  test('never touches a run that is already completed', async () => {
+    // A leftover session on the final day of a finished run must not re-complete it
+    const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1] }])
+    session.userProgram.completedAt = new Date('2026-06-01')
+    session.userProgram.isActive = false
+    mockFindUniqueSession.mockResolvedValueOnce(session)
+    mockUpdateSession.mockResolvedValueOnce({ ...session, status: 'COMPLETED' })
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ programCompleted: boolean }>)(event)
+
+    expect(mockUpdateUserProgram).not.toHaveBeenCalled()
+    expect(result.programCompleted).toBe(false)
   })
 
   test('throws 500 when session weekNumber not found in program weeks', async () => {

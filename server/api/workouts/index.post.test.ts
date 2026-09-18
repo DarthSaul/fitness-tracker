@@ -193,6 +193,23 @@ describe('POST /api/workouts', () => {
     ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Session already in progress' })
   })
 
+  test('throws 409 when the current day already has a completed session in this run', async () => {
+    txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+    txMocks.findFirstSession
+      .mockResolvedValueOnce(null) // no IN_PROGRESS session
+      .mockResolvedValueOnce({ ...mockSession, status: 'COMPLETED' })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'This day is already completed' })
+
+    expect(txMocks.findFirstSession).toHaveBeenLastCalledWith({
+      where: { userProgramId: 'up001', weekNumber: 1, dayNumber: 2, status: 'COMPLETED' },
+    })
+    expect(txMocks.createSession).not.toHaveBeenCalled()
+  })
+
   test('throws 500 when program day not found', async () => {
     txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
     txMocks.findFirstSession.mockResolvedValueOnce(null)

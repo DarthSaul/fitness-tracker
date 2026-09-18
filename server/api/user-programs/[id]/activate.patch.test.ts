@@ -7,6 +7,9 @@
  *  - Not found: throws 404 when user program doesn't exist
  *  - Ownership: throws 404 when user program belongs to another user
  *  - Already active: throws 409 when program is already active
+ *  - Runs: a completed/archived row is never resumed — activation resolves to
+ *    the program's open run, creating a fresh one (week 1, day 1) when needed
+ *  - Races: P2002 from the partial unique indexes surfaces as 409
  *  - Error propagation: throws 500 on unexpected error
  *  - H3 error pass-through: re-throws H3 errors without wrapping as 500
  */
@@ -17,6 +20,8 @@ import handler from './activate.patch'
 const mockFindUnique = (prisma as typeof prisma).userProgram.findUnique as ReturnType<typeof vi.fn>
 const mockUpdateMany = (prisma as typeof prisma).userProgram.updateMany as ReturnType<typeof vi.fn>
 const mockUpdate = (prisma as typeof prisma).userProgram.update as ReturnType<typeof vi.fn>
+const mockFindFirst = (prisma as typeof prisma).userProgram.findFirst as ReturnType<typeof vi.fn>
+const mockCreate = (prisma as typeof prisma).userProgram.create as ReturnType<typeof vi.fn>
 const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
@@ -34,7 +39,11 @@ const mockInactiveProgram = {
   currentWeek: 1,
   currentDay: 1,
   startedAt: new Date(),
+  completedAt: null,
+  archivedAt: null,
 }
+
+const programInclude = { program: { select: { id: true, name: true, description: true } } }
 
 const mockActivatedProgram = {
   ...mockInactiveProgram,
@@ -51,8 +60,8 @@ describe('PATCH /api/user-programs/:id/activate', () => {
       err.statusMessage = opts.statusMessage
       return err
     })
-    // Default $transaction mock: resolves the array of promises
-    mockTransaction.mockImplementation((promises: Promise<unknown>[]) => Promise.all(promises))
+    // Interactive $transaction: run the callback with the prisma stub as `tx`
+    mockTransaction.mockImplementation((fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma))
   })
 
   test('activates program via $transaction and returns updated record', async () => {
@@ -76,6 +85,94 @@ describe('PATCH /api/user-programs/:id/activate', () => {
         program: { select: { id: true, name: true, description: true } },
       },
     })
+  })
+
+  // Regression: a user finished a program, re-activated it, and was dropped back
+  // on the final day instead of week one because the completed row was resumed.
+  test('activating a completed run creates a fresh run instead of resuming it', async () => {
+    const completedRun = { ...mockInactiveProgram, currentWeek: 12, currentDay: 4, completedAt: new Date('2026-06-01') }
+    const freshRun = { ...mockActivatedProgram, id: 'up002', currentWeek: 1, currentDay: 1 }
+    mockFindUnique.mockResolvedValueOnce(completedRun)
+    mockFindFirst.mockResolvedValueOnce(null)
+    mockUpdateMany.mockResolvedValueOnce({ count: 0 })
+    mockCreate.mockResolvedValueOnce(freshRun)
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string }>)(event)
+
+    expect(result).toEqual(freshRun)
+    expect(result.id).not.toBe('up001')
+    expect(mockFindFirst).toHaveBeenCalledWith({
+      where: { userId: 'user001', programId: 'prog001', completedAt: null, archivedAt: null },
+    })
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: { userId: 'user001', programId: 'prog001', isActive: true },
+      include: programInclude,
+    })
+    // The finished run is history — never mutated
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  test('activating an archived run creates a fresh run', async () => {
+    mockFindUnique.mockResolvedValueOnce({ ...mockInactiveProgram, archivedAt: new Date('2026-06-01') })
+    mockFindFirst.mockResolvedValueOnce(null)
+    mockCreate.mockResolvedValueOnce({ ...mockActivatedProgram, id: 'up002' })
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string }>)(event)
+
+    expect(result.id).toBe('up002')
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  test('a completed run that was re-activated by an older deploy still restarts', async () => {
+    mockFindUnique.mockResolvedValueOnce({ ...mockInactiveProgram, isActive: true, completedAt: new Date('2026-06-01') })
+    mockFindFirst.mockResolvedValueOnce(null)
+    mockCreate.mockResolvedValueOnce({ ...mockActivatedProgram, id: 'up002' })
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string }>)(event)
+
+    expect(result.id).toBe('up002')
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { userId: 'user001', isActive: true },
+      data: { isActive: false },
+    })
+  })
+
+  test('activating a terminal run resumes the existing open run for that program', async () => {
+    mockFindUnique.mockResolvedValueOnce({ ...mockInactiveProgram, completedAt: new Date('2026-06-01') })
+    mockFindFirst.mockResolvedValueOnce({ ...mockInactiveProgram, id: 'up002', currentWeek: 3 })
+    mockUpdate.mockResolvedValueOnce({ ...mockActivatedProgram, id: 'up002', currentWeek: 3 })
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ id: string }>)(event)
+
+    expect(result.id).toBe('up002')
+    expect(mockUpdate).toHaveBeenCalledWith({ where: { id: 'up002' }, data: { isActive: true }, include: programInclude })
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  test('throws 409 when a terminal run already has an active open run', async () => {
+    mockFindUnique.mockResolvedValueOnce({ ...mockInactiveProgram, completedAt: new Date('2026-06-01') })
+    mockFindFirst.mockResolvedValueOnce({ ...mockInactiveProgram, id: 'up002', isActive: true })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Program already active' })
+    expect(mockUpdateMany).not.toHaveBeenCalled()
+  })
+
+  test('throws 409 when a concurrent activation wins the race (P2002)', async () => {
+    mockFindUnique.mockResolvedValueOnce({ ...mockInactiveProgram, completedAt: new Date('2026-06-01') })
+    mockFindFirst.mockResolvedValueOnce(null)
+    mockCreate.mockRejectedValueOnce(Object.assign(new Error('unique'), { code: 'P2002' }))
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Program already active' })
   })
 
   test('throws 400 when id param is undefined', async () => {

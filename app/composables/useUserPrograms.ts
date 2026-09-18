@@ -11,21 +11,28 @@ export function useUserPrograms() {
   const savingPrograms = ref<Set<string>>(new Set())
   const activatingPrograms = ref<Set<string>>(new Set())
 
-  /** Map from programId → UserProgramSummary for O(1) lookup. */
+  /**
+   * Map from programId → the program's current run, for O(1) lookup. The API
+   * already returns one run per program; if several ever arrive, the open run
+   * wins over a completed one.
+   */
   const savedMap = computed(() => {
     const map = new Map<string, UserProgramSummary>()
     if (userPrograms.value) {
       for (const up of userPrograms.value) {
-        map.set(up.programId, up)
+        const existing = map.get(up.programId)
+        if (!existing || (existing.completedAt && !up.completedAt)) {
+          map.set(up.programId, up)
+        }
       }
     }
     return map
   })
 
-  /** True if any saved program is currently active. */
+  /** True if any saved program has a live active run. */
   const hasActiveProgram = computed(() => {
     if (!userPrograms.value) return false
-    return userPrograms.value.some(up => up.isActive)
+    return userPrograms.value.some(up => up.isActive && !up.completedAt)
   })
 
   /** Returns true if the program is in the user's saved list. */
@@ -41,7 +48,15 @@ export function useUserPrograms() {
   /** Returns true if the given program is the currently active one. */
   function isActive(programId: string): boolean {
     const up = savedMap.value.get(programId)
-    return up?.isActive ?? false
+    return (up?.isActive ?? false) && !up?.completedAt
+  }
+
+  /**
+   * Returns true if the program's current run is finished. Starting it again
+   * creates a fresh run from week one; the finished run stays in History.
+   */
+  function isCompleted(programId: string): boolean {
+    return Boolean(savedMap.value.get(programId)?.completedAt)
   }
 
   /** Returns true if an activate/deactivate request is in-flight for the given program. */
@@ -74,7 +89,7 @@ export function useUserPrograms() {
     const existing = savedMap.value.get(programId)
     if (!existing) return
 
-    if (existing.isActive) {
+    if (isActive(programId)) {
       activatingPrograms.value.add(programId)
       try {
         await $fetch(`/api/user-programs/${existing.id}/deactivate`, { method: 'PATCH' })
@@ -110,6 +125,7 @@ export function useUserPrograms() {
     isSaved,
     isSaving,
     isActive,
+    isCompleted,
     isActivating,
     toggleSave,
     toggleActive,

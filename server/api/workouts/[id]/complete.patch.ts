@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Workouts'],
     summary: 'Complete a workout day',
-    description: 'Marks the workout session as completed. Advances the user\'s position only when the session matches the current position. Accepts optional completedAt for backdating. If the last day of the last week is completed, the program is deactivated.',
+    description: 'Marks the workout session as completed. Advances the user\'s position only when the session matches the current position. Accepts optional completedAt for backdating. If the last day of the last week is completed, the run is finished: it is deactivated and stamped with completedAt, and activating that program again starts a fresh run. A run that is already completed is never modified.',
     parameters: [
       { name: 'id', in: 'path', required: true, schema: { type: 'string' }, description: 'WorkoutSession CUID' },
     ],
@@ -96,8 +96,10 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Only advance position when the session matches the current program position
+    // Only advance position when the session matches the current program position.
+    // A finished run is history — a leftover session on it never moves it again.
     const isAtCurrentPosition =
+      userProgram.completedAt === null &&
       session.weekNumber === userProgram.currentWeek &&
       session.dayNumber === userProgram.currentDay
 
@@ -132,16 +134,24 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    const sessionUpdate = prisma.workoutSession.update({
+      where: { id },
+      data: { status: 'COMPLETED', completedAt: completedAtDate },
+    })
+
+    if (!isAtCurrentPosition) {
+      const [updatedSession] = await prisma.$transaction([sessionUpdate])
+      const { program: _program, ...unchangedUserProgram } = userProgram
+      return { session: updatedSession, userProgram: unchangedUserProgram, programCompleted }
+    }
+
     const [updatedSession, updatedUserProgram] = await prisma.$transaction([
-      prisma.workoutSession.update({
-        where: { id },
-        data: { status: 'COMPLETED', completedAt: completedAtDate },
-      }),
+      sessionUpdate,
       prisma.userProgram.update({
         where: { id: userProgram.id },
-        data: isAtCurrentPosition
-          ? (programCompleted ? { isActive: false } : { currentWeek: nextWeek, currentDay: nextDay })
-          : {},
+        data: programCompleted
+          ? { isActive: false, completedAt: completedAtDate ?? new Date() }
+          : { currentWeek: nextWeek, currentDay: nextDay },
       }),
     ])
 

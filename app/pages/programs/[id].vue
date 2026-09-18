@@ -10,7 +10,7 @@ const { data: program, status } = useFetch<ProgramDetail>(() => `/api/programs/$
   key: computed(() => `program-detail-${programId.value}`),
   getCachedData: (key) => getCached(key),
 })
-const { isSaved, isSaving, toggleSave, isActive, isActivating, toggleActive } = useUserPrograms()
+const { isSaved, isSaving, toggleSave, isActive, isCompleted, isActivating, toggleActive } = useUserPrograms()
 
 const slideoverOpen = ref(false)
 const selectedWeek = ref<ProgramWeekSummary | null>(null)
@@ -91,6 +91,7 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
         <template v-else>Program</template>
       </h2>
       <div v-if="program" class="ml-auto flex shrink-0 items-center gap-2">
+        <AppStatusBadge v-if="isCompleted(program.id)" label="Completed" color="green" />
         <UButton
           :icon="isSaved(program.id) ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
           :color="isSaved(program.id) ? 'primary' : 'neutral'"
@@ -103,14 +104,14 @@ function onCardKeydown(week: ProgramWeekSummary, event: KeyboardEvent): void {
         </UButton>
         <UButton
           v-if="isSaved(program.id)"
-          :icon="isActive(program.id) ? 'i-lucide-circle-check' : 'i-lucide-play'"
+          :icon="isActive(program.id) ? 'i-lucide-circle-check' : isCompleted(program.id) ? 'i-lucide-rotate-ccw' : 'i-lucide-play'"
           :color="isActive(program.id) ? 'success' : 'neutral'"
           :variant="isActive(program.id) ? 'soft' : 'outline'"
           size="sm"
           :loading="isActivating(program.id)"
           @click="toggleActive(program.id)"
         >
-          {{ isActive(program.id) ? 'Active' : 'Start' }}
+          {{ isActive(program.id) ? 'Active' : isCompleted(program.id) ? 'Start again' : 'Start' }}
         </UButton>
       </div>
     </div>

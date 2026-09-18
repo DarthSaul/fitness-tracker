@@ -66,6 +66,7 @@ Domain organized around immutable program definitions, mutable user progress, an
 - **Program library (immutable):** `Program → ProgramWeek → ProgramDay → ProgramExercise → ExerciseSet`
 - **Exercise catalog:** `Exercise` is keyed by unique `name` and carries a unique URL-safe `slug`, derived via `slugify` (`shared/utils/slug.ts`) only when the row is created. Slugs are write-once — exercise-media storage paths and deep links are filed under them — so the seed never regenerates one and a renamed exercise keeps its slug. Purchased demo clips live in the **private** `exercise-media` Storage bucket; rows store only object keys (`animationPath`/`posterPath`) and `GET /api/exercises/:id/info` signs them for 15 minutes on every read (`server/utils/exercise-media.ts`). The ledger is `media-manifest.json` (committed) plus the gitignored `media-manifest.private.json` (keys); see `docs/licenses/movekit.md`.
 - **User progress (mutable):** `User`, `UserProgram` (saved/active + current position), `WorkoutSession`, `CompletedSet`
+- **A `UserProgram` row is one run, not one program.** A user can hold many rows per program. A run is open until `completedAt` (final day done) or `archivedAt` (unsaved but kept for its history) is set; both are terminal and the row is never resumed or mutated again. Activating a terminal run resolves to the program's open run, creating a fresh one at week 1 — so `PATCH …/activate` can return a **different id** than it was given. Unsave (`DELETE /api/user-programs/:id`) never destroys completed workouts. "One open run per (user, program)" is a raw partial unique index (see the `schema.prisma` header), which is also what makes a double-save 409. Client contract: `docs/API_CONTRACT_RUNS_AND_EDITING.md`.
 - **Auth identities:** `Identity` (one User can have many — Google, Apple, email — keyed on `(provider, providerId)`)
 - **Auth tokens:** `RefreshToken` (hashed, 30-day, revocable)
 - **Push:** `DeviceToken` (APNs token per user device, soft-deletable)
@@ -420,6 +421,10 @@ complete apart from Exercise skip UI and Core workouts)
       `summary_large_image`.
 
 ### Backlog
+- [ ] `user_program_runs_reconcile` migration — once the runs deploy is live everywhere: re-run the `completedAt` backfill from `20260918120000_user_program_runs` (idempotent), force `isActive = false` on terminal rows, and add `CHECK (NOT ("isActive" AND ("completedAt" IS NOT NULL OR "archivedAt" IS NOT NULL)))`. Deliberately not in the first migration: the previous deploy's activate route re-activates completed rows and would 500 against the CHECK.
+- [ ] Edit completed workouts, API (PR2) — drop the `IN_PROGRESS`-only gate on extra sets, ad-hoc sets, skip/unskip, swap and core-workout setup; add `GET /api/user-programs/:id/sessions` for any owned run.
+- [ ] Edit completed workouts, web (PR3) — `/history/:id/edit` reusing the day editor with no active program required; wire the completed-date picker to `PATCH /api/workouts/:id`.
+- [ ] Show `runNumber` on History rows so repeat runs of one program are distinguishable.
 - [ ] Configure Apple OAuth (web redirect flow — needed only when web frontend is built)
 - [ ] RPE tracking (optional, user-enabled in settings)
 - [ ] Fix iPadOS desktop UA detection in `PwaInstallBanner.vue` — iPads in Safari desktop-class mode (iPadOS 13+) report `Macintosh` UA; extend `isIOS` computed to also check `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1`

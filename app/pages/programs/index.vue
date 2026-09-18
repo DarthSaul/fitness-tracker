@@ -7,7 +7,7 @@ const { data: programs, status } = useFetch<ProgramSummary[]>('/api/programs', {
   key: CACHE_KEYS.PROGRAMS,
   getCachedData: (key) => getCached(key),
 })
-const { isSaved, isSaving, toggleSave, isActive, isActivating, toggleActive } = useUserPrograms()
+const { isSaved, isSaving, toggleSave, isActive, isCompleted, isActivating, toggleActive } = useUserPrograms()
 
 const filter = ref<'all' | 'active' | 'saved'>('all')
 
@@ -102,6 +102,7 @@ const emptyMessage = computed(() => {
               </h3>
             </div>
             <div class="ml-3 flex shrink-0 items-center gap-2">
+              <AppStatusBadge v-if="isCompleted(program.id)" label="Completed" color="green" />
               <span class="rounded-full bg-tint/15 px-2.5 py-0.5 text-xs font-medium text-tint">
                 {{ program._count.weeks }} {{ program._count.weeks === 1 ? 'week' : 'weeks' }}
               </span>
@@ -115,14 +116,14 @@ const emptyMessage = computed(() => {
               />
               <UButton
                 v-if="isSaved(program.id)"
-                :icon="isActive(program.id) ? 'i-lucide-circle-check' : 'i-lucide-play'"
+                :icon="isActive(program.id) ? 'i-lucide-circle-check' : isCompleted(program.id) ? 'i-lucide-rotate-ccw' : 'i-lucide-play'"
                 :color="isActive(program.id) ? 'success' : 'neutral'"
                 :variant="isActive(program.id) ? 'soft' : 'outline'"
                 size="sm"
                 :loading="isActivating(program.id)"
                 @click.stop="toggleActive(program.id)"
               >
-                {{ isActive(program.id) ? 'Active' : 'Start' }}
+                {{ isActive(program.id) ? 'Active' : isCompleted(program.id) ? 'Start again' : 'Start' }}
               </UButton>
             </div>
           </div>

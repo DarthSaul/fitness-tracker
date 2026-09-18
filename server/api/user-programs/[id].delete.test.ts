@@ -2,7 +2,10 @@
  * Tests for server/api/user-programs/[id].delete.ts
  *
  * Coverage strategy:
- *  - Happy path: deletes user program and returns success
+ *  - Happy path: hard-deletes a run with no completed workouts
+ *  - History is preserved: a run with completed workouts is archived, not
+ *    deleted — its unfinished sessions and scheduled workouts are cleared
+ *  - Unsave covers every non-archived run of the program, not just :id
  *  - Validation: throws 400 when id param is missing/empty
  *  - Not found: throws 404 when user program doesn't exist
  *  - Ownership: throws 404 when user program belongs to another user
@@ -14,7 +17,14 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import handler from './[id].delete'
 
 const mockFindUnique = (prisma as typeof prisma).userProgram.findUnique as ReturnType<typeof vi.fn>
+const mockFindManyRuns = (prisma as typeof prisma).userProgram.findMany as ReturnType<typeof vi.fn>
+const mockDeleteManyRuns = (prisma as typeof prisma).userProgram.deleteMany as ReturnType<typeof vi.fn>
+const mockUpdateManyRuns = (prisma as typeof prisma).userProgram.updateMany as ReturnType<typeof vi.fn>
 const mockDelete = (prisma as typeof prisma).userProgram.delete as ReturnType<typeof vi.fn>
+const mockFindManySessions = (prisma as typeof prisma).workoutSession.findMany as ReturnType<typeof vi.fn>
+const mockDeleteManySessions = (prisma as typeof prisma).workoutSession.deleteMany as ReturnType<typeof vi.fn>
+const mockDeleteManyScheduled = (prisma as typeof prisma).scheduledWorkout.deleteMany as ReturnType<typeof vi.fn>
+const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
@@ -31,6 +41,8 @@ const mockUserProgram = {
   currentWeek: 1,
   currentDay: 1,
   startedAt: new Date(),
+  completedAt: null,
+  archivedAt: null,
 }
 
 describe('DELETE /api/user-programs/:id', () => {
@@ -42,17 +54,69 @@ describe('DELETE /api/user-programs/:id', () => {
       err.statusMessage = opts.statusMessage
       return err
     })
+    mockTransaction.mockImplementation((fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma))
   })
 
-  test('deletes user program and returns success', async () => {
+  test('hard-deletes a run that has no completed workouts', async () => {
     mockFindUnique.mockResolvedValueOnce(mockUserProgram)
-    mockDelete.mockResolvedValueOnce(mockUserProgram)
+    mockFindManyRuns.mockResolvedValueOnce([{ id: 'up001' }])
+    mockFindManySessions.mockResolvedValueOnce([])
 
     const event = makeEvent()
     const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
-    expect(result).toEqual({ success: true })
-    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'up001' } })
+    expect(result).toEqual({ success: true, archived: false })
+    expect(mockFindManyRuns).toHaveBeenCalledWith({
+      where: { userId: 'user001', programId: 'prog001', archivedAt: null },
+      select: { id: true },
+    })
+    expect(mockDeleteManyRuns).toHaveBeenCalledWith({ where: { id: { in: ['up001'] } } })
+    expect(mockUpdateManyRuns).not.toHaveBeenCalled()
+    expect(mockDeleteManySessions).not.toHaveBeenCalled()
+  })
+
+  // Regression: unsaving a program used to cascade-delete every completed workout under it
+  test('archives a run with completed workouts instead of deleting its history', async () => {
+    mockFindUnique.mockResolvedValueOnce({ ...mockUserProgram, isActive: true })
+    mockFindManyRuns.mockResolvedValueOnce([{ id: 'up001' }])
+    mockFindManySessions.mockResolvedValueOnce([{ userProgramId: 'up001' }])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(result).toEqual({ success: true, archived: true })
+    expect(mockFindManySessions).toHaveBeenCalledWith({
+      where: { userProgramId: { in: ['up001'] }, status: 'COMPLETED' },
+      select: { userProgramId: true },
+      distinct: ['userProgramId'],
+    })
+    expect(mockUpdateManyRuns).toHaveBeenCalledWith({
+      where: { id: { in: ['up001'] } },
+      data: { archivedAt: expect.any(Date), isActive: false },
+    })
+    // Unfinished sessions would otherwise resurface as the resume banner
+    expect(mockDeleteManySessions).toHaveBeenCalledWith({
+      where: { userProgramId: { in: ['up001'] }, status: { not: 'COMPLETED' } },
+    })
+    expect(mockDeleteManyScheduled).toHaveBeenCalledWith({ where: { userProgramId: { in: ['up001'] } } })
+    expect(mockDeleteManyRuns).not.toHaveBeenCalled()
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  test('unsaves every non-archived run of the program, archiving only those with history', async () => {
+    mockFindUnique.mockResolvedValueOnce(mockUserProgram)
+    mockFindManyRuns.mockResolvedValueOnce([{ id: 'up001' }, { id: 'up-done' }])
+    mockFindManySessions.mockResolvedValueOnce([{ userProgramId: 'up-done' }])
+
+    const event = makeEvent()
+    const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(result).toEqual({ success: true, archived: true })
+    expect(mockDeleteManyRuns).toHaveBeenCalledWith({ where: { id: { in: ['up001'] } } })
+    expect(mockUpdateManyRuns).toHaveBeenCalledWith({
+      where: { id: { in: ['up-done'] } },
+      data: { archivedAt: expect.any(Date), isActive: false },
+    })
   })
 
   test('throws 400 when id param is undefined', async () => {

@@ -25,6 +25,10 @@ const completingGroupIdx = ref<number | null>(null)
 const pageLoading = ref(true)
 const pageError = ref<string | null>(null)
 const programCompleted = ref(false)
+/** The run that was just finished — activating it again starts a fresh run. */
+const completedRunId = ref<string | null>(null)
+const restarting = ref(false)
+const restartError = ref(false)
 const endDialogOpen = ref(false)
 const completeDialogOpen = ref(false)
 
@@ -287,12 +291,31 @@ async function confirmComplete(): Promise<void> {
     const result = await completeWorkout()
     completeDialogOpen.value = false
     if (result.programCompleted) {
+      completedRunId.value = result.userProgram.id
       programCompleted.value = true
     } else {
       await router.push('/home')
     }
   } catch {
     // Error is handled by completing state resetting
+  }
+}
+
+/** Starts the finished program over as a brand-new run from week one. */
+async function startProgramAgain(): Promise<void> {
+  if (!completedRunId.value || restarting.value) return
+  restarting.value = true
+  restartError.value = false
+  try {
+    await $fetch(`/api/user-programs/${completedRunId.value}/activate`, { method: 'PATCH' })
+    clearNuxtData(CACHE_KEYS.ACTIVE_WORKOUT)
+    clearNuxtData(CACHE_KEYS.ACTIVE_PROGRAM)
+    clearNuxtData(CACHE_KEYS.ACTIVE_SESSIONS)
+    await router.push('/home')
+  } catch {
+    restartError.value = true
+  } finally {
+    restarting.value = false
   }
 }
 
@@ -329,15 +352,27 @@ async function handleDiscard(): Promise<void> {
       <div class="text-6xl">
         🎉
       </div>
-      <h2 class="text-2xl font-bold text-label">
+      <h2 class="text-title font-bold text-label">
         Program Complete!
       </h2>
       <p class="text-label-secondary">
         Congratulations! You've finished every workout in this program.
       </p>
-      <UButton color="primary" size="lg" @click="router.push('/home')">
-        Back to Home
-      </UButton>
+      <UAlert
+        v-if="restartError"
+        color="error"
+        variant="subtle"
+        title="Couldn't start the program again. Try from the Programs tab."
+        icon="i-lucide-alert-circle"
+      />
+      <div class="flex flex-col items-center gap-3">
+        <UButton color="primary" size="lg" icon="i-lucide-rotate-ccw" :loading="restarting" @click="startProgramAgain">
+          Start again
+        </UButton>
+        <UButton color="neutral" variant="ghost" size="lg" @click="router.push('/home')">
+          Back to Home
+        </UButton>
+      </div>
     </div>
 
     <!--

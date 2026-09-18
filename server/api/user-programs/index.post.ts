@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['User Programs'],
     summary: 'Save a program',
-    description: 'Saves a program to the authenticated user\'s library. Returns 409 if already saved.',
+    description: 'Saves a program to the authenticated user\'s library as a new open run. Returns 409 if the program already has an open run. Completed and archived runs do not count as saved, so a finished or previously removed program can be saved again; uniqueness is enforced by the partial index on open runs, not by a lookup here.',
     responses: {
       201: { description: 'Program saved successfully' },
       400: { description: 'Missing programId' },

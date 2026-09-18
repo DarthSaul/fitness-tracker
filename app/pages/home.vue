@@ -134,11 +134,15 @@ const programTotalDays = computed(() => {
 	);
 });
 
+// Distinct days, not sessions: a day logged twice must not push progress past 100%.
 const programCompletedDays = computed(() => {
 	if (!sessionsData.value) return 0;
-	return sessionsData.value.sessions.filter(
-		(s) => s.status === 'COMPLETED',
-	).length;
+	const completedDays = new Set(
+		sessionsData.value.sessions
+			.filter((s) => s.status === 'COMPLETED')
+			.map((s) => `${s.weekNumber}-${s.dayNumber}`),
+	);
+	return completedDays.size;
 });
 
 const programProgressPercent = computed(() => {
