@@ -249,7 +249,8 @@ model UserProgram {
   currentWeek Int      @default(1)
   currentDay  Int      @default(1)
   startedAt   DateTime @default(now())
-  // Set when the final day of the program is completed. Terminal.
+  // Set when the final day of the program is completed, or when the user ends
+  // the run early (PATCH /api/user-programs/:id/complete). Terminal.
   completedAt DateTime?
   // Set when the user unsaves a run that has completed workouts: the run leaves
   // the library but its history is kept. Terminal — never un-archived.

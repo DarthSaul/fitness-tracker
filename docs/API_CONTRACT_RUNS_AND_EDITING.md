@@ -15,7 +15,7 @@ A run is **open** until one of two terminal states is reached:
 
 | Field | Set when | Meaning |
 |---|---|---|
-| `completedAt` | the final day of the program is completed | Finished. Shown as "Completed" in the library. |
+| `completedAt` | the final day of the program is completed, or the user ends the run early | Finished. Shown as "Completed" in the library. |
 | `archivedAt` | the user unsaves a run that has completed workouts | Removed from the library; history kept. |
 
 A terminal run is never resumed: its position and `completedAt` do not change
@@ -43,6 +43,30 @@ run) is already active, and when a concurrent activation wins the race.
 
 This is how "start again" works; there is no separate restart endpoint. Builds
 that predate runs get a working restart from the same call.
+
+### `PATCH /api/user-programs/:id/complete`
+
+Ends an open run early — "I'm halfway through and want to start over". No body.
+Works on the active run and on a paused one. The run gets `isActive: false` and
+`completedAt: now`; `currentWeek`/`currentDay` stay where the user stopped. Its
+unfinished sessions (an in-progress workout included) and scheduled workouts are
+deleted; completed workouts are kept, still appear in `/api/history`, and stay
+editable. The response is the updated run, in the same shape as activate.
+
+This differs from deactivate, which only pauses: a paused run stays open and
+resumes at its position. An ended run is terminal, exactly like one finished on
+its final day — the API does not distinguish the two.
+
+To restart, call `PATCH /api/user-programs/:id/activate` with the same id and
+adopt the returned run (new id, week 1, day 1). The two calls are deliberately
+separate: if the second fails the program simply shows as "Completed" with
+"Start again".
+
+| Status | When |
+|---|---|
+| `404 User program not found` | unknown id, or another user's run |
+| `409 Program already completed` | the run already has `completedAt` or `archivedAt` |
+| `409 No completed workouts in this run` | nothing to end — the run is still at week 1, day 1. Hide the action until the run has a completed workout. |
 
 ### `GET /api/user-programs`
 
