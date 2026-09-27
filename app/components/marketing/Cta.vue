@@ -1,10 +1,6 @@
 /**
  * Closing call to action, on the brand card.
  */
-<script setup lang="ts">
-const { signInWithGoogle } = useAuth()
-</script>
-
 <template>
   <section class="mx-auto w-full max-w-frame px-6 pb-16 lg:px-10 lg:pb-24">
     <AppCard rail="brand">
@@ -14,27 +10,9 @@ const { signInWithGoogle } = useAuth()
           Sign up, pick a program, and log your first set today.
         </p>
 
-        <div class="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-          <UButton
-            size="xl"
-            color="primary"
-            icon="i-lucide-log-in"
-            label="Continue with Google"
-            @click="signInWithGoogle"
-          />
-          <UButton
-            to="/login?signup=1"
-            size="xl"
-            color="neutral"
-            variant="outline"
-            label="Create an account"
-          />
+        <div class="mt-7 flex justify-center">
+          <UButton to="/login?signup=1" size="xl" color="primary" label="Get started" />
         </div>
-
-        <p class="mt-5 text-footnote text-label-secondary">
-          Already have an account?
-          <NuxtLink to="/login" class="font-medium text-tint hover:underline">Sign in</NuxtLink>
-        </p>
       </div>
     </AppCard>
   </section>

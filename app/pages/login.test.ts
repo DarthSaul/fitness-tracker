@@ -105,3 +105,51 @@ describe('login page — OAuth error reference', () => {
     expect(alert.attributes('data-description')).toBeUndefined()
   })
 })
+
+describe('login page — signup deep link', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    route.query = {}
+  })
+
+  function button(wrapper: ReturnType<typeof mount>, label: string) {
+    // `includes`, not equality: the Google button's text also carries its "G" glyph.
+    return wrapper.findAll('button').find(b => b.text().includes(label))
+  }
+
+  test('?signup=1 opens straight into the signup form', async () => {
+    route.query = { signup: '1' }
+
+    const wrapper = await mountLogin()
+
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(button(wrapper, 'Sign in with Google')).toBeUndefined()
+  })
+
+  /**
+   * A visitor who arrived from "Get started" but already has an account most
+   * likely signed up with a provider, so "Sign in instead" returns to the
+   * provider buttons rather than the email sign-in form.
+   */
+  test('"Sign in instead" from signup shows the provider buttons', async () => {
+    route.query = { signup: '1' }
+    const wrapper = await mountLogin()
+
+    await button(wrapper, 'Sign in instead')!.trigger('click')
+
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(button(wrapper, 'Sign in with Google')).toBeDefined()
+    expect(button(wrapper, 'Sign in with Apple')).toBeDefined()
+  })
+
+  test('"Sign in instead" from password reset stays on the email sign-in form', async () => {
+    const wrapper = await mountLogin()
+    await button(wrapper, 'Continue with email')!.trigger('click')
+    await button(wrapper, 'Forgot password?')!.trigger('click')
+
+    await button(wrapper, 'Sign in instead')!.trigger('click')
+
+    expect(wrapper.find('form').exists()).toBe(true)
+    expect(button(wrapper, 'Forgot password?')).toBeDefined()
+  })
+})
