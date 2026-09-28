@@ -2,7 +2,7 @@
 
 A mobile-first workout tracker for structured training programs. The project ships as two clients backed by a single Nuxt 4 / Nitro server:
 
-- **Web PWA** — installable on desktop and mobile browsers at [fitness-app.me](https://fitness-app.me).
+- **Web PWA** — installable on desktop and mobile browsers at [drdumbbell.app](https://drdumbbell.app).
 - **Native iOS app** — SwiftUI client in a separate repo: [DarthSaul/fitness-tracker-mobile-app](https://github.com/DarthSaul/fitness-tracker-mobile-app).
 
 > **Status:** Registration is open — anyone can create an account with Google, Apple, or email. This repo is published for portfolio and reference purposes, not for self-hosting.
@@ -13,8 +13,10 @@ A mobile-first workout tracker for structured training programs. The project shi
 
 | Client | URL / Repo | Auth | Notes |
 |---|---|---|---|
-| Web PWA (desktop + mobile browsers) | [fitness-app.me](https://fitness-app.me) | Cookie session (`nuxt-auth-utils`) | Installable as a PWA on iOS/Android/desktop |
+| Web PWA (desktop + mobile browsers) | [drdumbbell.app](https://drdumbbell.app) | Cookie session (`nuxt-auth-utils`) | Installable as a PWA on iOS/Android/desktop |
 | Native iOS (SwiftUI) | [fitness-tracker-mobile-app](https://github.com/DarthSaul/fitness-tracker-mobile-app) | JWT (Bearer access + refresh) | Sign in with Apple (primary), Sign in with Google (secondary) |
+
+`fitness-app.me` is the legacy domain: its web pages redirect to `drdumbbell.app`, while its `/api/**` is still served in place for iOS builds that predate the move.
 
 Both clients talk to the same Nitro API hosted on Vercel. The server is the single source of truth for programs, sessions, and user progress.
 
@@ -23,7 +25,7 @@ Both clients talk to the same Nitro API hosted on Vercel. The server is the sing
 ```
 ┌──────────────────────┐        ┌──────────────────────┐
 │  Web PWA             │        │  iOS SwiftUI app     │
-│  fitness-app.me      │        │  (separate repo)     │
+│  drdumbbell.app      │        │  (separate repo)     │
 │  cookie session      │        │  JWT Bearer          │
 └─────────┬────────────┘        └──────────┬───────────┘
           │                                │

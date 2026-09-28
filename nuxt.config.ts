@@ -1,4 +1,5 @@
 import { version } from './package.json'
+import { legacyHostRedirectRoutes } from './legacy-host-redirect.config'
 
 /**
  * Normalises NUXT_PUBLIC_APP_URL into a bare CORS origin.
@@ -261,6 +262,19 @@ export default defineNuxtConfig({
     },
   },
   nitro: {
+    vercel: {
+      config: {
+        version: 3,
+        // Legacy-domain cutover: 308 web traffic on NUXT_LEGACY_HOSTS to
+        // NUXT_PUBLIC_APP_URL, ahead of Vercel's static `filesystem` phase so
+        // prerendered pages redirect too. See legacy-host-redirect.config.ts.
+        // Nitro's route type omits `has`/`methods`/`status`, hence the cast.
+        routes: legacyHostRedirectRoutes(
+          process.env.NUXT_LEGACY_HOSTS,
+          process.env.NUXT_PUBLIC_APP_URL,
+        ) as never[],
+      },
+    },
     prerender: {
       // The landing page links to /login and /home; crawling would prerender
       // and precache app routes that are deliberately client-rendered.

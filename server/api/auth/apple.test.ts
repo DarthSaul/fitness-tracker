@@ -393,14 +393,14 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
     }
 
     test('passes the configured redirectURL through to the library', async () => {
-      withAppleConfig({ redirectURL: 'https://fitness-app.me/api/auth/apple' })
+      withAppleConfig({ redirectURL: 'https://drdumbbell.app/api/auth/apple' })
 
       await appleHandler(wrapperEvent() as never)
 
       expect(defineOAuthAppleEventHandler).toHaveBeenCalledWith(
         expect.objectContaining({
           config: expect.objectContaining({
-            redirectURL: 'https://fitness-app.me/api/auth/apple',
+            redirectURL: 'https://drdumbbell.app/api/auth/apple',
             scope: ['name', 'email'],
           }),
         }),
@@ -428,7 +428,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
     test('logs runtime config presence without leaking values', async () => {
       withAppleConfig({
-        redirectURL: 'https://fitness-app.me/api/auth/apple',
+        redirectURL: 'https://drdumbbell.app/api/auth/apple',
         clientId: 'me.app.web',
         privateKey: '-----BEGIN PRIVATE KEY-----\nSECRETBODY\n-----END PRIVATE KEY-----',
       })
@@ -448,7 +448,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
     test('invokes the library handler with the original event', async () => {
       const event = wrapperEvent()
-      withAppleConfig({ redirectURL: 'https://fitness-app.me/api/auth/apple' })
+      withAppleConfig({ redirectURL: 'https://drdumbbell.app/api/auth/apple' })
 
       await appleHandler(event as never)
 
@@ -515,7 +515,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
       test('logs the callback at info even when the config is healthy', async () => {
         vi.mocked(getRequestHeader).mockReturnValue('application/x-www-form-urlencoded')
         withAppleConfig({
-          redirectURL: 'https://fitness-app.me/api/auth/apple',
+          redirectURL: 'https://drdumbbell.app/api/auth/apple',
           privateKey: '-----BEGIN PRIVATE KEY-----\nMIGT\n-----END PRIVATE KEY-----',
         })
 
@@ -553,7 +553,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
     test('adds remediation and masked forensics when the key format is bad', async () => {
       // The exact production mistake: the PEM body with its armor lines stripped.
       withAppleConfig({
-        redirectURL: 'https://fitness-app.me/api/auth/apple',
+        redirectURL: 'https://drdumbbell.app/api/auth/apple',
         privateKey: 'MIGTAgEA'.padEnd(200, 'A'),
       })
 
@@ -572,7 +572,7 @@ describe('Apple OAuth handler (/api/auth/apple)', () => {
 
     test('omits the remediation fields when the key format is fine', async () => {
       withAppleConfig({
-        redirectURL: 'https://fitness-app.me/api/auth/apple',
+        redirectURL: 'https://drdumbbell.app/api/auth/apple',
         privateKey: '-----BEGIN PRIVATE KEY-----\nMIGT\n-----END PRIVATE KEY-----',
       })
 
