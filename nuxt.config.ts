@@ -98,6 +98,10 @@ export default defineNuxtConfig({
     apnsTeamId: '',
     apnsKeyId: '',
     apnsPrivateKey: '',
+    // Comma-separated hosts whose web traffic 308s to `public.appUrl`, from
+    // NUXT_LEGACY_HOSTS. Read only by server/middleware/legacy-host-redirect.ts;
+    // delete both together once the legacy domain is a Vercel-level redirect.
+    legacyHosts: '',
     public: {
       // Surfaced on the Settings screen; single source of truth is package.json.
       appVersion: version,

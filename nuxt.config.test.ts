@@ -130,7 +130,7 @@ describe('API CORS headers', () => {
   })
 
   test('rejects a value that is not an absolute URL', async () => {
-    await expect(loadConfig({ NUXT_PUBLIC_APP_URL: 'fitness-app.me' }))
+    await expect(loadConfig({ NUXT_PUBLIC_APP_URL: 'drdumbbell.app' }))
       .rejects.toThrow(/must be an absolute URL/)
   })
 

@@ -65,7 +65,7 @@ vi.stubGlobal(
 // ── Nitro runtime config / request helpers ───────────────────────────────────
 // Defaults are the "configured correctly" case; tests override per-case.
 vi.stubGlobal('useRuntimeConfig', vi.fn(() => ({
-  oauth: { apple: { redirectURL: 'https://fitness-app.me/api/auth/apple' } },
+  oauth: { apple: { redirectURL: 'https://drdumbbell.app/api/auth/apple' } },
 })))
 vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/auth/apple')))
 
