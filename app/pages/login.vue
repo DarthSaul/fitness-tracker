@@ -102,6 +102,16 @@ function closeEmail() {
   switchMode('signin')
 }
 
+/**
+ * From signup, someone who already has an account most likely made it with a
+ * provider, so return to the provider buttons. From password reset they were
+ * already on the email form, so stay there.
+ */
+function signInInstead() {
+  if (mode.value === 'signup') closeEmail()
+  else switchMode('signin')
+}
+
 async function handleEmailSubmit() {
   formError.value = null
   successMessage.value = null
@@ -320,7 +330,7 @@ async function handleEmailSubmit() {
               v-else
               type="button"
               class="text-tint"
-              @click="switchMode('signin')"
+              @click="signInInstead"
             >
               Sign in instead
             </button>

@@ -1,12 +1,11 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import { ref, computed } from 'vue'
 import { mount } from '@vue/test-utils'
 import Hero from './Hero.vue'
+import { APP_STORE_URL } from '../../utils/app-store'
 
 vi.stubGlobal('ref', ref)
 vi.stubGlobal('computed', computed)
-
-const signInWithGoogle = vi.fn()
 
 const NuxtLinkStub = {
   name: 'NuxtLink',
@@ -26,9 +25,7 @@ const UButtonStub = {
   template: '<a v-if="to" :href="to">{{ label }}</a><button v-else @click="$emit(\'click\')">{{ label }}</button>',
 }
 
-function mountHero(appleAuthEnabled = false) {
-  vi.stubGlobal('useRuntimeConfig', () => ({ public: { appleAuthEnabled } }))
-  vi.stubGlobal('useAuth', () => ({ signInWithGoogle }))
+function mountHero() {
 
   return mount(Hero, {
     global: {
@@ -37,21 +34,18 @@ function mountHero(appleAuthEnabled = false) {
         NuxtLink: NuxtLinkStub,
         UButton: UButtonStub,
         AppCard: { template: '<div><slot /></div>' },
+        MarketingAppStoreBadge: { template: `<a href="${APP_STORE_URL}">Download on the App Store</a>` },
       },
     },
   })
 }
-
-beforeEach(() => {
-  signInWithGoogle.mockClear()
-})
 
 describe('MarketingHero', () => {
   test('renders exactly one h1', () => {
     const headings = mountHero().findAll('h1')
 
     expect(headings).toHaveLength(1)
-    expect(headings[0]!.text()).toContain('Run the program')
+    expect(headings[0]!.text()).toBe("Follow plans you'll love. Log workouts with ease. Track your gains.")
   })
 
   describe('the artwork', () => {
@@ -80,29 +74,30 @@ describe('MarketingHero', () => {
   })
 
   describe('calls to action', () => {
-    test('the primary CTA starts Google sign-in directly', async () => {
-      const wrapper = mountHero()
+    // The header already offers Sign in; the hero pitches new users only.
+    test('offers Get started (signup) and no Sign in', () => {
+      const links = mountHero().findAll('a')
+      const byLabel = Object.fromEntries(links.map(a => [a.text(), a.attributes('href')]))
 
-      await wrapper.find('button').trigger('click')
-
-      expect(signInWithGoogle).toHaveBeenCalledOnce()
+      expect(byLabel['Get started']).toBe('/login?signup=1')
+      expect(mountHero().text()).not.toContain('Sign in')
     })
 
-    // Keeps /login the single auth surface instead of growing a sibling page.
-    test('the secondary CTA opens the signup form on /login', () => {
+    test('no longer starts Google sign-in directly', () => {
+      expect(mountHero().text()).not.toContain('Continue with Google')
+    })
+
+    test('links to the App Store', () => {
       const hrefs = mountHero().findAll('a').map(a => a.attributes('href'))
 
-      expect(hrefs).toContain('/login?signup=1')
-    })
-  })
-
-  describe('Apple sign-in', () => {
-    test('is not mentioned when it is not configured', () => {
-      expect(mountHero(false).text()).not.toContain('Apple')
+      expect(hrefs).toContain(APP_STORE_URL)
     })
 
-    test('is mentioned when it is configured', () => {
-      expect(mountHero(true).text()).toContain('Apple')
+    test('carries no fine print under the CTAs', () => {
+      const text = mountHero().text()
+
+      expect(text).not.toContain('Sign in with Apple is available too')
+      expect(text).not.toContain('On iPhone and the web')
     })
   })
 })

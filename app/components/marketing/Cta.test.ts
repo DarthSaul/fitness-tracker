@@ -1,12 +1,11 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
 import { ref, computed } from 'vue'
 import { mount } from '@vue/test-utils'
 import Cta from './Cta.vue'
+import { APP_STORE_URL } from '../../utils/app-store'
 
 vi.stubGlobal('ref', ref)
 vi.stubGlobal('computed', computed)
-
-const signInWithGoogle = vi.fn()
 
 const NuxtLinkStub = {
   name: 'NuxtLink',
@@ -26,8 +25,6 @@ const UButtonStub = {
 }
 
 function mountCta() {
-  vi.stubGlobal('useAuth', () => ({ signInWithGoogle }))
-
   return mount(Cta, {
     global: {
       stubs: {
@@ -35,28 +32,24 @@ function mountCta() {
         NuxtLink: NuxtLinkStub,
         UButton: UButtonStub,
         AppCard: { template: '<div><slot /></div>' },
+        MarketingAppStoreBadge: { template: `<a href="${APP_STORE_URL}">Download on the App Store</a>` },
       },
     },
   })
 }
 
-beforeEach(() => {
-  signInWithGoogle.mockClear()
-})
-
 describe('MarketingCta', () => {
-  test('the primary CTA starts Google sign-in exactly once', async () => {
-    const wrapper = mountCta()
+  // The closing card has one job: send a new visitor to signup.
+  test('offers only the Get started CTA, pointing at signup', () => {
+    const links = mountCta().findAll('a')
 
-    await wrapper.find('button').trigger('click')
-
-    expect(signInWithGoogle).toHaveBeenCalledOnce()
+    expect(links.map(a => [a.text(), a.attributes('href')])).toEqual([['Get started', '/login?signup=1']])
   })
 
-  test('offers an email route and a sign-in route for existing accounts', () => {
-    const hrefs = mountCta().findAll('a').map(a => a.attributes('href'))
+  test('offers neither Sign in nor the App Store badge', () => {
+    const wrapper = mountCta()
 
-    expect(hrefs).toContain('/login?signup=1')
-    expect(hrefs).toContain('/login')
+    expect(wrapper.text()).not.toContain('Sign in')
+    expect(wrapper.findAll('a').map(a => a.attributes('href'))).not.toContain(APP_STORE_URL)
   })
 })

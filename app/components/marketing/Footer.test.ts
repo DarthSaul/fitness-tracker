@@ -2,6 +2,7 @@ import { describe, test, expect, vi } from 'vitest'
 import { ref, computed } from 'vue'
 import { mount } from '@vue/test-utils'
 import Footer from './Footer.vue'
+import { APP_STORE_URL } from '../../utils/app-store'
 
 vi.stubGlobal('ref', ref)
 vi.stubGlobal('computed', computed)
@@ -14,23 +15,21 @@ const NuxtLinkStub = {
 
 function mountFooter() {
   vi.stubGlobal('useRuntimeConfig', () => ({ public: { appVersion: '1.4.2' } }))
-  return mount(Footer, { global: { stubs: { NuxtLink: NuxtLinkStub } } })
+  return mount(Footer, {
+    global: {
+      stubs: {
+        NuxtLink: NuxtLinkStub,
+        MarketingAppStoreBadge: { template: `<a href="${APP_STORE_URL}">Download on the App Store</a>` },
+      },
+    },
+  })
 }
 
 describe('MarketingFooter', () => {
-  /**
-   * The executable form of a product decision: the iOS client is TestFlight
-   * only, so there is nothing for a store badge to link to. This test is what
-   * stops one being added back by reflex.
-   */
-  test('advertises no app store or download', () => {
-    const html = mountFooter().html()
+  test('links to the App Store listing', () => {
+    const hrefs = mountFooter().findAll('a').map(a => a.attributes('href'))
 
-    expect(html).not.toContain('apps.apple.com')
-    expect(html).not.toContain('play.google.com')
-    expect(html).not.toContain('testflight')
-    expect(html.toLowerCase()).not.toContain('download on the')
-    expect(html.toLowerCase()).not.toContain('app store')
+    expect(hrefs).toContain(APP_STORE_URL)
   })
 
   test('links to sign-in and signup', () => {

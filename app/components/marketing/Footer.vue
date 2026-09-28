@@ -1,8 +1,8 @@
 /**
  * Marketing footer.
  *
- * No app-store or download badges: the iOS client is TestFlight-only, and a
- * badge a reader cannot act on is worse than none.
+ * The App Store badge sits under the brand blurb, the same component the hero
+ * and closing CTA use, so the listing URL lives in one place.
  *
  * Section anchors are root-anchored (`/#features`) because this footer also
  * renders on /privacy, where a bare fragment would scroll nowhere.
@@ -18,7 +18,7 @@ const product = [
 
 const account = [
   { label: 'Sign in', to: '/login' },
-  { label: 'Create an account', to: '/login?signup=1' },
+  { label: 'Get started', to: '/login?signup=1' },
 ]
 
 const legal = [
@@ -38,6 +38,9 @@ const legal = [
           <p class="mt-3 text-footnote text-label-secondary">
             A workout tracker for people following a structured strength program.
           </p>
+          <div class="mt-4">
+            <MarketingAppStoreBadge />
+          </div>
         </div>
 
         <div class="flex gap-12">
