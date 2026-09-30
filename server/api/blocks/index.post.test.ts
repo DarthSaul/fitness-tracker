@@ -7,6 +7,8 @@ const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockFindUser = prisma.user.findUnique as ReturnType<typeof vi.fn>
 const mockFindBlock = prisma.userBlock.findUnique as ReturnType<typeof vi.fn>
 const mockCreateBlock = prisma.userBlock.create as ReturnType<typeof vi.fn>
+const mockDeleteFriendships = prisma.friendship.deleteMany as ReturnType<typeof vi.fn>
+const mockTransaction = prisma.$transaction as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string }; node: { res: { statusCode: number } } }
 type Result = { userId: string; blockedAt: Date }
@@ -24,6 +26,8 @@ describe('POST /api/blocks', () => {
     mockReadBody.mockResolvedValue({ userId: 'bob' })
     mockFindUser.mockResolvedValue({ id: 'bob' })
     mockFindBlock.mockResolvedValue(null)
+    mockDeleteFriendships.mockResolvedValue({ count: 0 })
+    mockTransaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops))
   })
 
   test('creates a block and responds 201', async () => {
@@ -38,6 +42,25 @@ describe('POST /api/blocks', () => {
     })
     expect(event.node.res.statusCode).toBe(201)
     expect(result).toEqual({ userId: 'bob', blockedAt })
+  })
+
+  test('severs any friendship or pending request between the pair in the same transaction', async () => {
+    mockCreateBlock.mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
+
+    await call(makeEvent())
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockTransaction.mock.calls[0]![0]).toHaveLength(2)
+    // 'alice' < 'bob', so alice is the low id; no status filter — pending and accepted both go.
+    expect(mockDeleteFriendships).toHaveBeenCalledWith({ where: { userLowId: 'alice', userHighId: 'bob' } })
+  })
+
+  test('an existing block does not re-run the transaction', async () => {
+    mockFindBlock.mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
+
+    await call(makeEvent())
+
+    expect(mockTransaction).not.toHaveBeenCalled()
   })
 
   test('takes the blocker from the session, never the body', async () => {

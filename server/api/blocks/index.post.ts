@@ -5,7 +5,7 @@ defineRouteMeta({
     tags: ['Social'],
     summary: 'Block a user',
     description:
-      'Blocks another user. Each user is then hidden from the other everywhere in the social API, and the blocked '
+      'Blocks another user and ends any friendship or pending request between them. Each user is then hidden from the other everywhere in the social API, and the blocked '
       + 'user is never told. Idempotent: blocking an already-blocked user returns the existing block with 200.',
     responses: {
       201: { description: 'User blocked' },
@@ -46,10 +46,15 @@ export default defineEventHandler(async (event): Promise<BlockResponse> => {
     if (existing) return toResponse(existing)
 
     try {
-      const block = await prisma.userBlock.create({
-        data: { blockerId: userId, blockedId: targetId },
-        select: blockSelect,
-      })
+      // A block severs the pair's friendship or pending request, atomically, so
+      // "blocked" and "friends" can never both be true.
+      const [block] = await prisma.$transaction([
+        prisma.userBlock.create({
+          data: { blockerId: userId, blockedId: targetId },
+          select: blockSelect,
+        }),
+        prisma.friendship.deleteMany({ where: orderedPair(userId, targetId) }),
+      ])
       event.node.res.statusCode = 201
       return toResponse(block)
     } catch (createErr) {

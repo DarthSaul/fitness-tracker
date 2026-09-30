@@ -55,6 +55,11 @@ enum PushEnvironment {
   PRODUCTION
 }
 
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
 // ---------------------------------------------------------------------------
 // Auth / User
 // ---------------------------------------------------------------------------
@@ -79,6 +84,8 @@ model User {
   ptRoutines                PtRoutine[]
   blocksMade                UserBlock[]                @relation("BlocksMade")
   blocksReceived            UserBlock[]                @relation("BlocksReceived")
+  friendshipsAsLow          Friendship[]               @relation("FriendshipsAsLow")
+  friendshipsAsHigh         Friendship[]               @relation("FriendshipsAsHigh")
 }
 
 model Identity {
@@ -566,4 +573,28 @@ model UserBlock {
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
+}
+
+// One row per unordered pair of users, pending or accepted. The pair is stored
+// sorted (userLowId < userHighId) so the @@unique makes A→B and B→A impossible;
+// server/utils/friends.ts `orderedPair` is the only place ids are sorted.
+// Declining, cancelling and unfriending delete the row, so "friends now" is
+// exactly "an ACCEPTED row exists" — the feed relies on that.
+// Raw SQL CHECKs in the migration (Prisma cannot express them):
+//   CHECK ("userLowId" < "userHighId" COLLATE "C")
+//   CHECK ("requesterId" IN ("userLowId", "userHighId"))
+model Friendship {
+  id          String           @id @default(cuid())
+  userLowId   String
+  userHighId  String
+  requesterId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  acceptedAt  DateTime?
+
+  userLow  User @relation("FriendshipsAsLow", fields: [userLowId], references: [id], onDelete: Cascade)
+  userHigh User @relation("FriendshipsAsHigh", fields: [userHighId], references: [id], onDelete: Cascade)
+
+  @@unique([userLowId, userHighId])
+  @@index([userHighId, status])
 }

@@ -23,8 +23,17 @@ interface PublicUser { id: string; name: string | null; avatarUrl: string | null
 
 | Action | Route | Success |
 |---|---|---|
-| Search | `GET /api/users/search?q=` | `200 { users: PublicUser[] }`, at most 20, ordered by name |
-| Profile | `GET /api/users/:id` | `200 PublicUser` |
+| Search | `GET /api/users/search?q=` | `200 { users: (PublicUser & Relationship)[] }`, at most 20, ordered by name |
+| Profile | `GET /api/users/:id` | `200 PublicUser & Relationship` |
+
+```ts
+type Relationship =
+  | { relationship: 'self' | 'none' | 'friends' }
+  | { relationship: 'request_sent' | 'request_received'; requestId: string }
+```
+
+`requestId` lets a profile screen accept (`request_received`) or cancel
+(`request_sent`) without another lookup.
 
 - `q` is trimmed and must be 2–100 characters (`400` otherwise).
 - A `q` containing `@` matches an email **exactly** (case-insensitive) — type
@@ -35,7 +44,51 @@ interface PublicUser { id: string; name: string | null; avatarUrl: string | null
   as-you-type search on the client (~300 ms).
 - Profile `404`s for an unknown user **and** for a blocked one; the caller's
   own id works.
-- Later releases add `relationship` (`friendships`) to both responses.
+
+## Friends
+
+```ts
+interface FriendRequest {
+  id: string
+  user: PublicUser                 // always the other person
+  direction: 'incoming' | 'outgoing'
+  createdAt: string
+}
+type Friend = PublicUser & { friendsSince: string }
+```
+
+| Action | Route | Success |
+|---|---|---|
+| Send a request | `POST /api/friend-requests` — `{ userId }` | `201 FriendRequest`; see below for `200` |
+| List pending requests | `GET /api/friend-requests?direction=incoming\|outgoing` | `200 { requests: FriendRequest[] }`, newest first; default `incoming` |
+| Accept | `POST /api/friend-requests/:id/accept` | `200 { friend: Friend }` |
+| Cancel (sent) or decline (received) | `DELETE /api/friend-requests/:id` | `204` |
+| List friends | `GET /api/friends` | `200 { friends: Friend[] }`, by name, nameless last |
+| Remove a friend | `DELETE /api/friends/:userId` | `204`, also when not friends |
+
+Sending a request — the response depends on what already exists:
+
+| Existing state | Response |
+|---|---|
+| Nothing | `201 FriendRequest` (outgoing) |
+| I already requested them | `200` the same `FriendRequest` — safe to retry |
+| **They** already requested me | Their request is accepted: `200 { friend: Friend }`. Tell the two apart by the `friend` key. |
+| Already friends | `409` |
+| Unknown **or** blocked user | `404` (indistinguishable) |
+
+Errors elsewhere: `400` missing id / requesting yourself / bad `direction` ·
+`404` on accept or delete when the request isn't pending, isn't yours to act
+on, or is gone (only the recipient can accept; either side can delete) ·
+`429` after 30 requests per hour.
+
+Behaviour the client can rely on:
+
+- A decline is silent: the request disappears from the sender's outgoing
+  list, and either user may request again.
+- Removing a friend works from either side and takes effect immediately.
+  Once the feed ships, their posts are gone from the next feed fetch, and
+  becoming friends again restores them, including older posts.
+- You can only list your own friends.
 
 ## Blocking
 
@@ -52,6 +105,5 @@ Behaviour the client can rely on:
 
 - Both users may block each other independently; each sees only their own
   blocks in `GET /api/blocks`.
-- Blocking will also remove any friendship or pending friend request between
-  the two users (from the `friendships` release onward). Unblocking never
-  restores it.
+- Blocking also removes any friendship or pending friend request between the
+  two users. Unblocking never restores it.

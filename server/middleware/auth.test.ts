@@ -180,7 +180,11 @@ describe('server/middleware/auth', () => {
   })
 
   describe('social routes are protected', () => {
-    test.each(['/api/users/search?q=bo', '/api/users/clusr001', '/api/blocks', '/api/blocks/clusr001'])(
+    test.each([
+      '/api/users/search?q=bo', '/api/users/clusr001', '/api/blocks', '/api/blocks/clusr001',
+      '/api/friend-requests', '/api/friend-requests/clfr001', '/api/friend-requests/clfr001/accept',
+      '/api/friends', '/api/friends/clusr001',
+    ])(
       '401 for unauthenticated %s',
       async (path) => {
         mockGetUserSession.mockResolvedValueOnce(null)
