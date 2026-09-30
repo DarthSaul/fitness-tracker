@@ -68,8 +68,8 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 
 ### Checkpoint: friendships
 - [x] verify-app passes
-- [ ] PR opened
-- [ ] migration applied
+- [x] PR opened (#133)
+- [x] migration applied (2026-09-29, via session pooler)
 
 ## Later PRs (spec written when reached)
 
