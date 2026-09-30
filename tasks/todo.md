@@ -71,7 +71,12 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 - [x] PR opened (#133)
 - [x] migration applied (2026-09-29, via session pooler)
 
+## PR 4 — `posts` (branch `feat/social-posts`)
+
+- [x] Spec approved (`docs/social/SPEC-posts.md`)
+- Tasks to be broken down once the spec is approved.
+
 ## Later PRs (spec written when reached)
 
-- [ ] `posts` · [ ] `feed` · [ ] `post-photos` ·
+- [ ] `feed` · [ ] `post-photos` ·
       [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`
