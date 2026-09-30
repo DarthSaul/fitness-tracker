@@ -10,6 +10,7 @@ import { vi } from 'vitest'
 
 import { publicUserSelect } from './server/utils/public-user'
 import { orderedPair, friendsOf, friendshipSelect } from './server/utils/friends'
+import { postSelect, toPost, parsePageQuery, pageWhere, newestFirst, parsePostBody, parseVisibility } from './server/utils/posts'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
@@ -96,6 +97,7 @@ vi.stubGlobal('prisma', {
   workoutExerciseSkip: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
   deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  post: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   friendship: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   userBlock: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
@@ -119,6 +121,15 @@ vi.stubGlobal('areFriends', vi.fn().mockResolvedValue(false))
 vi.stubGlobal('relationshipsWith', vi.fn().mockResolvedValue(new Map()))
 vi.stubGlobal('friendsOf', friendsOf)
 vi.stubGlobal('friendshipSelect', friendshipSelect)
+// Posts: real pure helpers; canViewPost is mocked so routes are tested against the rule's outcome.
+vi.stubGlobal('postSelect', postSelect)
+vi.stubGlobal('toPost', toPost)
+vi.stubGlobal('parsePageQuery', parsePageQuery)
+vi.stubGlobal('pageWhere', pageWhere)
+vi.stubGlobal('newestFirst', newestFirst)
+vi.stubGlobal('parsePostBody', parsePostBody)
+vi.stubGlobal('parseVisibility', parseVisibility)
+vi.stubGlobal('canViewPost', vi.fn().mockResolvedValue(true))
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))

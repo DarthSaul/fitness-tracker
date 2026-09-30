@@ -184,6 +184,7 @@ describe('server/middleware/auth', () => {
       '/api/users/search?q=bo', '/api/users/clusr001', '/api/blocks', '/api/blocks/clusr001',
       '/api/friend-requests', '/api/friend-requests/clfr001', '/api/friend-requests/clfr001/accept',
       '/api/friends', '/api/friends/clusr001',
+      '/api/posts', '/api/posts/clpost001', '/api/users/clusr001/posts',
     ])(
       '401 for unauthenticated %s',
       async (path) => {
