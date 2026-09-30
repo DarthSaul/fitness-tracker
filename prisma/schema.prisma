@@ -60,6 +60,11 @@ enum FriendshipStatus {
   ACCEPTED
 }
 
+enum PostVisibility {
+  PUBLIC
+  FRIENDS
+}
+
 // ---------------------------------------------------------------------------
 // Auth / User
 // ---------------------------------------------------------------------------
@@ -86,6 +91,7 @@ model User {
   blocksReceived            UserBlock[]                @relation("BlocksReceived")
   friendshipsAsLow          Friendship[]               @relation("FriendshipsAsLow")
   friendshipsAsHigh         Friendship[]               @relation("FriendshipsAsHigh")
+  posts                     Post[]
 }
 
 model Identity {
@@ -597,4 +603,21 @@ model Friendship {
 
   @@unique([userLowId, userHighId])
   @@index([userHighId, status])
+}
+
+// A text post. Who may see it is decided in one place, `canViewPost` in
+// server/utils/posts.ts (docs/social/SPEC-posts.md). Deletes are hard; later
+// social tables (photos, reactions) cascade from here.
+model Post {
+  id         String         @id @default(cuid())
+  authorId   String
+  body       String
+  visibility PostVisibility @default(FRIENDS)
+  createdAt  DateTime       @default(now())
+  editedAt   DateTime?
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Serves a profile's posts and the feed: posts by these authors, newest first.
+  @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
 }

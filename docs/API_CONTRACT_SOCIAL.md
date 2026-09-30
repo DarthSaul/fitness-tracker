@@ -45,6 +45,60 @@ type Relationship =
 - Profile `404`s for an unknown user **and** for a blocked one; the caller's
   own id works.
 
+## Posts
+
+```ts
+interface Post {
+  id: string
+  author: PublicUser
+  body: string                        // 1–2,000 characters
+  visibility: 'PUBLIC' | 'FRIENDS'
+  createdAt: string
+  editedAt: string | null             // non-null → show "Edited"
+  isMine: boolean
+}
+```
+
+| Action | Route | Success |
+|---|---|---|
+| Create | `POST /api/posts` — `{ body, visibility? }` | `201 Post` |
+| Get one | `GET /api/posts/:id` | `200 Post` |
+| Edit my post | `PATCH /api/posts/:id` — `{ body?, visibility? }` | `200 Post` |
+| Delete my post | `DELETE /api/posts/:id` | `204` |
+| A user's posts | `GET /api/users/:id/posts?limit=&before=&beforeId=` | `200 { posts: Post[] }`, newest first |
+
+**Who can see a post:**
+- The author can always see it.
+- Anyone else needs no block in either direction, **and** the post to be
+  `PUBLIC`, or `FRIENDS` with the two being friends right now.
+- Everything else is `404`, the same as a post that doesn't exist.
+
+Unfriending, re-friending and changing a post's visibility all take effect on
+the next request.
+
+- **Visibility when omitted** depends on the route:
+  - `POST /api/posts` defaults it to **`FRIENDS`**. Send `PUBLIC` explicitly
+    to share with everyone.
+  - `PATCH /api/posts/:id` **keeps the post's current visibility**. Editing
+    only the `body` of a `PUBLIC` post leaves it `PUBLIC`. Send `visibility`
+    only to change it.
+- **Profile lists:** a user's profile list shows everything on your own
+  profile, `PUBLIC` and `FRIENDS` for a friend, and `PUBLIC` only otherwise.
+  It is `404` for an unknown or blocked user.
+- **Editing:** only the author can edit or delete. Anyone else, friends
+  included, gets `404`. An edit that changes nothing leaves `editedAt`
+  untouched.
+- **Paging** works like `GET /api/history`:
+  - `limit` defaults to 20 and is clamped to 1–50.
+  - For the next page, send `before` (that post's `createdAt`) and `beforeId`
+    (its `id`) from the **last** post of the previous page, together.
+  - A page shorter than `limit` is the end.
+- **Errors:**
+  - `400` for a body that is empty, whitespace or over 2,000 characters; a
+    visibility other than `PUBLIC` or `FRIENDS`; a PATCH with neither field;
+    or bad paging parameters.
+  - `429` after 30 new posts in an hour.
+
 ## Friends
 
 ```ts

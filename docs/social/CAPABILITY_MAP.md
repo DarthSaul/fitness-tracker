@@ -55,7 +55,7 @@ Each module gets `docs/social/SPEC-<module-id>.md` and ships as its own PR.
 | Friend requests | `GET /api/friend-requests?direction=incoming\|outgoing` · `POST /api/friend-requests` `{ userId }` · `POST /api/friend-requests/:id/accept` · `DELETE /api/friend-requests/:id` (decline or cancel) |
 | Friends | `GET /api/friends` · `DELETE /api/friends/:userId` |
 | Posts | `POST /api/posts` · `GET\|PATCH\|DELETE /api/posts/:id` |
-| Feed | `GET /api/feed?cursor=&limit=` |
+| Feed | `GET /api/feed?limit=&before=&beforeId=` (same pagination as `GET /api/history`) |
 | Reactions | `PUT\|DELETE /api/posts/:id/reactions/:emoji` (URL-encoded) |
 | Reports | `POST /api/reports` `{ postId? , userId?, reason, details? }` |
 

@@ -71,7 +71,30 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 - [x] PR opened (#133)
 - [x] migration applied (2026-09-29, via session pooler)
 
+## PR 4 — `posts` (branch `feat/social-posts`)
+
+- [x] Spec approved (`docs/social/SPEC-posts.md`)
+- [x] **P1: `Post` model + migration** (S)
+  - Acceptance: model per spec; additive migration; `post` mock in `vitest.setup.ts`; not applied.
+- [x] **P2: post helpers** (S) — depends P1
+  - Acceptance: `canViewPost` covers every row of the visibility rule; `parsePageQuery`
+    matches `GET /api/history` 400s exactly; `toPost` sets `isMine`.
+  - Verify: `npx vitest run server/utils/posts.test.ts`
+- [x] **P3: `POST /api/posts`** (S) — depends P2
+- [x] **P4: `GET` / `PATCH` / `DELETE /api/posts/:id`** (M) — depends P2
+  - Acceptance: 404 for anything not visible (GET) or not owned (PATCH/DELETE);
+    `editedAt` only on a real change.
+- [x] **P5: `GET /api/users/:id/posts`** (M) — depends P2
+  - Acceptance: own → all; friend → both; stranger → PUBLIC; blocked/unknown → 404;
+    keyset page with the `id` tiebreak.
+- [x] **P6: contract doc + auth guard cases + verify-app**
+
+### Checkpoint: posts
+- [x] verify-app passes
+- [x] pushed to PR #134
+- [x] migration applied (2026-09-30, via session pooler)
+
 ## Later PRs (spec written when reached)
 
-- [ ] `posts` · [ ] `feed` · [ ] `post-photos` ·
+- [ ] `feed` · [ ] `post-photos` ·
       [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`
