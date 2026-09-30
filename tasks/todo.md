@@ -28,7 +28,7 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 ### Checkpoint: blocking
 - [x] verify-app passes
 - [ ] PR opened
-- [ ] migration applied by a human
+- [x] migration applied (2026-09-29, via session pooler)
 
 ## PR 2 — `user-discovery` (branch `feat/social-user-discovery`)
 
