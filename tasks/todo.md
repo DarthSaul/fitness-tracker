@@ -27,19 +27,20 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 
 ### Checkpoint: blocking
 - [x] verify-app passes
-- [ ] PR opened
+- [x] PR opened (#131)
 - [x] migration applied (2026-09-29, via session pooler)
 
 ## PR 2 — `user-discovery` (branch `feat/social-user-discovery`)
 
-- [ ] **T6: `rateLimitByKey`** (XS) — `server/utils/rate-limit.ts` (+ test)
-- [ ] **T7: `GET /api/users/search`** (S) — depends T2, T6
+- [x] **T6: `rateLimitByKey`** (XS) — `server/utils/rate-limit.ts` (+ test)
+- [x] **T7: `GET /api/users/search`** (S) — depends T2, T6
   - Acceptance: every SPEC-user-discovery search criterion.
-- [ ] **T8: `GET /api/users/:id`** (S) — depends T2
-- [ ] **T9: contract doc + verify-app**
+- [x] **T8: `GET /api/users/:id`** (S) — depends T2
+- [x] **T9: contract doc + verify-app**
 
 ### Checkpoint: user-discovery
-- [ ] verify-app passes · PR opened
+- [x] verify-app passes
+- [ ] PR opened
 
 ## Later PRs (spec written when reached)
 

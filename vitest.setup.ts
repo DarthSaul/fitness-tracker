@@ -77,7 +77,7 @@ vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/au
 vi.stubGlobal('prisma', {
   $queryRaw: vi.fn(),
   $transaction: vi.fn(),
-  user: { upsert: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  user: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   identity: { findUnique: vi.fn(), create: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
   programDay: { findUnique: vi.fn(), findFirst: vi.fn() },
@@ -108,6 +108,9 @@ vi.stubGlobal('sendPush', vi.fn())
 
 // Social: the real select object, so route tests assert the exact shape.
 vi.stubGlobal('publicUserSelect', publicUserSelect)
+vi.stubGlobal('isBlockedEitherWay', vi.fn().mockResolvedValue(false))
+vi.stubGlobal('blockedUserIds', vi.fn().mockResolvedValue([]))
+vi.stubGlobal('rateLimitByKey', vi.fn().mockResolvedValue(undefined))
 
 // ── Pino logger global (auto-imported via server/utils/logger.ts) ────────────
 // Tests assert against logger.error / logger.info argument shapes. `child()`

@@ -179,6 +179,19 @@ describe('server/middleware/auth', () => {
     })
   })
 
+  describe('social routes are protected', () => {
+    test.each(['/api/users/search?q=bo', '/api/users/clusr001', '/api/blocks', '/api/blocks/clusr001'])(
+      '401 for unauthenticated %s',
+      async (path) => {
+        mockGetUserSession.mockResolvedValueOnce(null)
+        const event = makeEvent(path)
+        await expect(
+          (handler as (e: typeof event) => Promise<void>)(event),
+        ).rejects.toMatchObject({ statusCode: 401 })
+      },
+    )
+  })
+
   describe('OPTIONS preflight passthrough', () => {
     test('allows OPTIONS requests through without checking auth', async () => {
       mockGetMethod.mockReturnValueOnce('OPTIONS')
