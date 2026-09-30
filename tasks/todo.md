@@ -92,7 +92,7 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 ### Checkpoint: posts
 - [x] verify-app passes
 - [x] pushed to PR #134
-- [ ] migration applied
+- [x] migration applied (2026-09-30, via session pooler)
 
 ## Later PRs (spec written when reached)
 
