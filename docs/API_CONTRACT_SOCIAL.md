@@ -19,6 +19,24 @@ This document grows one section per module as each ships.
 interface PublicUser { id: string; name: string | null; avatarUrl: string | null }
 ```
 
+## Finding users
+
+| Action | Route | Success |
+|---|---|---|
+| Search | `GET /api/users/search?q=` | `200 { users: PublicUser[] }`, at most 20, ordered by name |
+| Profile | `GET /api/users/:id` | `200 PublicUser` |
+
+- `q` is trimmed and must be 2–100 characters (`400` otherwise).
+- A `q` containing `@` matches an email **exactly** (case-insensitive) — type
+  the whole address; partial emails find nobody. Anything else matches any
+  part of the name, case-insensitive.
+- Results never include the caller or anyone blocked in either direction.
+- Search is limited to 30 requests per minute per user (`429`) — debounce
+  as-you-type search on the client (~300 ms).
+- Profile `404`s for an unknown user **and** for a blocked one; the caller's
+  own id works.
+- Later releases add `relationship` (`friendships`) to both responses.
+
 ## Blocking
 
 | Action | Route | Success |

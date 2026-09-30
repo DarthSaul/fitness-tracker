@@ -1,15 +1,19 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // vi.hoisted ensures these are available inside vi.mock factory (which is hoisted)
-const { mockLimit } = vi.hoisted(() => ({
+const { mockLimit, mockSlidingWindow, ratelimitOptions } = vi.hoisted(() => ({
   mockLimit: vi.fn().mockResolvedValue({ success: true }),
+  mockSlidingWindow: vi.fn((limit: number, window: string) => `sliding-window:${limit}/${window}`),
+  ratelimitOptions: [] as unknown[],
 }))
 
 vi.mock('@upstash/ratelimit', () => ({
   Ratelimit: class {
-    static slidingWindow = vi.fn(() => 'sliding-window-config')
+    static slidingWindow = mockSlidingWindow
     limit = mockLimit
-    constructor(_opts: unknown) {}
+    constructor(opts: unknown) {
+      ratelimitOptions.push(opts)
+    }
   },
 }))
 
@@ -108,6 +112,81 @@ describe('server/utils/rate-limit', () => {
       mockLimit.mockResolvedValueOnce({ success: true })
       const rateLimitByIp = await loadModule()
       await expect(rateLimitByIp(makeEvent())).resolves.toBeUndefined()
+    })
+  })
+})
+
+describe('rateLimitByKey', () => {
+  let savedUrl: string | undefined
+  let savedToken: string | undefined
+
+  async function load() {
+    return (await import('./rate-limit')).rateLimitByKey
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    ratelimitOptions.length = 0
+    mockLimit.mockResolvedValue({ success: true })
+    savedUrl = process.env.UPSTASH_REDIS_REST_URL
+    savedToken = process.env.UPSTASH_REDIS_REST_TOKEN
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    if (savedUrl !== undefined) process.env.UPSTASH_REDIS_REST_URL = savedUrl
+    else delete process.env.UPSTASH_REDIS_REST_URL
+    if (savedToken !== undefined) process.env.UPSTASH_REDIS_REST_TOKEN = savedToken
+    else delete process.env.UPSTASH_REDIS_REST_TOKEN
+  })
+
+  test('is a no-op when Upstash is not configured', async () => {
+    delete process.env.UPSTASH_REDIS_REST_URL
+    delete process.env.UPSTASH_REDIS_REST_TOKEN
+    const rateLimitByKey = await load()
+
+    await expect(rateLimitByKey('user-search:alice', 30, '1 m')).resolves.toBeUndefined()
+    expect(mockLimit).not.toHaveBeenCalled()
+  })
+
+  describe('when Upstash is configured', () => {
+    beforeEach(() => {
+      process.env.UPSTASH_REDIS_REST_URL = 'https://test.upstash.io'
+      process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token'
+    })
+
+    test('limits on the given key with the given window', async () => {
+      const rateLimitByKey = await load()
+
+      await rateLimitByKey('user-search:alice', 30, '1 m')
+
+      expect(mockSlidingWindow).toHaveBeenCalledWith(30, '1 m')
+      expect(mockLimit).toHaveBeenCalledWith('user-search:alice')
+    })
+
+    test('reuses one limiter per limit/window pair', async () => {
+      const rateLimitByKey = await load()
+
+      await rateLimitByKey('user-search:alice', 30, '1 m')
+      await rateLimitByKey('user-search:bob', 30, '1 m')
+      await rateLimitByKey('friend-request:alice', 20, '1 h')
+
+      expect(ratelimitOptions).toHaveLength(2)
+    })
+
+    test('does not share counters with the auth IP limiter', async () => {
+      const rateLimitByKey = await load()
+
+      await rateLimitByKey('user-search:alice', 30, '1 m')
+
+      expect(ratelimitOptions[0]).toMatchObject({ prefix: 'ratelimit:30/1 m' })
+    })
+
+    test('throws 429 when the limit is exceeded', async () => {
+      mockLimit.mockResolvedValueOnce({ success: false })
+      const rateLimitByKey = await load()
+
+      await expect(rateLimitByKey('user-search:alice', 30, '1 m')).rejects.toMatchObject({ statusCode: 429 })
     })
   })
 })
