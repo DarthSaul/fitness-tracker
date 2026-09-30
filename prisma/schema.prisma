@@ -77,6 +77,8 @@ model User {
   refreshTokens             RefreshToken[]
   deviceTokens              DeviceToken[]
   ptRoutines                PtRoutine[]
+  blocksMade                UserBlock[]                @relation("BlocksMade")
+  blocksReceived            UserBlock[]                @relation("BlocksReceived")
 }
 
 model Identity {
@@ -242,13 +244,13 @@ model ExerciseSet {
 // ---------------------------------------------------------------------------
 
 model UserProgram {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   programId   String
-  isActive    Boolean  @default(false)
-  currentWeek Int      @default(1)
-  currentDay  Int      @default(1)
-  startedAt   DateTime @default(now())
+  isActive    Boolean   @default(false)
+  currentWeek Int       @default(1)
+  currentDay  Int       @default(1)
+  startedAt   DateTime  @default(now())
   // Set when the final day of the program is completed, or when the user ends
   // the run early (PATCH /api/user-programs/:id/complete). Terminal.
   completedAt DateTime?
@@ -544,4 +546,24 @@ model PtRoutineExercise {
   ptRoutine PtRoutine @relation(fields: [ptRoutineId], references: [id], onDelete: Cascade)
 
   @@unique([ptRoutineId, order])
+}
+
+// ---------------------------------------------------------------------------
+// Social
+//
+// See docs/social/CAPABILITY_MAP.md. A block hides each user from the other
+// everywhere in the social surface and is never disclosed to the blocked user.
+// ---------------------------------------------------------------------------
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
 }
