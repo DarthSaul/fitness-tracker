@@ -5,7 +5,8 @@ defineRouteMeta({
     tags: ['Social'],
     summary: 'Edit a post',
     description:
-      'Edits the body and/or visibility of the caller\'s own post. Sets `editedAt` only when a value actually changes; '
+      'Edits the body and/or visibility of the caller\'s own post. An omitted field is left unchanged; an omitted '
+      + '`visibility` keeps the current one (the FRIENDS default applies to create only). Sets `editedAt` only when a value actually changes; '
       + 'a no-op edit returns the post unchanged. Anyone else\'s post is 404.',
     responses: {
       200: { description: 'Post' },

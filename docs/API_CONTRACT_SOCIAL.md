@@ -76,8 +76,12 @@ interface Post {
 Unfriending, re-friending and changing a post's visibility all take effect on
 the next request.
 
-- **Visibility default:** `visibility` defaults to **`FRIENDS`** when omitted.
-  Send `PUBLIC` explicitly to share with everyone.
+- **Visibility when omitted** depends on the route:
+  - `POST /api/posts` defaults it to **`FRIENDS`**. Send `PUBLIC` explicitly
+    to share with everyone.
+  - `PATCH /api/posts/:id` **keeps the post's current visibility**. Editing
+    only the `body` of a `PUBLIC` post leaves it `PUBLIC`. Send `visibility`
+    only to change it.
 - **Profile lists:** a user's profile list shows everything on your own
   profile, `PUBLIC` and `FRIENDS` for a friend, and `PUBLIC` only otherwise.
   It is `404` for an unknown or blocked user.

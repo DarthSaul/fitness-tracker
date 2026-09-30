@@ -50,6 +50,19 @@ describe('PATCH /api/posts/:id', () => {
     expect(mockUpdate.mock.calls[0]![0].data).toEqual({ visibility: 'PUBLIC', editedAt: expect.any(Date) })
   })
 
+  // Pins the contract (PR #134 review): omitted visibility means "keep it" on
+  // PATCH — unlike POST, where it defaults to FRIENDS — so a body-only edit can
+  // never silently narrow a PUBLIC post.
+  test('a body-only edit keeps the current visibility, even when it is PUBLIC', async () => {
+    mockFindUnique.mockResolvedValueOnce({ ...mine, visibility: 'PUBLIC' })
+    mockUpdate.mockResolvedValueOnce({ ...mine, visibility: 'PUBLIC', body: 'Arm day', editedAt })
+
+    const result = await call({ body: 'Arm day' })
+
+    expect(mockUpdate.mock.calls[0]![0].data).toEqual({ body: 'Arm day', editedAt: expect.any(Date) })
+    expect(result.visibility).toBe('PUBLIC')
+  })
+
   test('a no-op PATCH (same values) writes nothing and leaves editedAt null', async () => {
     const result = await call({ body: 'Leg day', visibility: 'FRIENDS' })
 

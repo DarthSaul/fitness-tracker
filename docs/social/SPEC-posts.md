@@ -92,6 +92,8 @@ route returns the identical shape.
 
 - Author only; anyone else → 404 (the existing ownership convention).
 - At least one field, same validation as create → else 400.
+- An omitted field is left unchanged. In particular, an omitted `visibility`
+  keeps the current one; the `FRIENDS` default applies to create only.
 - Sets `editedAt` only when a value actually changes; a no-op PATCH returns
   the post unchanged. 200 `Post`.
 
@@ -155,4 +157,6 @@ reposts, edit history (only "was edited").
 ## Decisions
 
 1. **Default visibility is `FRIENDS`** (2026-09-29): an omitted `visibility`
-   means friends-only, so sharing publicly is always an explicit choice.
+   on **create** means friends-only, so sharing publicly is always an explicit
+   choice. On edit, an omitted `visibility` keeps the post's current one, so a
+   body-only edit never changes who can see it.
