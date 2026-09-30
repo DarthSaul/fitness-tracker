@@ -8,6 +8,8 @@
  */
 import { vi } from 'vitest'
 
+import { publicUserSelect } from './server/utils/public-user'
+
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
 // resolves to spies. Tests assert on setUser / setTag / captureException.
@@ -92,6 +94,7 @@ vi.stubGlobal('prisma', {
   workoutExerciseSkip: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
   deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  userBlock: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   standaloneWorkout: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
   standaloneWorkoutSet: { findUnique: vi.fn() },
@@ -102,6 +105,9 @@ vi.stubGlobal('prisma', {
 })
 
 vi.stubGlobal('sendPush', vi.fn())
+
+// Social: the real select object, so route tests assert the exact shape.
+vi.stubGlobal('publicUserSelect', publicUserSelect)
 
 // ── Pino logger global (auto-imported via server/utils/logger.ts) ────────────
 // Tests assert against logger.error / logger.info argument shapes. `child()`
