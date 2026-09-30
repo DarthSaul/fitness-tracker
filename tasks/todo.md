@@ -40,9 +40,38 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 
 ### Checkpoint: user-discovery
 - [x] verify-app passes
-- [ ] PR opened
+- [x] PR opened (#132)
+
+## PR 3 — `friendships` (branch `feat/social-friendships`)
+
+- [x] Spec approved (`docs/social/SPEC-friendships.md`)
+- [x] **F1: `Friendship` model + migration** (S)
+  - Acceptance: model per spec; migration adds the two raw `CHECK`s; `friendship`
+    mock + helper globals in `vitest.setup.ts`; not applied to the DB.
+  - Verify: `npx prisma validate`; typecheck.
+- [x] **F2: friend helpers** (S) — depends F1
+  - Acceptance: `orderedPair`, `areFriends`, `relationshipsWith`, `friendsOf`
+    correct for every state and both orderings.
+  - Verify: `npx vitest run server/utils/friends.test.ts`
+- [x] **F3: `POST /api/friend-requests`** (M) — depends F2
+  - Acceptance: 201 new · 200 idempotent · crossed request auto-accepts ·
+    409 friends · 404 unknown/blocked · 400 self · P2002 race · rate limit.
+  - Verify: `npx vitest run server/api/friend-requests`
+- [x] **F4: list / accept / cancel-or-decline requests** (M) — depends F2
+  - Files: `friend-requests/index.get.ts`, `[id]/accept.post.ts`, `[id].delete.ts` (+ tests)
+- [x] **F5: `GET /api/friends` + `DELETE /api/friends/:userId`** (S) — depends F2
+- [x] **F6: wire into shipped routes** (M) — depends F2
+  - Acceptance: block deletes the pair's friendship in one transaction;
+    search + profile carry `relationship` (+ `requestId` when pending).
+  - Files: `blocks/index.post.ts`, `users/search.get.ts`, `users/[id].get.ts` (+ tests)
+- [x] **F7: contract doc + verify-app**
+
+### Checkpoint: friendships
+- [x] verify-app passes
+- [x] PR opened (#133)
+- [x] migration applied (2026-09-29, via session pooler)
 
 ## Later PRs (spec written when reached)
 
-- [ ] `friendships` · [ ] `posts` · [ ] `feed` · [ ] `post-photos` ·
+- [ ] `posts` · [ ] `feed` · [ ] `post-photos` ·
       [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`

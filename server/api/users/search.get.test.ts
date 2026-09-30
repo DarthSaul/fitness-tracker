@@ -6,9 +6,10 @@ const mockGetQuery = getQuery as ReturnType<typeof vi.fn>
 const mockFindMany = prisma.user.findMany as ReturnType<typeof vi.fn>
 const mockBlockedUserIds = blockedUserIds as ReturnType<typeof vi.fn>
 const mockRateLimitByKey = rateLimitByKey as ReturnType<typeof vi.fn>
+const mockRelationshipsWith = relationshipsWith as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string } }
-type Result = { users: { id: string; name: string | null; avatarUrl: string | null }[] }
+type Result = { users: ({ id: string; name: string | null; avatarUrl: string | null; relationship: string; requestId?: string })[] }
 
 function call(q: unknown) {
   mockGetQuery.mockReturnValue(q === undefined ? {} : { q })
@@ -23,11 +24,13 @@ describe('GET /api/users/search', () => {
     mockFindMany.mockResolvedValue([])
     mockBlockedUserIds.mockResolvedValue([])
     mockRateLimitByKey.mockResolvedValue(undefined)
+    mockRelationshipsWith.mockResolvedValue(new Map())
   })
 
   test('matches names case-insensitively by substring, capped at 20, public fields only', async () => {
     const users = [{ id: 'bob', name: 'Bob Smith', avatarUrl: null }]
     mockFindMany.mockResolvedValueOnce(users)
+    mockRelationshipsWith.mockResolvedValueOnce(new Map([['bob', { relationship: 'none' }]]))
 
     const result = await call('  smi ')
 
@@ -37,7 +40,27 @@ describe('GET /api/users/search', () => {
       take: 20,
       select: publicSelect,
     })
-    expect(result).toEqual({ users })
+    expect(result).toEqual({ users: [{ ...users[0], relationship: 'none' }] })
+  })
+
+  test("annotates every result with the caller's relationship in one lookup", async () => {
+    mockFindMany.mockResolvedValueOnce([
+      { id: 'bob', name: 'Bob', avatarUrl: null },
+      { id: 'cat', name: 'Cat', avatarUrl: null },
+    ])
+    mockRelationshipsWith.mockResolvedValueOnce(new Map<string, object>([
+      ['bob', { relationship: 'friends' }],
+      ['cat', { relationship: 'request_received', requestId: 'f9' }],
+    ]))
+
+    const result = await call('ca')
+
+    expect(mockRelationshipsWith).toHaveBeenCalledTimes(1)
+    expect(mockRelationshipsWith).toHaveBeenCalledWith('alice', ['bob', 'cat'])
+    expect(result.users).toEqual([
+      { id: 'bob', name: 'Bob', avatarUrl: null, relationship: 'friends' },
+      { id: 'cat', name: 'Cat', avatarUrl: null, relationship: 'request_received', requestId: 'f9' },
+    ])
   })
 
   test('a query containing @ matches the email exactly (case-insensitive), never by prefix', async () => {

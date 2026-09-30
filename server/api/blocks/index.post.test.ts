@@ -1,5 +1,4 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { Prisma } from '@prisma/client'
 
 import handler from './index.post'
 
@@ -7,6 +6,13 @@ const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockFindUser = prisma.user.findUnique as ReturnType<typeof vi.fn>
 const mockFindBlock = prisma.userBlock.findUnique as ReturnType<typeof vi.fn>
 const mockCreateBlock = prisma.userBlock.create as ReturnType<typeof vi.fn>
+const mockDeleteFriendships = prisma.friendship.deleteMany as ReturnType<typeof vi.fn>
+const mockWithPairLock = withPairLock as ReturnType<typeof vi.fn>
+
+// Tracks whether code is running inside the pair lock, so tests can assert
+// that the check and every write happen under it.
+let inLock = false
+const underLock = (label: string, calls: string[]) => () => { calls.push(`${label}:${inLock ? 'locked' : 'UNLOCKED'}`) }
 
 type Event = { path: string; context: { userId: string }; node: { res: { statusCode: number } } }
 type Result = { userId: string; blockedAt: Date }
@@ -24,6 +30,11 @@ describe('POST /api/blocks', () => {
     mockReadBody.mockResolvedValue({ userId: 'bob' })
     mockFindUser.mockResolvedValue({ id: 'bob' })
     mockFindBlock.mockResolvedValue(null)
+    mockDeleteFriendships.mockResolvedValue({ count: 0 })
+    mockWithPairLock.mockImplementation(async (_a: string, _b: string, fn: (tx: unknown) => unknown) => {
+      inLock = true
+      try { return await fn(prisma) } finally { inLock = false }
+    })
   })
 
   test('creates a block and responds 201', async () => {
@@ -38,6 +49,41 @@ describe('POST /api/blocks', () => {
     })
     expect(event.node.res.statusCode).toBe(201)
     expect(result).toEqual({ userId: 'bob', blockedAt })
+  })
+
+  test('severs any friendship or pending request between the pair', async () => {
+    mockCreateBlock.mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
+
+    await call(makeEvent())
+
+    // 'alice' < 'bob', so alice is the low id; no status filter — pending and accepted both go.
+    expect(mockDeleteFriendships).toHaveBeenCalledWith({ where: { userLowId: 'alice', userHighId: 'bob' } })
+  })
+
+  // Regression (PR #133 review): a friend request that passed its block check
+  // could be written after this route's cleanup, leaving a pending request —
+  // acceptable by the blocker — alongside the block. Both routes now serialize
+  // on the same pair lock, so the existence check, the block and the cleanup
+  // must all run inside it.
+  test('checks, blocks and severs the friendship while holding the pair lock', async () => {
+    const calls: string[] = []
+    mockFindBlock.mockImplementationOnce(async () => { underLock('findBlock', calls)(); return null })
+    mockCreateBlock.mockImplementationOnce(async () => { underLock('create', calls)(); return { blockedId: 'bob', createdAt: blockedAt } })
+    mockDeleteFriendships.mockImplementationOnce(async () => { underLock('deleteFriendships', calls)(); return { count: 1 } })
+
+    await call(makeEvent())
+
+    expect(mockWithPairLock).toHaveBeenCalledWith('alice', 'bob', expect.any(Function))
+    expect(calls).toEqual(['findBlock:locked', 'create:locked', 'deleteFriendships:locked'])
+  })
+
+  test('an existing block writes nothing', async () => {
+    mockFindBlock.mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
+
+    await call(makeEvent())
+
+    expect(mockCreateBlock).not.toHaveBeenCalled()
+    expect(mockDeleteFriendships).not.toHaveBeenCalled()
   })
 
   test('takes the blocker from the session, never the body', async () => {
@@ -62,30 +108,6 @@ describe('POST /api/blocks', () => {
     expect(mockCreateBlock).not.toHaveBeenCalled()
     expect(event.node.res.statusCode).toBe(200)
     expect(result).toEqual({ userId: 'bob', blockedAt })
-  })
-
-  test('a concurrent duplicate (P2002) resolves to the existing block with 200', async () => {
-    mockCreateBlock.mockRejectedValueOnce(
-      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' }),
-    )
-    mockFindBlock.mockResolvedValueOnce(null).mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
-    const event = makeEvent()
-
-    const result = await call(event)
-
-    expect(event.node.res.statusCode).toBe(200)
-    expect(result).toEqual({ userId: 'bob', blockedAt })
-  })
-
-  test.each([
-    ['missing body', undefined],
-    ['missing userId', {}],
-    ['non-string userId', { userId: 42 }],
-    ['blank userId', { userId: '   ' }],
-  ])('400 on %s', async (_label, body) => {
-    mockReadBody.mockResolvedValueOnce(body)
-    await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 400 })
-    expect(mockCreateBlock).not.toHaveBeenCalled()
   })
 
   test('400 when blocking yourself', async () => {

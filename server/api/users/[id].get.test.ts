@@ -5,9 +5,10 @@ import handler from './[id].get'
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUnique = prisma.user.findUnique as ReturnType<typeof vi.fn>
 const mockIsBlocked = isBlockedEitherWay as ReturnType<typeof vi.fn>
+const mockRelationshipsWith = relationshipsWith as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string } }
-type Result = { id: string; name: string | null; avatarUrl: string | null }
+type Result = { id: string; name: string | null; avatarUrl: string | null; relationship: string; requestId?: string }
 
 function call(id: string | undefined) {
   mockGetRouterParam.mockReturnValue(id)
@@ -21,6 +22,8 @@ describe('GET /api/users/:id', () => {
     vi.clearAllMocks()
     mockFindUnique.mockResolvedValue(bob)
     mockIsBlocked.mockResolvedValue(false)
+    mockRelationshipsWith.mockImplementation(async (_me: string, ids: string[]) =>
+      new Map(ids.map((id) => [id, { relationship: id === 'alice' ? 'self' : 'none' }])))
   })
 
   test('returns the public profile — public fields only', async () => {
@@ -30,12 +33,21 @@ describe('GET /api/users/:id', () => {
       where: { id: 'bob' },
       select: { id: true, name: true, avatarUrl: true },
     })
-    expect(result).toEqual(bob)
+    expect(result).toEqual({ ...bob, relationship: 'none' })
+  })
+
+  test('carries a pending requestId so the profile can accept or cancel directly', async () => {
+    mockRelationshipsWith.mockResolvedValueOnce(new Map([['bob', { relationship: 'request_sent', requestId: 'f1' }]]))
+
+    const result = await call('bob')
+
+    expect(mockRelationshipsWith).toHaveBeenCalledWith('alice', ['bob'])
+    expect(result).toEqual({ ...bob, relationship: 'request_sent', requestId: 'f1' })
   })
 
   test('the caller may fetch their own profile', async () => {
     mockFindUnique.mockResolvedValueOnce({ id: 'alice', name: 'Alice', avatarUrl: null })
-    await expect(call('alice')).resolves.toMatchObject({ id: 'alice' })
+    await expect(call('alice')).resolves.toMatchObject({ id: 'alice', relationship: 'self' })
   })
 
   test('404 when the user does not exist', async () => {

@@ -34,6 +34,14 @@ describe('isBlockedEitherWay', () => {
     expect(await isBlockedEitherWay('alice', 'bob')).toBe(false)
   })
 
+  test('runs on the given transaction client when one is passed', async () => {
+    const tx = { userBlock: { findFirst: vi.fn().mockResolvedValue({ id: 'blk1' }) } }
+
+    expect(await isBlockedEitherWay('alice', 'bob', tx as never)).toBe(true)
+    expect(tx.userBlock.findFirst).toHaveBeenCalled()
+    expect(mockFindFirst).not.toHaveBeenCalled()
+  })
+
   test('is false for the same user without querying', async () => {
     expect(await isBlockedEitherWay('alice', 'alice')).toBe(false)
     expect(mockFindFirst).not.toHaveBeenCalled()

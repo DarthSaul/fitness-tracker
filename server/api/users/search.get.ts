@@ -7,7 +7,7 @@ defineRouteMeta({
     description:
       'Finds users to add as friends. A query containing "@" matches an email exactly (case-insensitive) and never by '
       + 'prefix; anything else matches names by substring. Excludes the caller and anyone blocked in either direction. '
-      + 'Returns at most 20 public profiles (never emails). Rate-limited to 30 requests per minute per user.',
+      + 'Returns at most 20 public profiles (never emails), each with the caller\'s `relationship` to them. Rate-limited to 30 requests per minute per user.',
     parameters: [{ name: 'q', in: 'query', required: true, schema: { type: 'string' }, description: '2–100 characters after trimming. Contains "@" → exact email match; otherwise a name substring.' }],
     responses: {
       200: { description: 'Matching users' },
@@ -22,7 +22,7 @@ const MIN_QUERY = 2
 const MAX_QUERY = 100
 const MAX_RESULTS = 20
 
-export default defineEventHandler(async (event): Promise<{ users: PublicUser[] }> => {
+export default defineEventHandler(async (event): Promise<{ users: (PublicUser & Relationship)[] }> => {
   const userId = event.context.userId as string
 
   const raw = getQuery(event).q
@@ -47,7 +47,8 @@ export default defineEventHandler(async (event): Promise<{ users: PublicUser[] }
       select: publicUserSelect,
     })
 
-    return { users }
+    const relationships = await relationshipsWith(userId, users.map((u) => u.id))
+    return { users: users.map((u) => ({ ...u, ...relationships.get(u.id)! })) }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/users/search' }, '[GET /api/users/search] Failed to search users')

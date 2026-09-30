@@ -1,11 +1,11 @@
-import { Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Social'],
     summary: 'Block a user',
     description:
-      'Blocks another user. Each user is then hidden from the other everywhere in the social API, and the blocked '
+      'Blocks another user and ends any friendship or pending request between them. Each user is then hidden from the other everywhere in the social API, and the blocked '
       + 'user is never told. Idempotent: blocking an already-blocked user returns the existing block with 200.',
     responses: {
       201: { description: 'User blocked' },
@@ -42,24 +42,20 @@ export default defineEventHandler(async (event): Promise<BlockResponse> => {
       throw createError({ statusCode: 404, statusMessage: 'User not found' })
     }
 
-    const existing = await prisma.userBlock.findUnique({ where, select: blockSelect })
-    if (existing) return toResponse(existing)
+    // Serialized with friend-request writes on the same pair (see withPairLock),
+    // so no request can slip in between this block and the cleanup below —
+    // "blocked" and "friends / pending" can never both be true.
+    const { block, created } = await withPairLock(userId, targetId, async (tx) => {
+      const existing = await tx.userBlock.findUnique({ where, select: blockSelect })
+      if (existing) return { block: existing, created: false }
 
-    try {
-      const block = await prisma.userBlock.create({
-        data: { blockerId: userId, blockedId: targetId },
-        select: blockSelect,
-      })
-      event.node.res.statusCode = 201
-      return toResponse(block)
-    } catch (createErr) {
-      // A concurrent request created the same block between our read and write.
-      if (createErr instanceof Prisma.PrismaClientKnownRequestError && createErr.code === 'P2002') {
-        const raced = await prisma.userBlock.findUnique({ where, select: blockSelect })
-        if (raced) return toResponse(raced)
-      }
-      throw createErr
-    }
+      const block = await tx.userBlock.create({ data: { blockerId: userId, blockedId: targetId }, select: blockSelect })
+      await tx.friendship.deleteMany({ where: orderedPair(userId, targetId) })
+      return { block, created: true }
+    })
+
+    if (created) event.node.res.statusCode = 201
+    return toResponse(block)
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/blocks' }, '[POST /api/blocks] Failed to block user')
