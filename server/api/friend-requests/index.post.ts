@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 
 defineRouteMeta({
   openAPI: {
@@ -35,32 +35,32 @@ export default defineEventHandler(async (event): Promise<Response> => {
     throw createError({ statusCode: 400, statusMessage: 'Cannot friend yourself' })
   }
 
-  const pair = orderedPair(userId, targetId)
-
   try {
     await rateLimitByKey(`friend-request:${userId}`, 30, '1 h')
 
     const target = await prisma.user.findUnique({ where: { id: targetId }, select: publicUserSelect })
-    if (!target || (await isBlockedEitherWay(userId, targetId))) {
-      throw createError({ statusCode: 404, statusMessage: 'User not found' })
-    }
+    if (!target) throw notFound()
 
     const outgoing = (row: Row): FriendRequestResponse => ({ id: row.id, user: target, direction: 'outgoing', createdAt: row.createdAt })
 
-    // Applies the rules to whatever row exists now. Returns null only when a
-    // concurrent request changed the pair under us, so the caller re-reads.
-    const resolve = async (): Promise<Response | null> => {
-      const existing = await prisma.friendship.findUnique({ where: { userLowId_userHighId: pair }, select: friendshipSelect })
+    // Everything below holds the pair lock that POST /api/blocks also takes, so
+    // a block can't land between the check and the write, and concurrent
+    // requests about the same pair see each other's committed rows.
+    return await withPairLock(userId, targetId, async (tx): Promise<Response> => {
+      if (await isBlockedEitherWay(userId, targetId, tx)) throw notFound()
+
+      const existing = await tx.friendship.findUnique({
+        where: { userLowId_userHighId: orderedPair(userId, targetId) },
+        select: friendshipSelect,
+      })
 
       if (!existing) {
-        try {
-          const created = await prisma.friendship.create({ data: { ...pair, requesterId: userId }, select: friendshipSelect })
-          event.node.res.statusCode = 201
-          return outgoing(created)
-        } catch (err) {
-          if (isRace(err)) return null
-          throw err
-        }
+        const created = await tx.friendship.create({
+          data: { ...orderedPair(userId, targetId), requesterId: userId },
+          select: friendshipSelect,
+        })
+        event.node.res.statusCode = 201
+        return outgoing(created)
       }
 
       if (existing.status === 'ACCEPTED') {
@@ -69,22 +69,13 @@ export default defineEventHandler(async (event): Promise<Response> => {
       if (existing.requesterId === userId) return outgoing(existing)
 
       // They already asked us: treat this request as accepting theirs.
-      try {
-        const accepted = await prisma.friendship.update({
-          where: { id: existing.id, status: 'PENDING' },
-          data: { status: 'ACCEPTED', acceptedAt: new Date() },
-          select: friendshipSelect,
-        })
-        return { friend: { ...target, friendsSince: accepted.acceptedAt! } }
-      } catch (err) {
-        if (isRace(err)) return null
-        throw err
-      }
-    }
-
-    const result = (await resolve()) ?? (await resolve())
-    if (!result) throw new Error('Friendship pair changed twice during one request')
-    return result
+      const accepted = await tx.friendship.update({
+        where: { id: existing.id },
+        data: { status: 'ACCEPTED', acceptedAt: new Date() },
+        select: friendshipSelect,
+      })
+      return { friend: { ...target, friendsSince: accepted.acceptedAt! } }
+    })
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/friend-requests' }, '[POST /api/friend-requests] Failed to send friend request')
@@ -92,7 +83,6 @@ export default defineEventHandler(async (event): Promise<Response> => {
   }
 })
 
-/** P2002: someone created the pair first. P2025: the pending row we meant to accept is gone. */
-function isRace(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && (err.code === 'P2002' || err.code === 'P2025')
+function notFound() {
+  return createError({ statusCode: 404, statusMessage: 'User not found' })
 }

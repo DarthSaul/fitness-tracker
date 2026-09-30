@@ -37,12 +37,14 @@ export default defineEventHandler(async (event): Promise<{ friend: Friend }> => 
     const isRecipient = row && row.requesterId !== userId && (row.userLowId === userId || row.userHighId === userId)
     if (!row || row.status !== 'PENDING' || !isRecipient) throw notFound()
 
-    const accepted = await prisma.friendship.update({
-      // Guarded on PENDING so a request cancelled mid-flight fails (P2025) instead of reviving.
+    // Under the pair lock so it serializes with blocks and other request writes.
+    // Still guarded on PENDING: the row may have been cancelled between the read
+    // above and taking the lock, which fails with P2025 → 404 instead of reviving it.
+    const accepted = await withPairLock(row.userLowId, row.userHighId, (tx) => tx.friendship.update({
       where: { id, status: 'PENDING' },
       data: { status: 'ACCEPTED', acceptedAt: new Date() },
       select: friendshipSelect,
-    })
+    }))
 
     const requester = row.userLowId === userId ? row.userHigh : row.userLow
     return { friend: { ...requester, friendsSince: accepted.acceptedAt! } }

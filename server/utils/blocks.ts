@@ -1,13 +1,18 @@
+import type { Prisma } from '@prisma/client'
+
 /**
  * Block checks shared by every social route. A block hides each user from the
  * other in both directions, so callers never need to know who blocked whom —
  * and must respond as if the hidden user or content does not exist.
  */
 
-/** True if either user has blocked the other. */
-export async function isBlockedEitherWay(a: string, b: string): Promise<boolean> {
+/**
+ * True if either user has blocked the other. Pass the transaction client when
+ * the check must be consistent with a write made under `withPairLock`.
+ */
+export async function isBlockedEitherWay(a: string, b: string, db: Prisma.TransactionClient = prisma): Promise<boolean> {
   if (a === b) return false
-  const block = await prisma.userBlock.findFirst({
+  const block = await db.userBlock.findFirst({
     where: {
       OR: [
         { blockerId: a, blockedId: b },

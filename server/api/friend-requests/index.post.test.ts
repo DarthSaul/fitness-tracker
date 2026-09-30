@@ -1,5 +1,4 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
-import { Prisma } from '@prisma/client'
 
 import handler from './index.post'
 
@@ -10,6 +9,9 @@ const mockCreateFriendship = prisma.friendship.create as ReturnType<typeof vi.fn
 const mockUpdateFriendship = prisma.friendship.update as ReturnType<typeof vi.fn>
 const mockIsBlocked = isBlockedEitherWay as ReturnType<typeof vi.fn>
 const mockRateLimitByKey = rateLimitByKey as ReturnType<typeof vi.fn>
+const mockWithPairLock = withPairLock as ReturnType<typeof vi.fn>
+
+let inLock = false
 
 type Event = { path: string; context: { userId: string }; node: { res: { statusCode: number } } }
 
@@ -26,7 +28,6 @@ function makeEvent(): Event {
   return { path: '/api/friend-requests', context: { userId: ALICE }, node: { res: { statusCode: 200 } } }
 }
 const call = (event: Event) => (handler as unknown as (e: Event) => Promise<unknown>)(event)
-const p2002 = () => new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' })
 
 describe('POST /api/friend-requests', () => {
   beforeEach(() => {
@@ -36,6 +37,10 @@ describe('POST /api/friend-requests', () => {
     mockIsBlocked.mockResolvedValue(false)
     mockFindFriendship.mockResolvedValue(null)
     mockRateLimitByKey.mockResolvedValue(undefined)
+    mockWithPairLock.mockImplementation(async (_a: string, _b: string, fn: (tx: unknown) => unknown) => {
+      inLock = true
+      try { return await fn(prisma) } finally { inLock = false }
+    })
   })
 
   test('creates a PENDING request with the sorted pair and responds 201', async () => {
@@ -82,7 +87,7 @@ describe('POST /api/friend-requests', () => {
     const result = await call(event)
 
     expect(mockUpdateFriendship).toHaveBeenCalledWith({
-      where: { id: 'f1', status: 'PENDING' },
+      where: { id: 'f1' },
       data: { status: 'ACCEPTED', acceptedAt: expect.any(Date) },
       select: friendshipSelect,
     })
@@ -98,41 +103,37 @@ describe('POST /api/friend-requests', () => {
     expect(mockCreateFriendship).not.toHaveBeenCalled()
   })
 
-  test('a concurrent duplicate (P2002) re-reads the pair and applies the same rules', async () => {
-    mockCreateFriendship.mockRejectedValueOnce(p2002())
-    mockFindFriendship
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 'f1', requesterId: ALICE, status: 'PENDING', createdAt, acceptedAt: null })
-    const event = makeEvent()
+  // Regression (PR #133 review): the block check and the write used to run
+  // unlocked, so a block created in between left a pending request — which the
+  // blocker could then accept — alongside the block. They now run inside the
+  // same pair lock POST /api/blocks takes.
+  test('checks for a block and writes the request while holding the pair lock', async () => {
+    const calls: string[] = []
+    const mark = (label: string) => calls.push(`${label}:${inLock ? 'locked' : 'UNLOCKED'}`)
+    mockIsBlocked.mockImplementationOnce(async () => { mark('blockCheck'); return false })
+    mockFindFriendship.mockImplementationOnce(async () => { mark('read'); return null })
+    mockCreateFriendship.mockImplementationOnce(async () => {
+      mark('create')
+      return { id: 'f1', requesterId: ALICE, status: 'PENDING', createdAt, acceptedAt: null }
+    })
 
-    const result = await call(event)
+    await call(makeEvent())
 
-    expect(mockCreateFriendship).toHaveBeenCalledTimes(1)
-    expect(event.node.res.statusCode).toBe(200)
-    expect(result).toEqual({ id: 'f1', user: bob, direction: 'outgoing', createdAt })
+    expect(mockWithPairLock).toHaveBeenCalledWith(ALICE, BOB, expect.any(Function))
+    expect(calls).toEqual(['blockCheck:locked', 'read:locked', 'create:locked'])
   })
 
-  test('a crossed request withdrawn mid-accept (P2025) re-reads and sends a fresh request', async () => {
-    mockFindFriendship
-      .mockResolvedValueOnce({ id: 'f1', requesterId: BOB, status: 'PENDING', createdAt, acceptedAt: null })
-      .mockResolvedValueOnce(null)
-    mockUpdateFriendship.mockRejectedValueOnce(
-      new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: 'test' }),
-    )
-    mockCreateFriendship.mockResolvedValueOnce({ id: 'f2', requesterId: ALICE, status: 'PENDING', createdAt, acceptedAt: null })
-    const event = makeEvent()
+  test('a crossed accept also happens under the lock', async () => {
+    const calls: string[] = []
+    mockFindFriendship.mockResolvedValueOnce({ id: 'f1', requesterId: BOB, status: 'PENDING', createdAt, acceptedAt: null })
+    mockUpdateFriendship.mockImplementationOnce(async () => {
+      calls.push(inLock ? 'locked' : 'UNLOCKED')
+      return { id: 'f1', requesterId: BOB, status: 'ACCEPTED', createdAt, acceptedAt }
+    })
 
-    const result = await call(event)
+    await call(makeEvent())
 
-    expect(event.node.res.statusCode).toBe(201)
-    expect(result).toMatchObject({ id: 'f2', direction: 'outgoing' })
-  })
-
-  test('500 if the pair changes under us twice in a row', async () => {
-    mockCreateFriendship.mockRejectedValueOnce(p2002()).mockRejectedValueOnce(p2002())
-
-    await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 500 })
-    expect(mockCreateFriendship).toHaveBeenCalledTimes(2)
+    expect(calls).toEqual(['locked'])
   })
 
   test('404 when the target does not exist', async () => {
@@ -145,7 +146,7 @@ describe('POST /api/friend-requests', () => {
     mockIsBlocked.mockResolvedValueOnce(true)
 
     await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 404, statusMessage: 'User not found' })
-    expect(mockIsBlocked).toHaveBeenCalledWith(ALICE, BOB)
+    expect(mockIsBlocked).toHaveBeenCalledWith(ALICE, BOB, prisma)
     expect(mockFindFriendship).not.toHaveBeenCalled()
   })
 

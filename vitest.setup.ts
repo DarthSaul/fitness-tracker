@@ -78,6 +78,7 @@ vi.stubGlobal('getRequestURL', vi.fn(() => new URL('http://localhost:3000/api/au
 vi.stubGlobal('prisma', {
   $queryRaw: vi.fn(),
   $transaction: vi.fn(),
+  $executeRaw: vi.fn(),
   user: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   identity: { findUnique: vi.fn(), create: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
@@ -118,6 +119,9 @@ vi.stubGlobal('areFriends', vi.fn().mockResolvedValue(false))
 vi.stubGlobal('relationshipsWith', vi.fn().mockResolvedValue(new Map()))
 vi.stubGlobal('friendsOf', friendsOf)
 vi.stubGlobal('friendshipSelect', friendshipSelect)
+// Runs the callback immediately with the prisma mock as the transaction client;
+// tests that care about lock scope override this per-test.
+vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))
 
 // ── Pino logger global (auto-imported via server/utils/logger.ts) ────────────
 // Tests assert against logger.error / logger.info argument shapes. `child()`

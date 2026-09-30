@@ -6,6 +6,9 @@ import handler from './accept.post'
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUnique = prisma.friendship.findUnique as ReturnType<typeof vi.fn>
 const mockUpdate = prisma.friendship.update as ReturnType<typeof vi.fn>
+const mockWithPairLock = withPairLock as ReturnType<typeof vi.fn>
+
+let inLock = false
 
 type Event = { path: string; context: { userId: string } }
 
@@ -30,6 +33,23 @@ describe('POST /api/friend-requests/:id/accept', () => {
     vi.clearAllMocks()
     mockFindUnique.mockResolvedValue(pendingFromAlice)
     mockUpdate.mockResolvedValue({ ...pendingFromAlice, status: 'ACCEPTED', acceptedAt })
+    mockWithPairLock.mockImplementation(async (_a: string, _b: string, fn: (tx: unknown) => unknown) => {
+      inLock = true
+      try { return await fn(prisma) } finally { inLock = false }
+    })
+  })
+
+  test('accepts while holding the pair lock, so it serializes with blocks and requests', async () => {
+    const calls: string[] = []
+    mockUpdate.mockImplementationOnce(async () => {
+      calls.push(inLock ? 'locked' : 'UNLOCKED')
+      return { ...pendingFromAlice, status: 'ACCEPTED', acceptedAt }
+    })
+
+    await call()
+
+    expect(mockWithPairLock).toHaveBeenCalledWith('ca', ME, expect.any(Function))
+    expect(calls).toEqual(['locked'])
   })
 
   test('the addressee accepts: row becomes ACCEPTED and the requester is returned as a friend', async () => {

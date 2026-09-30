@@ -86,3 +86,26 @@ export function friendsOf(me: string): Prisma.UserWhereInput {
     ],
   }
 }
+
+/**
+ * Runs `fn` in a transaction holding an advisory lock on the (unordered) pair,
+ * so writes about the same two users are serialized. Callers:
+ *   - POST /api/blocks                    (block + sever the friendship)
+ *   - POST /api/friend-requests           (block check + create / crossed accept)
+ *   - POST /api/friend-requests/:id/accept
+ *   - DELETE /api/friend-requests/:id     (cancel / decline)
+ * So a block can't land between a request's block check and its write —
+ * "blocked" and "friends / pending" can never coexist — and request writes on
+ * one pair never interleave. Unfriending and unblocking only remove rows and
+ * can't create either inconsistency, so they don't take it.
+ *
+ * The lock is transaction-scoped (released on commit or rollback), which is
+ * what works through Supabase's transaction-mode pooler.
+ */
+export async function withPairLock<T>(a: string, b: string, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  const { userLowId, userHighId } = orderedPair(a, b)
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${userLowId}::text || ':' || ${userHighId}::text, 0))`
+    return fn(tx)
+  })
+}

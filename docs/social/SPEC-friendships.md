@@ -137,6 +137,28 @@ export async function relationshipsWith(me: string, userIds: string[]): Promise<
 export function friendsOf(me: string): Prisma.UserWhereInput
 ```
 
+## Concurrency (added after PR #133 review)
+
+A block and a friend request for the same pair could interleave. The request
+checks for a block, the block is created and deletes the pair's (not yet
+existing) row, and then the request inserts a `PENDING` row. The blocker could
+then accept that request. A transaction on one side can't prevent this,
+because the other side doesn't take part in it.
+
+`withPairLock(a, b, fn)` serializes them. It runs `fn` in a transaction that
+first takes `pg_advisory_xact_lock` on the sorted pair. The lock is
+transaction-scoped, so it works through Supabase's transaction-mode pooler;
+this was verified against the production URL.
+
+- **Routes that take the lock:** block creation, request create (including
+  the block check and a crossed accept), accept, and cancel/decline.
+- **Routes that don't:** unfriend and unblock only remove rows, and neither
+  can create a blocked-and-pending or blocked-and-friends state.
+
+Serializing also removes the P2002/P2025 retry logic from
+`POST /api/friend-requests`: two writes to the same pair can no longer
+interleave.
+
 ## Out of scope
 
 Friend suggestions, mutual-friend counts, viewing another user's friends,

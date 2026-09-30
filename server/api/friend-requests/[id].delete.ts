@@ -12,6 +12,8 @@ defineRouteMeta({
   },
 })
 
+const notFound = () => createError({ statusCode: 404, statusMessage: 'Friend request not found' })
+
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
   const id = getRouterParam(event, 'id')?.trim()
@@ -20,14 +22,22 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // One guarded delete: either party may remove it, but only while PENDING —
-    // an accepted friendship is removed via DELETE /api/friends/:userId.
-    const { count } = await prisma.friendship.deleteMany({
-      where: { id, status: 'PENDING', OR: [{ userLowId: userId }, { userHighId: userId }] },
+    const row = await prisma.friendship.findUnique({
+      where: { id },
+      select: { userLowId: true, userHighId: true, status: true },
     })
-    if (count === 0) {
-      throw createError({ statusCode: 404, statusMessage: 'Friend request not found' })
-    }
+    const isMine = row && (row.userLowId === userId || row.userHighId === userId)
+    // Either party may remove it, but only while PENDING — an accepted
+    // friendship is removed via DELETE /api/friends/:userId.
+    if (!row || row.status !== 'PENDING' || !isMine) throw notFound()
+
+    // Under the pair lock so it can't delete a row out from under a concurrent
+    // crossed request that is accepting it. Still guarded, since the row may
+    // have changed between the read above and taking the lock.
+    const { count } = await withPairLock(row.userLowId, row.userHighId, (tx) => tx.friendship.deleteMany({
+      where: { id, status: 'PENDING', OR: [{ userLowId: userId }, { userHighId: userId }] },
+    }))
+    if (count === 0) throw notFound()
 
     event.node.res.statusCode = 204
     return null
