@@ -6,6 +6,8 @@ import type { Prisma } from '@prisma/client'
  *   - POST /api/blocks                      (block + remove follows both ways)
  *   - POST /api/following                   (block check + follow / request)
  *   - POST /api/follow-requests/:id/accept
+ *   - PUT /api/posts/:id/reactions/:emoji  (keyed on user + POST id: the cap
+ *     check and insert; a post id never equals a user id, so no contention)
  * So a block can't land between a follow's block check and its write —
  * "blocked" and "following / requested" can never coexist. Unfollowing,
  * declining, removing a follower and unblocking only remove rows and can't

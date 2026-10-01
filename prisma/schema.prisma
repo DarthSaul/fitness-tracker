@@ -95,6 +95,7 @@ model User {
   followers                 Follow[]                   @relation("Followers")
   posts                     Post[]
   postPhotos                PostPhoto[]
+  postReactions             PostReaction[]
 }
 
 model Identity {
@@ -594,8 +595,9 @@ model Post {
   createdAt DateTime  @default(now())
   editedAt  DateTime?
 
-  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  photos PostPhoto[]
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  photos    PostPhoto[]
+  reactions PostReaction[]
 
   // Serves a profile's posts and the feed: posts by these authors, newest first.
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
@@ -644,4 +646,23 @@ model PostPhoto {
 
   @@unique([postId, position])
   @@index([uploaderId, postId])
+}
+
+// An emoji reaction (docs/social/SPEC-reactions.md). A user may add several
+// DIFFERENT emoji to one post (at most 10), each once. `emoji` is a single,
+// fully-qualified RGI emoji, normalized by parseReactionEmoji (so ❤ and ❤️ are
+// the same reaction). The (postId, emoji, createdAt, id) index serves both the
+// per-emoji counts and the newest-first who-reacted pages.
+model PostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, emoji])
+  @@index([postId, emoji, createdAt(sort: Desc), id(sort: Desc)])
 }

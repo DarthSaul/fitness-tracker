@@ -11,6 +11,7 @@ import { vi } from 'vitest'
 import { publicUserSelect } from './server/utils/public-user'
 import { followSelect } from './server/utils/follows'
 import { postPhotoPath, POST_PHOTOS_BUCKET } from './server/utils/post-photo-storage'
+import { parseReactionEmoji, REACTION_CAP } from './server/utils/reactions'
 import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, parsePostBody, parsePostContent } from './server/utils/posts'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
@@ -99,6 +100,7 @@ vi.stubGlobal('prisma', {
   workoutExerciseSkip: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
   deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  postReaction: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn(), count: vi.fn() },
   postPhoto: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   post: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   follow: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
@@ -140,6 +142,12 @@ vi.stubGlobal('processPostPhoto', vi.fn())
 vi.stubGlobal('uploadPostPhotoObject', vi.fn().mockResolvedValue(undefined))
 vi.stubGlobal('removePostPhotoObjects', vi.fn().mockResolvedValue(undefined))
 vi.stubGlobal('signPostPhotos', vi.fn().mockResolvedValue({ urls: new Map(), expiresAt: null }))
+// Reactions: the real emoji parser and cap; summaries and the visibility gate
+// are mocked in route tests (both have their own unit tests).
+vi.stubGlobal('parseReactionEmoji', parseReactionEmoji)
+vi.stubGlobal('REACTION_CAP', REACTION_CAP)
+vi.stubGlobal('reactionSummaries', vi.fn().mockResolvedValue(new Map()))
+vi.stubGlobal('requireVisiblePost', vi.fn())
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))

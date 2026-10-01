@@ -1,10 +1,12 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-import { canViewPostsBy, toPostPayloads, parsePageQuery, pageWhere, parsePostBody, parsePostContent, postSelect } from './posts'
+import { canViewPostsBy, requireVisiblePost, toPostPayloads, parsePageQuery, pageWhere, parsePostBody, parsePostContent, postSelect } from './posts'
 
 const mockIsBlocked = isBlockedEitherWay as ReturnType<typeof vi.fn>
 const mockIsFollowing = isFollowing as ReturnType<typeof vi.fn>
 const mockSign = signPostPhotos as ReturnType<typeof vi.fn>
+const mockSummaries = reactionSummaries as ReturnType<typeof vi.fn>
+const mockFindPost = prisma.post.findUnique as ReturnType<typeof vi.fn>
 
 describe('canViewPostsBy — the visibility rule', () => {
   beforeEach(() => {
@@ -61,6 +63,7 @@ describe('toPostPayloads', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockSign.mockResolvedValue({ urls: new Map(), expiresAt: null })
+    mockSummaries.mockResolvedValue(new Map())
   })
 
   test('builds the payload without leaking authorId or storage keys, and flags isMine for the author', async () => {
@@ -76,6 +79,7 @@ describe('toPostPayloads', () => {
       isMine: true,
       photos: [],
       photosExpireAt: null,
+      reactions: [],
     })
     expect(theirs!.isMine).toBe(false)
   })
@@ -103,6 +107,20 @@ describe('toPostPayloads', () => {
     expect(posts[1]!.photos).toEqual([])
     expect(posts[1]!.photosExpireAt).toBeNull()
     expect(posts[2]!.photos[0]!.url).toBe('https://s/c')
+  })
+
+  test("attaches each post's reaction summaries, fetched once for the whole page", async () => {
+    mockSummaries.mockResolvedValueOnce(new Map([
+      ['p1', [{ emoji: '👍', count: 3, mine: true }]],
+      ['p2', []],
+    ]))
+
+    const posts = await toPostPayloads([row('p1'), row('p2')], 'viewer')
+
+    expect(mockSummaries).toHaveBeenCalledTimes(1)
+    expect(mockSummaries).toHaveBeenCalledWith(['p1', 'p2'], 'viewer')
+    expect(posts[0]!.reactions).toEqual([{ emoji: '👍', count: 3, mine: true }])
+    expect(posts[1]!.reactions).toEqual([])
   })
 
   test('an empty page makes no storage call', async () => {
@@ -217,5 +235,39 @@ describe('pageWhere', () => {
     expect(pageWhere({ createdAt, id: 'p9' })).toEqual({
       OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: 'p9' } }],
     })
+  })
+})
+
+describe('requireVisiblePost — the shared 404 for reaction routes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsBlocked.mockResolvedValue(false)
+    mockIsFollowing.mockResolvedValue(false)
+  })
+
+  test('returns the post when the caller may see its author\'s posts', async () => {
+    const post = { id: 'p1', author: { id: 'author', profileVisibility: 'PUBLIC' } }
+    mockFindPost.mockResolvedValueOnce(post)
+
+    expect(await requireVisiblePost('p1', 'viewer')).toEqual(post)
+    expect(mockFindPost).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      select: { id: true, author: { select: { id: true, profileVisibility: true } } },
+    })
+  })
+
+  test.each([
+    ['the post does not exist', null],
+    ['the author is PRIVATE and not followed', { id: 'p1', author: { id: 'author', profileVisibility: 'PRIVATE' } }],
+  ])('404, never revealing the post, when %s', async (_label, post) => {
+    mockFindPost.mockResolvedValueOnce(post)
+    await expect(requireVisiblePost('p1', 'viewer')).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Post not found' })
+  })
+
+  test('404 when a block exists either way, even on a PUBLIC profile', async () => {
+    mockFindPost.mockResolvedValueOnce({ id: 'p1', author: { id: 'author', profileVisibility: 'PUBLIC' } })
+    mockIsBlocked.mockResolvedValueOnce(true)
+
+    await expect(requireVisiblePost('p1', 'viewer')).rejects.toMatchObject({ statusCode: 404 })
   })
 })

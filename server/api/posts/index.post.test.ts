@@ -44,7 +44,7 @@ describe('POST /api/posts', () => {
     expect(mockAttach).not.toHaveBeenCalled()
     expect(event.node.res.statusCode).toBe(201)
     expect(result).toEqual({
-      id: 'p1', author: me, body: 'Leg day', createdAt, editedAt: null, isMine: true, photos: [], photosExpireAt: null,
+      id: 'p1', author: me, body: 'Leg day', createdAt, editedAt: null, isMine: true, photos: [], photosExpireAt: null, reactions: [],
     })
   })
 
