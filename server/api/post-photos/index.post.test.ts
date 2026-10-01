@@ -7,8 +7,8 @@ const mockProcess = processPostPhoto as ReturnType<typeof vi.fn>
 const mockUpload = uploadPostPhotoObject as ReturnType<typeof vi.fn>
 const mockRemoveObjects = removePostPhotoObjects as ReturnType<typeof vi.fn>
 const mockRateLimitByKey = rateLimitByKey as ReturnType<typeof vi.fn>
-const mockFindMany = prisma.postPhoto.findMany as ReturnType<typeof vi.fn>
-const mockDeleteMany = prisma.postPhoto.deleteMany as ReturnType<typeof vi.fn>
+// The sweep is one atomic DELETE … RETURNING through $queryRaw.
+const mockSweep = prisma.$queryRaw as ReturnType<typeof vi.fn>
 const mockCreate = prisma.postPhoto.create as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string }; node: { res: { statusCode: number } } }
@@ -28,7 +28,7 @@ describe('POST /api/post-photos', () => {
     mockReadMultipart.mockResolvedValue([{ name: 'photo', data: raw, type: 'image/jpeg', filename: 'IMG_1.jpg' }])
     mockProcess.mockResolvedValue(processed)
     mockRateLimitByKey.mockResolvedValue(undefined)
-    mockFindMany.mockResolvedValue([])
+    mockSweep.mockResolvedValue([])
     // Returns what the route's `select` asks for: id, width, height.
     mockCreate.mockImplementation(async ({ data }: { data: { width: number; height: number } }) => ({ id: 'ph1', width: data.width, height: data.height }))
   })
@@ -59,29 +59,38 @@ describe('POST /api/post-photos', () => {
     expect(mockUpload.mock.calls[0]![0]).toMatch(/^u1\//)
   })
 
-  test("sweeps the caller's own unattached uploads older than 24h — rows, then objects", async () => {
-    mockFindMany.mockResolvedValueOnce([
-      { id: 'old1', storagePath: 'u1/old1.jpg' },
-      { id: 'old2', storagePath: 'u1/old2.jpg' },
-    ])
-    const before = Date.now()
+  test("sweeps the caller's own unattached uploads older than 24h in ONE atomic DELETE … RETURNING", async () => {
+    mockSweep.mockResolvedValueOnce([{ storagePath: 'u1/old1.jpg' }, { storagePath: 'u1/old2.jpg' }])
 
     await call(makeEvent())
 
-    const where = mockFindMany.mock.calls[0]![0].where
-    expect(where).toMatchObject({ uploaderId: 'u1', postId: null })
-    const cutoff = (where.createdAt.lt as Date).getTime()
-    expect(cutoff).toBeGreaterThanOrEqual(before - 24 * 3600_000 - 1000)
-    expect(cutoff).toBeLessThanOrEqual(Date.now() - 24 * 3600_000 + 1000)
-    // Re-guarded on postId null, so a photo attached meanwhile is never deleted.
-    expect(mockDeleteMany).toHaveBeenCalledWith({ where: { id: { in: ['old1', 'old2'] }, postId: null } })
+    const [strings, ...values] = mockSweep.mock.calls[0]!
+    const sql = (strings as string[]).join('?')
+    expect(sql).toMatch(/DELETE FROM "PostPhoto"/)
+    expect(sql).toMatch(/"postId" IS NULL/)
+    expect(sql).toMatch(/"createdAt" < LOCALTIMESTAMP - interval '24 hours'/)
+    expect(sql).toMatch(/RETURNING "storagePath"/)
+    expect(values).toEqual(['u1'])
     expect(mockRemoveObjects).toHaveBeenCalledWith(['u1/old1.jpg', 'u1/old2.jpg'], expect.anything(), 'POST /api/post-photos')
   })
 
-  test('nothing stale → no sweep writes', async () => {
+  // Regression (PR #138 review): the sweep used to SELECT stale rows, DELETE
+  // them guarded on postId null, then remove storage for EVERY selected row, so
+  // a photo attached in between kept its row but lost its object (a broken photo
+  // on a live post). Now only paths the DELETE actually returned are removed.
+  test('removes storage only for rows the DELETE actually removed', async () => {
+    // old2 was attached concurrently: the guarded DELETE skips it, so it isn't returned.
+    mockSweep.mockResolvedValueOnce([{ storagePath: 'u1/old1.jpg' }])
+
     await call(makeEvent())
 
-    expect(mockDeleteMany).not.toHaveBeenCalled()
+    expect(mockRemoveObjects).toHaveBeenCalledTimes(1)
+    expect(mockRemoveObjects).toHaveBeenCalledWith(['u1/old1.jpg'], expect.anything(), 'POST /api/post-photos')
+  })
+
+  test('nothing stale → no storage removal', async () => {
+    await call(makeEvent())
+
     expect(mockRemoveObjects).not.toHaveBeenCalled()
   })
 

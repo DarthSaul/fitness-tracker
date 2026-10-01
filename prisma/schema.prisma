@@ -628,7 +628,7 @@ model Follow {
 // them for 15 minutes. Uploaded first (postId null), then attached when the
 // post is created; fixed from then on. Raw SQL CHECK in the migration:
 //   CHECK ((postId IS NULL AND position IS NULL) OR
-//          (postId IS NOT NULL AND position BETWEEN 0 AND 3))
+//          (postId IS NOT NULL AND position IS NOT NULL AND position BETWEEN 0 AND 3))
 model PostPhoto {
   id          String   @id @default(cuid())
   uploaderId  String

@@ -42,7 +42,10 @@ ALTER TABLE "PostPhoto" ADD CONSTRAINT "PostPhoto_uploaderId_fkey" FOREIGN KEY (
 ALTER TABLE "PostPhoto" ADD CONSTRAINT "PostPhoto_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Attached ⇔ positioned, and at most 4 per post (positions 0–3).
+-- "position" IS NOT NULL is explicit: a CHECK only rejects FALSE, and
+-- `NULL BETWEEN 0 AND 3` is NULL, so without it an attached row with no
+-- position would pass (PR #138 review).
 ALTER TABLE "PostPhoto" ADD CONSTRAINT "PostPhoto_attach_position_check" CHECK (
   ("postId" IS NULL AND "position" IS NULL) OR
-  ("postId" IS NOT NULL AND "position" BETWEEN 0 AND 3)
+  ("postId" IS NOT NULL AND "position" IS NOT NULL AND "position" BETWEEN 0 AND 3)
 );

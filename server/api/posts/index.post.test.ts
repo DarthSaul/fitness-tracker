@@ -79,6 +79,33 @@ describe('POST /api/posts', () => {
     expect(result.photosExpireAt).toBe('2026-09-30T12:15:00.000Z')
   })
 
+  // Regression (PR #138 review): photo URLs used to be signed AFTER the commit,
+  // so a signing failure returned 500 for a post that existed — and a retry then
+  // 400'd because its photos were already attached. Signing now happens inside
+  // the transaction, so a failure rolls the post back.
+  test('signs photo URLs inside the transaction; a signing failure rolls the post back', async () => {
+    let inTx = false
+    let signedInTx: boolean | undefined
+    let committed = false
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      inTx = true
+      try {
+        const result = await fn(prisma)
+        committed = true
+        return result
+      } finally { inTx = false }
+    })
+    mockReadBody.mockResolvedValueOnce({ photoIds: ['ph1'] })
+    mockSign.mockImplementationOnce(async () => {
+      signedInTx = inTx
+      throw new Error('post-photos: signing failed: storage down')
+    })
+
+    await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to create post' })
+    expect(signedInTx).toBe(true)
+    expect(committed).toBe(false)
+  })
+
   test('a photo-only post has an empty body', async () => {
     mockReadBody.mockResolvedValueOnce({ photoIds: ['ph1'] })
 

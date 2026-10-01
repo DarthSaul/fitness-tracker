@@ -21,7 +21,6 @@ defineRouteMeta({
 })
 
 const ROUTE = 'POST /api/post-photos'
-const STALE_AFTER_MS = 24 * 60 * 60 * 1000
 
 export default defineEventHandler(async (event): Promise<{ id: string; width: number; height: number }> => {
   const userId = event.context.userId as string
@@ -41,16 +40,19 @@ export default defineEventHandler(async (event): Promise<{ id: string; width: nu
 
     const processed = await processPostPhoto(file.data)
 
-    // Opportunistic cleanup (no cron): the caller's own abandoned uploads.
-    // Re-guarded on postId null so one attached meanwhile is never deleted.
-    const stale = await prisma.postPhoto.findMany({
-      where: { uploaderId: userId, postId: null, createdAt: { lt: new Date(Date.now() - STALE_AFTER_MS) } },
-      select: { id: true, storagePath: true },
-    })
-    if (stale.length > 0) {
-      await prisma.postPhoto.deleteMany({ where: { id: { in: stale.map((p) => p.id) }, postId: null } })
-      await removePostPhotoObjects(stale.map((p) => p.storagePath), log, ROUTE)
-    }
+    // Opportunistic cleanup (no cron): the caller's own abandoned uploads, in
+    // ONE atomic DELETE … RETURNING, so storage is removed only for rows this
+    // statement actually deleted. A photo attached concurrently no longer
+    // matches "postId" IS NULL once its UPDATE wins the row lock, so it keeps
+    // its object. (Prisma has no deleteManyAndReturn, hence raw SQL.)
+    // LOCALTIMESTAMP is the same clock and type createdAt's default writes.
+    const swept = await prisma.$queryRaw<{ storagePath: string }[]>`
+      DELETE FROM "PostPhoto"
+      WHERE "uploaderId" = ${userId}
+        AND "postId" IS NULL
+        AND "createdAt" < LOCALTIMESTAMP - interval '24 hours'
+      RETURNING "storagePath"`
+    if (swept.length > 0) await removePostPhotoObjects(swept.map((p) => p.storagePath), log, ROUTE)
 
     const storagePath = postPhotoPath(userId, randomUUID())
     await uploadPostPhotoObject(storagePath, processed.data)

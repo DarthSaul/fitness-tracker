@@ -120,6 +120,27 @@ describe('removePostPhotoObjects', () => {
     expect(log.error).toHaveBeenCalled()
   })
 
+  // Regression (PR #138 review): Storage removes at most 1000 objects per
+  // request, and a long-time user's account deletion can exceed that.
+  test('removes in batches of at most 1000, each batch independent of the others', async () => {
+    const remove = vi.fn()
+      .mockResolvedValueOnce({ data: null, error: { message: 'batch 1 failed' } })
+      .mockRejectedValueOnce(new Error('batch 2 socket hang up'))
+      .mockResolvedValueOnce({ data: [], error: null })
+    bucket({ remove })
+    const paths = Array.from({ length: 2500 }, (_, i) => `u/${i}.jpg`)
+
+    await expect(removePostPhotoObjects(paths, log, 'DELETE /api/auth/me')).resolves.toBeUndefined()
+
+    expect(remove).toHaveBeenCalledTimes(3)
+    expect(remove.mock.calls.map(([batch]) => batch.length)).toEqual([1000, 1000, 500])
+    expect(remove.mock.calls.flatMap(([batch]) => batch)).toEqual(paths)
+    // Each failed batch is logged with exactly its own paths; the last one succeeded.
+    expect(log.error).toHaveBeenCalledTimes(2)
+    expect(log.error.mock.calls[0]![0]).toMatchObject({ event: 'post_photos.orphaned', paths: paths.slice(0, 1000) })
+    expect(log.error.mock.calls[1]![0]).toMatchObject({ event: 'post_photos.orphaned', paths: paths.slice(1000, 2000) })
+  })
+
   test('nothing to remove → no storage call', async () => {
     bucket()
 

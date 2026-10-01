@@ -5,7 +5,7 @@
 import { describe, test, expect } from 'vitest'
 import sharp from 'sharp'
 
-import { processPostPhoto, POST_PHOTO_MAX_BYTES } from './post-photos'
+import { processPostPhoto, isPhotoInputError, POST_PHOTO_MAX_BYTES } from './post-photos'
 
 // GPS tag id 0x8825 (GPSInfo IFD pointer), in either byte order.
 const hasGpsTag = (exif: Buffer | undefined) =>
@@ -104,5 +104,49 @@ describe('processPostPhoto', () => {
   test('415 for a decodable but unsupported format (GIF)', async () => {
     const gif = await solid(32, 32).gif().toBuffer()
     await expect(processPostPhoto(gif)).rejects.toMatchObject({ statusCode: 415 })
+  })
+
+  // Regression (PR #138 review): a valid header passes metadata() and the format
+  // check, then the pixels fail to decode. That is a bad upload (415), not a
+  // server fault (500 → Sentry).
+  test('415 for a JPEG with a valid header but corrupt pixel data', async () => {
+    const good = await solid(400, 300).jpeg().toBuffer()
+    const sos = good.indexOf(Buffer.from([0xff, 0xda])) // start-of-scan: header ends here
+    const corrupt = good.subarray(0, sos + 40)
+    expect((await sharp(corrupt).metadata()).format).toBe('jpeg') // the header really is valid
+
+    await expect(processPostPhoto(corrupt)).rejects.toMatchObject({ statusCode: 415 })
+  })
+
+  test('415 for a PNG with a valid header but truncated pixel data', async () => {
+    const png = await solid(400, 300).png().toBuffer()
+    const corrupt = png.subarray(0, Math.floor(png.length * 0.6))
+    expect((await sharp(corrupt).metadata()).format).toBe('png')
+
+    await expect(processPostPhoto(corrupt)).rejects.toMatchObject({ statusCode: 415 })
+  })
+})
+
+describe('isPhotoInputError — what counts as a bad upload rather than a server fault', () => {
+  test.each([
+    'VipsJpeg: premature end of JPEG image',
+    'vipspng: libpng read error',
+    'Input buffer has corrupt header: webp: unable to parse image',
+    'VipsForeignLoad: buffer is not in a known format',
+  ])('decoder error %j → input error', (message) => {
+    expect(isPhotoInputError(new Error(message))).toBe(true)
+  })
+
+  test.each([
+    'Cannot allocate memory',
+    'ENOSPC: no space left on device',
+    'vips_threadpool: unable to create thread',
+  ])('server fault %j → not an input error (stays a 500)', (message) => {
+    expect(isPhotoInputError(new Error(message))).toBe(false)
+  })
+
+  test('non-Error values are not input errors', () => {
+    expect(isPhotoInputError('VipsJpeg: premature end')).toBe(false)
+    expect(isPhotoInputError(undefined)).toBe(false)
   })
 })

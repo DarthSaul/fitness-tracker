@@ -26,7 +26,7 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
   try {
     await rateLimitByKey(`post-create:${userId}`, 30, '1 h')
 
-    const post = await prisma.$transaction(async (tx) => {
+    const payload = await prisma.$transaction(async (tx) => {
       const { id } = await tx.post.create({ data: { authorId: userId, body }, select: { id: true } })
 
       // Each attach is guarded on "the caller's own, not yet attached", so a
@@ -42,12 +42,16 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
         }
       }
 
-      return (await tx.post.findUnique({ where: { id }, select: postSelect }))!
+      // The response (including signed photo URLs) is built BEFORE commit: if
+      // signing fails, the post rolls back instead of existing behind a 500 —
+      // which a retry couldn't recover, since its photos would already be attached.
+      const post = (await tx.post.findUnique({ where: { id }, select: postSelect }))!
+      const [built] = await toPostPayloads([post], userId)
+      return built!
     })
 
     event.node.res.statusCode = 201
-    const [payload] = await toPostPayloads([post], userId)
-    return payload!
+    return payload
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/posts' }, '[POST /api/posts] Failed to create post')

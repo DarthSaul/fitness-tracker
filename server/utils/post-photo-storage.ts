@@ -61,6 +61,9 @@ export async function uploadPostPhotoObject(path: string, data: Buffer): Promise
 
 interface Log { error: (obj: object, msg: string) => void }
 
+/** Supabase Storage's per-request removal limit. */
+const REMOVE_BATCH = 1000
+
 /**
  * Best-effort removal after the rows are gone. Never throws: a failure leaves
  * unreachable private objects (no row points at them, nothing signs them), so
@@ -68,11 +71,15 @@ interface Log { error: (obj: object, msg: string) => void }
  * the user's request.
  */
 export async function removePostPhotoObjects(paths: string[], log: Log, route: string): Promise<void> {
-  if (paths.length === 0) return
-  try {
-    const { error } = await supabase.storage.from(POST_PHOTOS_BUCKET).remove(paths)
-    if (error) throw error
-  } catch (err) {
-    log.error({ err, event: 'post_photos.orphaned', paths, route }, '[post-photos] Storage removal failed — objects orphaned, clean up manually')
+  // Storage removes at most REMOVE_BATCH objects per request; each batch is
+  // independent, so one failure doesn't stop the rest from being removed.
+  for (let i = 0; i < paths.length; i += REMOVE_BATCH) {
+    const batch = paths.slice(i, i + REMOVE_BATCH)
+    try {
+      const { error } = await supabase.storage.from(POST_PHOTOS_BUCKET).remove(batch)
+      if (error) throw error
+    } catch (err) {
+      log.error({ err, event: 'post_photos.orphaned', paths: batch, route }, '[post-photos] Storage removal failed — objects orphaned, clean up manually')
+    }
   }
 }
