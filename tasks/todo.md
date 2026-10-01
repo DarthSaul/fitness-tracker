@@ -126,9 +126,20 @@ gets a new, simpler spec after `follows`.
 ### Checkpoint: follows
 - [x] verify-app passes
 - [x] migration applied (2026-09-30, via session pooler; FOR SHARE probe passed)
+- [x] PR opened (#135)
+
+## PR 6 — `feed` (branch `feat/social-feed`; #135 merged, now on main)
+
+- [x] Spec approved (`docs/social/SPEC-feed.md`)
+- [x] **FD1: `GET /api/feed`** (S): own + accepted followees' posts, newest first,
+  History pagination; `isMine` on own posts.
+  - Verify: `npx vitest run server/api/feed.get.test.ts`
+- [x] **FD2: auth guard case + contract "Feed" section + verify-app** (S)
+
+### Checkpoint: feed
+- [x] verify-app passes
 - [ ] PR opened
 
-## PR 6 — `feed` (spec after follows)
 ## PR 7 — `friendships-removal` (contract; only after PR 5 is live in production)
 
 ## Later PRs (spec written when reached)
