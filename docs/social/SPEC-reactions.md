@@ -154,8 +154,8 @@ posts, including the feed, gets reactions automatically.
 - [ ] 👍 then 🔥 from the same user → both counted, both `mine: true`. The
       same 👍 twice → one row, second call 200.
 - [ ] `❤` and `❤️` from two users → one entry, `count: 2`.
-- [ ] Skin-tone, ZWJ, flag and keycap emoji are accepted. `👍👍`, `a`, `` and
-      ` 👍` are rejected with 400.
+- [ ] Skin-tone, ZWJ, flag and keycap emoji are accepted. `👍👍`, `a`, an
+      empty string and 👍 with a leading space are rejected with 400.
 - [ ] A user who can't see the post (private profile not followed, or blocked
       either way) → 404 on PUT and DELETE, never 403.
 - [ ] The 11th distinct emoji from one user on one post → 409.

@@ -82,6 +82,18 @@ describe('reactionSummaries — one page in three queries', () => {
     expect(result.get('p3')).toEqual([])
   })
 
+  test('a full tie (count and first appearance) falls back to code-point order, not the locale', async () => {
+    // localeCompare puts 🇬🇧 (U+1F1EC…) before ❤️ (U+2764…); code-point order is the reverse.
+    mockGroupBy.mockResolvedValueOnce([
+      { postId: 'p1', emoji: '🇬🇧', _count: { _all: 1 }, _min: { createdAt: t0 } },
+      { postId: 'p1', emoji: '❤️', _count: { _all: 1 }, _min: { createdAt: t0 } },
+    ])
+
+    const result = await reactionSummaries(['p1'], 'me')
+
+    expect(result.get('p1')!.map((r) => r.emoji)).toEqual(['❤️', '🇬🇧'])
+  })
+
   test('counts exclude users blocked in either direction, so they match the who-reacted list', async () => {
     mockBlockedUserIds.mockResolvedValueOnce(['blocked1', 'blocked2'])
 

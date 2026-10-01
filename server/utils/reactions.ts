@@ -28,10 +28,20 @@ const MAX_INPUT_LENGTH = 32
 export function parseReactionEmoji(raw: unknown): string {
   if (typeof raw === 'string' && raw.length > 0 && raw.length <= MAX_INPUT_LENGTH) {
     if (SINGLE_EMOJI.test(raw)) return raw
-    const qualified = `${raw}️`
+    const qualified = `${raw}\uFE0F`
     if (SINGLE_EMOJI.test(qualified)) return qualified
   }
   throw createError({ statusCode: 400, statusMessage: 'Reaction must be a single emoji' })
+}
+
+/** Orders strings by Unicode code point: deterministic, unlike the locale-dependent localeCompare. */
+function compareCodePoints(a: string, b: string): number {
+  const x = Array.from(a, (c) => c.codePointAt(0)!)
+  const y = Array.from(b, (c) => c.codePointAt(0)!)
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    if (x[i] !== y[i]) return x[i]! - y[i]!
+  }
+  return x.length - y.length
 }
 
 /**
@@ -64,7 +74,7 @@ export async function reactionSummaries(postIds: string[], viewerId: string): Pr
   const sorted = [...groups].sort((a, b) =>
     b._count._all - a._count._all
     || (a._min.createdAt?.getTime() ?? 0) - (b._min.createdAt?.getTime() ?? 0)
-    || a.emoji.localeCompare(b.emoji))
+    || compareCodePoints(a.emoji, b.emoji))
 
   for (const g of sorted) {
     result.get(g.postId)?.push({ emoji: g.emoji, count: g._count._all, mine: mineKeys.has(`${g.postId}\u0000${g.emoji}`) })
