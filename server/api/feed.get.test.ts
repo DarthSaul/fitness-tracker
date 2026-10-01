@@ -31,13 +31,21 @@ describe('GET /api/feed', () => {
   test('my posts plus everyone I follow (accepted), newest first, default page of 20', async () => {
     mockFollowingIdsOf.mockResolvedValueOnce(['ann', 'bo'])
     mockFindPosts.mockResolvedValueOnce([
-      { id: 'p2', authorId: 'ann', body: 'Leg day', createdAt: t1, editedAt: null, author: ann },
-      { id: 'p1', authorId: ME, body: 'Arm day', createdAt: t2, editedAt: null, author: meUser },
+      { id: 'p2', authorId: 'ann', body: 'Leg day', createdAt: t1, editedAt: null, author: ann, photos: [{ id: 'ph1', storagePath: 'ann/ph1.jpg', width: 10, height: 20 }] },
+      { id: 'p1', authorId: ME, body: 'Arm day', createdAt: t2, editedAt: null, author: meUser, photos: [{ id: 'ph2', storagePath: 'me/ph2.jpg', width: 30, height: 40 }] },
     ])
+
+    ;(signPostPhotos as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      urls: new Map([['ann/ph1.jpg', 'https://s/1'], ['me/ph2.jpg', 'https://s/2']]),
+      expiresAt: '2026-09-30T12:15:00.000Z',
+    })
 
     const result = await call()
 
     expect(mockFollowingIdsOf).toHaveBeenCalledWith(ME)
+    // Every photo on the page is signed in a single storage call.
+    expect(signPostPhotos).toHaveBeenCalledTimes(1)
+    expect(signPostPhotos).toHaveBeenCalledWith(['ann/ph1.jpg', 'me/ph2.jpg'])
     expect(mockFindPosts).toHaveBeenCalledWith({
       where: { authorId: { in: [ME, 'ann', 'bo'] } },
       orderBy: newestFirst,
@@ -45,8 +53,8 @@ describe('GET /api/feed', () => {
       select: expect.objectContaining({ id: true, author: expect.anything() }),
     })
     expect(result.posts).toEqual([
-      { id: 'p2', author: ann, body: 'Leg day', createdAt: t1, editedAt: null, isMine: false },
-      { id: 'p1', author: meUser, body: 'Arm day', createdAt: t2, editedAt: null, isMine: true },
+      { id: 'p2', author: ann, body: 'Leg day', createdAt: t1, editedAt: null, isMine: false, photos: [{ id: 'ph1', url: 'https://s/1', width: 10, height: 20 }], photosExpireAt: '2026-09-30T12:15:00.000Z' },
+      { id: 'p1', author: meUser, body: 'Arm day', createdAt: t2, editedAt: null, isMine: true, photos: [{ id: 'ph2', url: 'https://s/2', width: 30, height: 40 }], photosExpireAt: '2026-09-30T12:15:00.000Z' },
     ])
   })
 

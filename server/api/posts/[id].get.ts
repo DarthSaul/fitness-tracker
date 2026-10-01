@@ -26,7 +26,8 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
     if (!post || !(await canViewPostsBy(userId, post.author))) {
       throw createError({ statusCode: 404, statusMessage: 'Post not found' })
     }
-    return toPost(post, userId)
+    const [payload] = await toPostPayloads([post], userId)
+    return payload!
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/posts/:id' }, '[GET /api/posts/:id] Failed to fetch post')

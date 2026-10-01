@@ -6,7 +6,7 @@ defineRouteMeta({
       'Permanently deletes the authenticated user and all associated data: identities, refresh tokens, '
       + 'device tokens, saved programs, workout history, PT routines, notes and feedback (database rows '
       + 'cascade from the User record). For email/password identities the Supabase Auth user is deleted '
-      + 'first, and feedback screenshots are removed from storage. Required for App Store account-deletion '
+      + 'first, and feedback screenshots and post photos are removed from storage. Required for App Store account-deletion '
       + 'compliance (Guideline 5.1.1(v)). Web clients get their session cookie cleared; native clients '
       + 'should discard their JWT pair — the refresh tokens are already gone.',
     responses: {
@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
         id: true,
         identities: { select: { provider: true, providerId: true } },
         feedback: { select: { screenshotPath: true } },
+        postPhotos: { select: { storagePath: true } },
       },
     })
     if (!user) {
@@ -68,6 +69,11 @@ export default defineEventHandler(async (event) => {
         )
       }
     }
+
+    // Post photos (attached or not) likewise live in Storage, outside the
+    // cascade. removePostPhotoObjects is best-effort and logs the paths as
+    // `post_photos.orphaned` on failure, for the same reason as above.
+    await removePostPhotoObjects(user.postPhotos.map(p => p.storagePath), event.context.logger ?? logger, 'DELETE /api/auth/me')
 
     // Every user-owned model carries onDelete: Cascade back to User, so this
     // one delete removes identities, refresh tokens, device tokens, programs,

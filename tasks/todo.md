@@ -146,10 +146,36 @@ gets a new, simpler spec after `follows`.
 - [x] Precondition: 0 `Friendship` / 0 `Post` rows; no code references
 - [x] Schema change + guarded drop migration `20260930160000_drop_friendships`
 - [x] verify-app
-- [ ] PR opened
-- [ ] **Apply — needs explicit go-ahead** (destructive; disables instant rollback to ≤#134)
-- [ ] Post-apply: status, drift, objects gone, production smoke
+- [x] PR opened (#137, merged)
+- [x] Applied 2026-09-30 at the user's explicit request (after the first attempt was blocked by the permission check)
+- [x] Post-apply: status up to date, no drift, all four objects gone (`Follow` intact), production health 200 + social routes 401
+
+## PR 8 — `post-photos` (branch `feat/social-post-photos`; #137 merged, now on main)
+
+- [x] Spec approved (`docs/social/SPEC-post-photos.md`)
+- [x] **PH1: add `sharp`** (XS): the one agreed new dependency.
+- [x] **PH2: processing pipeline** (S): `processPostPhoto` (decode-sniff, pixel
+  limit, rotate, strip, resize, JPEG); tests on **real image bytes**, including
+  GPS EXIF removed and an orientation fix.
+- [x] **PH3: `PostPhoto` model + migration + CHECK + mocks** (S). Not applied.
+- [x] **PH4: signing + storage helpers** (S): `signPostPhotos` (one storage call
+  per response), `removePostPhotoObjects` (best-effort, logged).
+- [x] **PH5: `POST /api/post-photos`** (M): multipart, 413/415/400, rate limit,
+  24 h sweep of the caller's unattached uploads.
+- [x] **PH6: posts integration** (M): create with `photoIds` (atomic, guarded
+  attach, photo-only posts), `photos` + `photosExpireAt` on every post route,
+  delete removes objects.
+- [x] **PH7: account deletion removes photo objects** (S).
+- [x] **PH8: contract + auth guard cases + verify-app** (S).
+
+### Checkpoint: post-photos
+- [x] verify-app passes (sharp externalized + traced; lockfile has linux-x64)
+- [x] PR opened (#138)
+- [x] Bucket created by the user (2026-10-01); verified private, 4 MB, `image/jpeg` only, no storage policies
+- [x] Migration applied (2026-10-01, before merge — code reads `PostPhoto` on every post route); status up to date, no drift, corrected CHECK live, sweep SQL probed (rolled back)
+- [ ] Merge #138
+- [ ] Vercel preview real-photo check (GPS stripped; sharp runs on Vercel)
 
 ## Later PRs (spec written when reached)
 
-- [ ] `post-photos` · [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`
+- [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`

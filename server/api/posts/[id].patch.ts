@@ -5,8 +5,8 @@ defineRouteMeta({
     tags: ['Social'],
     summary: 'Edit a post',
     description:
-      'Edits the body of the caller\'s own post. Sets `editedAt` only when the body actually changes; a no-op edit '
-      + 'returns the post unchanged. Anyone else\'s post is 404.',
+      'Edits the body of the caller\'s own post (photos are fixed once posted; a photo post\'s text may be emptied). '
+      + 'Sets `editedAt` only when the body actually changes; a no-op edit returns the post unchanged. Anyone else\'s post is 404.',
     responses: {
       200: { description: 'Post' },
       400: { description: 'body missing or not 1–2000 characters' },
@@ -23,8 +23,11 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
     throw createError({ statusCode: 400, statusMessage: 'Missing post id' })
   }
 
-  // Any `visibility` key from an older client is ignored: privacy is per profile.
-  const body = parsePostBody((await readBody(event))?.body)
+  // Only `body` is editable: `visibility` (privacy is per profile) and
+  // `photoIds` (photos are fixed once posted) keys are ignored.
+  const raw = (await readBody(event))?.body
+  // Shape and length now; whether empty is allowed depends on the post's photos.
+  parsePostBody(raw, { allowEmpty: true })
 
   const notFound = () => createError({ statusCode: 404, statusMessage: 'Post not found' })
 
@@ -32,14 +35,16 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
     const post = await prisma.post.findUnique({ where: { id }, select: postSelect })
     if (!post || post.authorId !== userId) throw notFound()
 
-    if (body === post.body) return toPost(post, userId)
+    // A photo post may have no text; a text-only post must keep some.
+    const body = parsePostBody(raw, { allowEmpty: post.photos.length > 0 })
+    if (body === post.body) return (await toPostPayloads([post], userId))[0]!
 
     const updated = await prisma.post.update({
       where: { id },
       data: { body, editedAt: new Date() },
       select: postSelect,
     })
-    return toPost(updated, userId)
+    return (await toPostPayloads([updated], userId))[0]!
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') throw notFound()
     if ((error as { statusCode?: number }).statusCode) throw error

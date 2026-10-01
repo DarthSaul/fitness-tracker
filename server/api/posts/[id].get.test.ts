@@ -9,7 +9,7 @@ const mockCanView = canViewPostsBy as ReturnType<typeof vi.fn>
 type Event = { path: string; context: { userId: string } }
 
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
-const row = { id: 'p1', authorId: 'cz', body: 'Leg day', createdAt, editedAt: null, author: { id: 'cz', name: 'Zed', avatarUrl: null, profileVisibility: 'PRIVATE' } }
+const row = { id: 'p1', authorId: 'cz', body: 'Leg day', createdAt, editedAt: null, author: { id: 'cz', name: 'Zed', avatarUrl: null, profileVisibility: 'PRIVATE' }, photos: [] }
 
 function call(id: string | undefined = 'p1') {
   mockGetRouterParam.mockReturnValue(id)
@@ -29,13 +29,15 @@ describe('GET /api/posts/:id', () => {
     expect(mockFindUnique).toHaveBeenCalledWith({ where: { id: 'p1' }, select: expect.objectContaining({ authorId: true, author: expect.anything() }) })
     expect(mockCanView).toHaveBeenCalledWith('ca', row.author)
     expect(result).toEqual({
-      id: 'p1', author: row.author, body: 'Leg day', createdAt, editedAt: null, isMine: false,
+      id: 'p1', author: row.author, body: 'Leg day', createdAt, editedAt: null, isMine: false, photos: [], photosExpireAt: null,
     })
   })
 
   test('404 — identical to not-found — when the rule denies it (a single post never reveals itself)', async () => {
     mockCanView.mockResolvedValueOnce(false)
     await expect(call()).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Post not found' })
+    // Photo URLs are only ever minted for a viewer who passed the rule.
+    expect(signPostPhotos).not.toHaveBeenCalled()
   })
 
   test('404 when the post does not exist', async () => {
