@@ -42,9 +42,9 @@ export default defineEventHandler(async (event): Promise<FollowResponse> => {
     // The pair lock serializes this with POST /api/blocks, so a block can't land
     // between the check and the write.
     return await withPairLock(userId, targetId, async (tx) => {
-      // FOR SHARE serializes with PATCH /api/auth/me going public, which updates
-      // the user row before accepting pending requests: either we see PUBLIC, or
-      // our PENDING row exists in time to be accepted.
+      // FOR SHARE serializes with PATCH /api/auth/me, which locks this row FOR
+      // UPDATE before deciding to go public: either we wait and see PUBLIC, or
+      // our PENDING row commits first and going public accepts it.
       const [target] = await tx.$queryRaw<{ profileVisibility: 'PUBLIC' | 'PRIVATE' }[]>`
         SELECT "profileVisibility"::text AS "profileVisibility" FROM "User" WHERE "id" = ${targetId} FOR SHARE`
       if (!target) throw notFound()

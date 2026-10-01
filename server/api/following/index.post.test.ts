@@ -79,8 +79,8 @@ describe('POST /api/following', () => {
   })
 
   // The target's visibility is read FOR SHARE so this serializes with
-  // PATCH /api/auth/me going public (which updates the user row first): a
-  // request can't be left PENDING on a profile that just went PUBLIC.
+  // PATCH /api/auth/me (which locks the row FOR UPDATE before deciding to go
+  // public): a request can't be left PENDING on a profile that just went PUBLIC.
   test("reads the target's visibility with a row lock", async () => {
     targetIs('PUBLIC')
     mockCreateFollow.mockResolvedValueOnce({ id: 'f1', status: 'ACCEPTED' })

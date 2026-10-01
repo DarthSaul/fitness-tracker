@@ -159,10 +159,16 @@ authenticated user.
 - **Both fields become optional**, with at least one required. Today
   `ptRoutineInWorkout` is required, and relaxing that is backward compatible.
 - `GET /api/auth/me` and the PATCH response include `profileVisibility`.
-- **`PRIVATE` → `PUBLIC`** runs as one transaction: the update, plus every
-  `PENDING` request to me becomes `ACCEPTED`. It doesn't need the pair lock:
-  it only updates existing rows, and a concurrent block's `DELETE` wins on the
-  row lock.
+- **Every PATCH** runs as one transaction that first locks the user row
+  (`SELECT … FOR UPDATE`), then decides and writes from that locked state. On
+  `PRIVATE` → `PUBLIC`, every `PENDING` request to me also becomes `ACCEPTED`.
+  - **Why the lock (PR #135 review):** an unlocked read let two overlapping
+    PATCHes (going private, then public) leave a public profile with a
+    request still pending.
+  - **Why it's safe with following:** the lock also serializes with
+    `POST /api/following`'s `FOR SHARE` read.
+  - **No pair lock needed:** this only updates existing rows, and a
+    concurrent block's `DELETE` wins on the row lock.
 - **`PUBLIC` → `PRIVATE`** leaves existing followers in place. Removing
   followers is `DELETE /api/followers/:userId`.
 

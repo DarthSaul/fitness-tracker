@@ -65,26 +65,28 @@ export default defineEventHandler(async (event) => {
       data.profileVisibility = body.profileVisibility
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, profileVisibility: true } })
-    if (!user) {
-      throw createError({ statusCode: 404, statusMessage: 'User not found' })
-    }
-
-    const goingPublic = user.profileVisibility === 'PRIVATE' && data.profileVisibility === 'PUBLIC'
-    if (!goingPublic) {
-      return await prisma.user.update({ where: { id: userId }, data, select: meSelect })
-    }
-
-    // Going public: anyone can now follow instantly, so pending requests are
-    // accepted too. The user row is updated FIRST — POST /api/following reads it
-    // FOR SHARE — so a request inserted concurrently is either created as a
-    // follow (it saw PUBLIC) or exists in time for the updateMany below.
+    // One transaction that locks the user row FOR UPDATE before deciding
+    // anything, so overlapping PATCHes from the same user serialize and each
+    // decides `goingPublic` from the committed state. It also serializes with
+    // POST /api/following, which reads this row FOR SHARE: a concurrent follow
+    // either waits and sees PUBLIC (created accepted), or commits its PENDING
+    // row first and is accepted by the updateMany below.
     return await prisma.$transaction(async (tx) => {
+      const [current] = await tx.$queryRaw<{ profileVisibility: 'PUBLIC' | 'PRIVATE' }[]>`
+        SELECT "profileVisibility"::text AS "profileVisibility" FROM "User" WHERE "id" = ${userId} FOR UPDATE`
+      if (!current) {
+        throw createError({ statusCode: 404, statusMessage: 'User not found' })
+      }
+
       const updated = await tx.user.update({ where: { id: userId }, data, select: meSelect })
-      await tx.follow.updateMany({
-        where: { followeeId: userId, status: 'PENDING' },
-        data: { status: 'ACCEPTED', acceptedAt: new Date() },
-      })
+
+      // Going public: anyone can now follow instantly, so pending requests are accepted too.
+      if (current.profileVisibility === 'PRIVATE' && data.profileVisibility === 'PUBLIC') {
+        await tx.follow.updateMany({
+          where: { followeeId: userId, status: 'PENDING' },
+          data: { status: 'ACCEPTED', acceptedAt: new Date() },
+        })
+      }
       return updated
     })
   } catch (error) {
