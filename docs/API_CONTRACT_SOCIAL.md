@@ -179,6 +179,22 @@ interface Post {
   - `403 profile_private` and `404` as described above.
   - `429` after 30 new posts in an hour.
 
+## Feed
+
+| Action | Route | Success |
+|---|---|---|
+| My feed | `GET /api/feed?limit=&before=&beforeId=` | `200 { posts: Post[] }`, newest first |
+
+- **What's in it:** your own posts (`isMine: true`) plus the posts of everyone
+  you follow with an **accepted** follow, whatever their profile visibility.
+- **What isn't:** posts from users you've only *requested* to follow, and from
+  `PUBLIC` profiles you don't follow.
+- **Changes apply on the next fetch:** unfollowing someone, or being removed
+  as their follower, drops their posts; following again brings them back,
+  older posts included.
+- **Paging** is identical to `GET /api/users/:id/posts` and
+  `GET /api/history`, with the same `400`s.
+
 ## Blocking
 
 | Action | Route | Success |

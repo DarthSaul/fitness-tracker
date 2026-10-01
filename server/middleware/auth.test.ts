@@ -185,6 +185,7 @@ describe('server/middleware/auth', () => {
       '/api/following', '/api/following/clusr001', '/api/followers', '/api/followers/clusr001',
       '/api/follow-requests', '/api/follow-requests/clfr001', '/api/follow-requests/clfr001/accept',
       '/api/posts', '/api/posts/clpost001', '/api/users/clusr001/posts',
+      '/api/feed', '/api/feed?limit=5',
     ])(
       '401 for unauthenticated %s',
       async (path) => {
