@@ -12,13 +12,13 @@ type Event = { path: string; context: { userId: string } }
 
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
 const editedAt = new Date('2026-09-30T13:00:00.000Z')
-const me = { id: 'ca', name: 'Ada', avatarUrl: null }
-const mine = { id: 'p1', authorId: 'ca', body: 'Leg day', visibility: 'FRIENDS', createdAt, editedAt: null, author: me }
+const me = { id: 'ca', name: 'Ada', avatarUrl: null, profileVisibility: 'PUBLIC' }
+const mine = { id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me }
 
 function call(body: unknown, userId = 'ca') {
   mockGetRouterParam.mockReturnValue('p1')
   mockReadBody.mockResolvedValueOnce(body)
-  return (handler as unknown as (e: Event) => Promise<{ body: string; visibility: string; editedAt: Date | null }>)({
+  return (handler as unknown as (e: Event) => Promise<{ body: string; editedAt: Date | null }>)({
     path: '/api/posts/p1', context: { userId },
   })
 }
@@ -29,49 +29,36 @@ describe('PATCH /api/posts/:id', () => {
     mockFindUnique.mockResolvedValue(mine)
   })
 
-  test('edits the body and visibility, stamping editedAt', async () => {
-    mockUpdate.mockResolvedValueOnce({ ...mine, body: 'Arm day', visibility: 'PUBLIC', editedAt })
+  test('edits the body, stamping editedAt', async () => {
+    mockUpdate.mockResolvedValueOnce({ ...mine, body: 'Arm day', editedAt })
 
-    const result = await call({ body: '  Arm day ', visibility: 'PUBLIC' })
+    const result = await call({ body: '  Arm day ' })
 
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'p1' },
-      data: { body: 'Arm day', visibility: 'PUBLIC', editedAt: expect.any(Date) },
+      data: { body: 'Arm day', editedAt: expect.any(Date) },
       select: expect.objectContaining({ id: true }),
     })
-    expect(result).toMatchObject({ body: 'Arm day', visibility: 'PUBLIC', editedAt })
+    expect(result).toMatchObject({ body: 'Arm day', editedAt })
   })
 
-  test('only the fields sent are changed', async () => {
-    mockUpdate.mockResolvedValueOnce({ ...mine, visibility: 'PUBLIC', editedAt })
+  test('a legacy visibility key is ignored — privacy is per profile now', async () => {
+    mockUpdate.mockResolvedValueOnce({ ...mine, body: 'Arm day', editedAt })
 
-    await call({ visibility: 'PUBLIC' })
-
-    expect(mockUpdate.mock.calls[0]![0].data).toEqual({ visibility: 'PUBLIC', editedAt: expect.any(Date) })
-  })
-
-  // Pins the contract (PR #134 review): omitted visibility means "keep it" on
-  // PATCH — unlike POST, where it defaults to FRIENDS — so a body-only edit can
-  // never silently narrow a PUBLIC post.
-  test('a body-only edit keeps the current visibility, even when it is PUBLIC', async () => {
-    mockFindUnique.mockResolvedValueOnce({ ...mine, visibility: 'PUBLIC' })
-    mockUpdate.mockResolvedValueOnce({ ...mine, visibility: 'PUBLIC', body: 'Arm day', editedAt })
-
-    const result = await call({ body: 'Arm day' })
+    await call({ body: 'Arm day', visibility: 'FRIENDS' })
 
     expect(mockUpdate.mock.calls[0]![0].data).toEqual({ body: 'Arm day', editedAt: expect.any(Date) })
-    expect(result.visibility).toBe('PUBLIC')
   })
 
-  test('a no-op PATCH (same values) writes nothing and leaves editedAt null', async () => {
-    const result = await call({ body: 'Leg day', visibility: 'FRIENDS' })
+  test('a no-op PATCH (same body) writes nothing and leaves editedAt null', async () => {
+    const result = await call({ body: 'Leg day' })
 
     expect(mockUpdate).not.toHaveBeenCalled()
     expect(result.editedAt).toBeNull()
   })
 
   test.each([
-    ['another user (even a friend)', 'cz', mine],
+    ['another user (even a follower)', 'cz', mine],
     ['a post that does not exist', 'ca', null],
   ])('404 for %s', async (_label, userId, row) => {
     mockFindUnique.mockResolvedValueOnce(row)
@@ -87,9 +74,9 @@ describe('PATCH /api/posts/:id', () => {
   test.each([
     ['an empty object', {}],
     ['no body at all', undefined],
+    ['only a legacy visibility key', { visibility: 'PUBLIC' }],
     ['an empty body', { body: '  ' }],
     ['a body over 2000 characters', { body: 'x'.repeat(2001) }],
-    ['an invalid visibility', { visibility: 'friends' }],
   ])('400 on %s', async (_label, body) => {
     await expect(call(body)).rejects.toMatchObject({ statusCode: 400 })
     expect(mockUpdate).not.toHaveBeenCalled()

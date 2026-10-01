@@ -55,11 +55,23 @@ enum PushEnvironment {
   PRODUCTION
 }
 
+enum ProfileVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum FollowStatus {
+  PENDING
+  ACCEPTED
+}
+
+/// @deprecated Friends were replaced by follows; dropped by `friendships-removal`.
 enum FriendshipStatus {
   PENDING
   ACCEPTED
 }
 
+/// @deprecated Privacy moved to User.profileVisibility; dropped by `friendships-removal`.
 enum PostVisibility {
   PUBLIC
   FRIENDS
@@ -70,13 +82,15 @@ enum PostVisibility {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                 String   @id @default(cuid())
-  email              String   @unique
+  id                 String            @id @default(cuid())
+  email              String            @unique
   name               String?
   avatarUrl          String?
-  ptRoutineInWorkout Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  ptRoutineInWorkout Boolean           @default(false)
+  /// Social privacy: who may see this user's posts (docs/social/SPEC-follows.md).
+  profileVisibility  ProfileVisibility @default(PRIVATE)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   identities                Identity[]
   userPrograms              UserProgram[]
@@ -89,7 +103,11 @@ model User {
   ptRoutines                PtRoutine[]
   blocksMade                UserBlock[]                @relation("BlocksMade")
   blocksReceived            UserBlock[]                @relation("BlocksReceived")
+  following                 Follow[]                   @relation("Following")
+  followers                 Follow[]                   @relation("Followers")
+  /// @deprecated Friends were replaced by follows; dropped by `friendships-removal`.
   friendshipsAsLow          Friendship[]               @relation("FriendshipsAsLow")
+  /// @deprecated Friends were replaced by follows; dropped by `friendships-removal`.
   friendshipsAsHigh         Friendship[]               @relation("FriendshipsAsHigh")
   posts                     Post[]
 }
@@ -581,6 +599,10 @@ model UserBlock {
   @@index([blockedId])
 }
 
+// DEPRECATED (2026-09-30): superseded by Follow. No code reads or writes this
+// table; it stays until the `follows` deploy is live, then `friendships-removal`
+// drops it (expand/contract — production shares this database).
+//
 // One row per unordered pair of users, pending or accepted. The pair is stored
 // sorted (userLowId < userHighId) so the @@unique makes A→B and B→A impossible;
 // server/utils/friends.ts `orderedPair` is the only place ids are sorted.
@@ -605,13 +627,14 @@ model Friendship {
   @@index([userHighId, status])
 }
 
-// A text post. Who may see it is decided in one place, `canViewPost` in
-// server/utils/posts.ts (docs/social/SPEC-posts.md). Deletes are hard; later
+// A text post. Who may see it is decided by its author's profile, in one place:
+// `canViewPostsBy` in server/utils/posts.ts (docs/social/SPEC-follows.md). Deletes are hard; later
 // social tables (photos, reactions) cascade from here.
 model Post {
   id         String         @id @default(cuid())
   authorId   String
   body       String
+  /// @deprecated Never read or written; the DB default fills it. Dropped by `friendships-removal`.
   visibility PostVisibility @default(FRIENDS)
   createdAt  DateTime       @default(now())
   editedAt   DateTime?
@@ -620,4 +643,25 @@ model Post {
 
   // Serves a profile's posts and the feed: posts by these authors, newest first.
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+// One row per direction: A following B and B following A are independent.
+// Following a PUBLIC profile is ACCEPTED at once; a PRIVATE one starts PENDING
+// until the followee accepts. Unfollowing, cancelling and declining delete the
+// row, so "may see their posts" is exactly "an ACCEPTED row exists" (or the
+// profile is PUBLIC). Raw SQL CHECK in the migration:
+//   CHECK ("followerId" <> "followeeId")
+model Follow {
+  id         String       @id @default(cuid())
+  followerId String
+  followeeId String
+  status     FollowStatus
+  createdAt  DateTime     @default(now())
+  acceptedAt DateTime?
+
+  follower User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  followee User @relation("Followers", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followeeId])
+  @@index([followeeId, status])
 }

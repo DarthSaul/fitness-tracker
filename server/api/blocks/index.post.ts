@@ -5,7 +5,7 @@ defineRouteMeta({
     tags: ['Social'],
     summary: 'Block a user',
     description:
-      'Blocks another user and ends any friendship or pending request between them. Each user is then hidden from the other everywhere in the social API, and the blocked '
+      'Blocks another user and removes any follows or follow requests between them, in both directions. Each user is then hidden from the other everywhere in the social API, and the blocked '
       + 'user is never told. Idempotent: blocking an already-blocked user returns the existing block with 200.',
     responses: {
       201: { description: 'User blocked' },
@@ -42,15 +42,22 @@ export default defineEventHandler(async (event): Promise<BlockResponse> => {
       throw createError({ statusCode: 404, statusMessage: 'User not found' })
     }
 
-    // Serialized with friend-request writes on the same pair (see withPairLock),
-    // so no request can slip in between this block and the cleanup below —
-    // "blocked" and "friends / pending" can never both be true.
+    // Serialized with follow writes on the same pair (see withPairLock), so no
+    // follow or request can slip in between this block and the cleanup below —
+    // "blocked" and "following / requested" can never both be true.
     const { block, created } = await withPairLock(userId, targetId, async (tx) => {
       const existing = await tx.userBlock.findUnique({ where, select: blockSelect })
       if (existing) return { block: existing, created: false }
 
       const block = await tx.userBlock.create({ data: { blockerId: userId, blockedId: targetId }, select: blockSelect })
-      await tx.friendship.deleteMany({ where: orderedPair(userId, targetId) })
+      await tx.follow.deleteMany({
+        where: {
+          OR: [
+            { followerId: userId, followeeId: targetId },
+            { followerId: targetId, followeeId: userId },
+          ],
+        },
+      })
       return { block, created: true }
     })
 

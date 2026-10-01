@@ -3,8 +3,8 @@ defineRouteMeta({
     tags: ['Social'],
     summary: 'Get a post',
     description:
-      'Returns a post the caller may see: their own; or, with no block either way, a PUBLIC post or a FRIENDS post by a '
-      + 'current friend. Anything else is 404, indistinguishable from a post that does not exist.',
+      "Returns a post the caller may see: their own; or, with no block either way, one by a PUBLIC profile or by a "
+      + 'PRIVATE profile the caller follows (accepted). Anything else is 404, indistinguishable from a post that does not exist.',
     responses: {
       200: { description: 'Post' },
       400: { description: 'Missing post id' },
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
 
   try {
     const post = await prisma.post.findUnique({ where: { id }, select: postSelect })
-    if (!post || !(await canViewPost(userId, post))) {
+    if (!post || !(await canViewPostsBy(userId, post.author))) {
       throw createError({ statusCode: 404, statusMessage: 'Post not found' })
     }
     return toPost(post, userId)

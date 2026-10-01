@@ -169,7 +169,7 @@ describe('rateLimitByKey', () => {
 
       await rateLimitByKey('user-search:alice', 30, '1 m')
       await rateLimitByKey('user-search:bob', 30, '1 m')
-      await rateLimitByKey('friend-request:alice', 20, '1 h')
+      await rateLimitByKey('follow:alice', 20, '1 h')
 
       expect(ratelimitOptions).toHaveLength(2)
     })

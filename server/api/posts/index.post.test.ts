@@ -8,10 +8,10 @@ const mockRateLimitByKey = rateLimitByKey as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string }; node: { res: { statusCode: number } } }
 
-const me = { id: 'ca', name: 'Ada', avatarUrl: null }
+const me = { id: 'ca', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' }
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
 const row = (overrides = {}) => ({
-  id: 'p1', authorId: 'ca', body: 'Leg day', visibility: 'FRIENDS', createdAt, editedAt: null, author: me, ...overrides,
+  id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me, ...overrides,
 })
 
 function makeEvent(): Event {
@@ -27,28 +27,27 @@ describe('POST /api/posts', () => {
   })
 
   test('creates a post authored by the caller with a trimmed body → 201 Post', async () => {
-    mockReadBody.mockResolvedValueOnce({ body: '  Leg day  ', visibility: 'PUBLIC' })
-    mockCreate.mockResolvedValueOnce(row({ visibility: 'PUBLIC' }))
+    mockReadBody.mockResolvedValueOnce({ body: '  Leg day  ' })
     const event = makeEvent()
 
     const result = await call(event)
 
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { authorId: 'ca', body: 'Leg day', visibility: 'PUBLIC' },
-      select: expect.objectContaining({ id: true, author: { select: { id: true, name: true, avatarUrl: true } } }),
+      data: { authorId: 'ca', body: 'Leg day' },
+      select: expect.objectContaining({ id: true, author: { select: { id: true, name: true, avatarUrl: true, profileVisibility: true } } }),
     })
     expect(event.node.res.statusCode).toBe(201)
     expect(result).toEqual({
-      id: 'p1', author: me, body: 'Leg day', visibility: 'PUBLIC', createdAt, editedAt: null, isMine: true,
+      id: 'p1', author: me, body: 'Leg day', createdAt, editedAt: null, isMine: true,
     })
   })
 
-  test('an omitted visibility defaults to FRIENDS', async () => {
-    mockReadBody.mockResolvedValueOnce({ body: 'Leg day' })
+  test('a legacy visibility key is ignored — privacy is per profile now', async () => {
+    mockReadBody.mockResolvedValueOnce({ body: 'Leg day', visibility: 'PUBLIC' })
 
     await call(makeEvent())
 
-    expect(mockCreate.mock.calls[0]![0].data.visibility).toBe('FRIENDS')
+    expect(mockCreate.mock.calls[0]![0].data).toEqual({ authorId: 'ca', body: 'Leg day' })
   })
 
   test('takes the author from the session, never the body', async () => {
@@ -64,8 +63,6 @@ describe('POST /api/posts', () => {
     ['empty body', { body: '' }],
     ['whitespace body', { body: '   ' }],
     ['body over 2000 characters', { body: 'x'.repeat(2001) }],
-    ['invalid visibility', { body: 'ok', visibility: 'EVERYONE' }],
-    ['null visibility', { body: 'ok', visibility: null }],
   ])('400 on %s', async (_label, body) => {
     mockReadBody.mockResolvedValueOnce(body)
     await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 400 })

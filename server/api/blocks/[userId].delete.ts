@@ -2,7 +2,7 @@ defineRouteMeta({
   openAPI: {
     tags: ['Social'],
     summary: 'Unblock a user',
-    description: 'Removes a block the authenticated user made. Idempotent: 204 even if no block existed. Unblocking does not restore a friendship.',
+    description: 'Removes a block the authenticated user made. Idempotent: 204 even if no block existed. Unblocking does not restore any follow.',
     responses: {
       204: { description: 'User unblocked (or was not blocked)' },
       400: { description: 'Missing userId' },

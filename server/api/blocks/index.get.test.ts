@@ -26,7 +26,7 @@ describe('GET /api/blocks', () => {
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { blockerId: 'alice' },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: { createdAt: true, blocked: { select: { id: true, name: true, avatarUrl: true } } },
+      select: { createdAt: true, blocked: { select: { id: true, name: true, avatarUrl: true, profileVisibility: true } } },
     })
     expect(result).toEqual({
       users: [
