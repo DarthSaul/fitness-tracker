@@ -13,7 +13,7 @@ type Event = { path: string; context: { userId: string } }
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
 const editedAt = new Date('2026-09-30T13:00:00.000Z')
 const me = { id: 'ca', name: 'Ada', avatarUrl: null, profileVisibility: 'PUBLIC' }
-const mine = { id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me, photos: [] as { id: string; storagePath: string; width: number; height: number }[] }
+const mine = { id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me, photos: [] as { id: string; storagePath: string; width: number; height: number }[], sharedWorkoutKind: null as string | null, sharedProgramName: null }
 
 function call(body: unknown, userId = 'ca') {
   mockGetRouterParam.mockReturnValue('p1')
@@ -53,6 +53,24 @@ describe('PATCH /api/posts/:id', () => {
 
     mockFindUnique.mockResolvedValueOnce(mine)
     await expect(call({ body: '' })).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  test("a workout share's text may be cleared too", async () => {
+    const share = { ...mine, sharedWorkoutKind: 'STANDALONE', sharedProgramName: null }
+    mockFindUnique.mockResolvedValueOnce(share)
+    mockUpdate.mockResolvedValueOnce({ ...share, body: '', editedAt })
+
+    await call({ body: '' })
+
+    expect(mockUpdate.mock.calls[0]![0].data).toEqual({ body: '', editedAt: expect.any(Date) })
+  })
+
+  test('the share is fixed once posted: session id keys are ignored', async () => {
+    mockUpdate.mockResolvedValueOnce({ ...mine, body: 'Arm day', editedAt })
+
+    await call({ body: 'Arm day', workoutSessionId: 's1', standaloneSessionId: 'x1' })
+
+    expect(mockUpdate.mock.calls[0]![0].data).toEqual({ body: 'Arm day', editedAt: expect.any(Date) })
   })
 
   test('photos are fixed once posted: a photoIds key is ignored', async () => {

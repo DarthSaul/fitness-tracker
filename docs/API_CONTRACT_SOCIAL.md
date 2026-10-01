@@ -149,20 +149,21 @@ interface FollowRequest {
 interface Post {
   id: string
   author: PublicUser
-  body: string                        // 0–2,000 characters; empty only when there are photos
+  body: string                        // 0–2,000 characters; empty only with photos or a shared workout
   createdAt: string
   editedAt: string | null             // non-null → show "Edited"
   isMine: boolean
   photos: { id: string; url: string; width: number; height: number }[]  // display order; [] if none
   photosExpireAt: string | null       // signed URLs stop working then — re-fetch; null if no photos
   reactions: { emoji: string; count: number; mine: boolean }[]  // most-used first; [] if none
+  workout: { programName: string | null } | null  // a shared workout; see "Sharing a workout"
 }
 ```
 
 | Action | Route | Success |
 |---|---|---|
 | Upload a photo | `POST /api/post-photos`, multipart field `photo` | `201 { id, width, height }` |
-| Create | `POST /api/posts`, `{ body?, photoIds? }` | `201 Post` |
+| Create | `POST /api/posts`, `{ body?, photoIds?, workoutSessionId? \| standaloneSessionId? }` | `201 Post` |
 | Get one | `GET /api/posts/:id` | `200 Post` |
 | Edit my post | `PATCH /api/posts/:id`, `{ body }` | `200 Post` |
 | Delete my post | `DELETE /api/posts/:id` | `204` |
@@ -187,6 +188,23 @@ interface Post {
   - **URLs:** photo URLs are signed for 15 minutes. Re-fetch the post or
     page when `photosExpireAt` passes.
   - **Limits:** 60 uploads per hour.
+- **Sharing a workout.**
+  - **What it shows:** text only. Render `workout` as "<author name> completed
+    a workout from <programName>", or "<author name> completed a workout" when
+    `programName` is `null` (a standalone workout). `workout: null` means the
+    post shares nothing. The wording is the app's, so it can be localized.
+  - **What it never shows:** sets, weights, notes, week/day or duration. Only
+    the program's name leaves the server.
+  - **Creating:** pass the session's id from `GET /api/history`. A `PROGRAM`
+    row's id goes in `workoutSessionId`, a `STANDALONE` row's in
+    `standaloneSessionId`, and never both. The text may be empty, and photos
+    may be attached too.
+  - **Rules:** it must be your own `COMPLETED` workout, and each one can be
+    shared once. A second share is `409 'Workout already shared'`, so a double
+    tap can't post twice.
+  - **After posting:** the share is fixed, and `PATCH` may empty its text. The
+    line is kept as posted: deleting the workout or renaming the program
+    doesn't change it.
 - **Who sees a post:** the author's profile decides (see above). A post has
   no visibility of its own, and a `visibility` key in a request is ignored.
 - **Editing:** only the author can edit or delete. Anyone else gets `404`,
@@ -200,7 +218,10 @@ interface Post {
   - `400` for a body that is empty or whitespace with no photos, a body over
     2,000 characters, more than 4 or duplicate `photoIds`, a photo that isn't
     your own unattached upload, or bad paging parameters.
+  - `400` for both session ids at once, or a blank one.
   - `403 profile_private` and `404` as described above.
+  - `404 'Workout not found'` when the session isn't yours or doesn't exist.
+  - `409 'Workout is not completed'` and `409 'Workout already shared'`.
   - `429` after 30 new posts in an hour.
 
 ## Reactions

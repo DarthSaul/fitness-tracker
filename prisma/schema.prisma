@@ -60,6 +60,12 @@ enum ProfileVisibility {
   PRIVATE
 }
 
+// What a post shares (docs/social/SPEC-workout-shares.md).
+enum WorkoutShareKind {
+  PROGRAM
+  STANDALONE
+}
+
 enum FollowStatus {
   PENDING
   ACCEPTED
@@ -302,6 +308,7 @@ model WorkoutSession {
   workoutExerciseSwaps WorkoutExerciseSwap[]
   workoutExerciseSkips WorkoutExerciseSkip[]
   coreWorkout          CoreWorkout?
+  sharedInPost         Post?
 }
 
 model CompletedSet {
@@ -508,6 +515,7 @@ model StandaloneWorkoutSession {
   user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   standaloneWorkout StandaloneWorkout        @relation(fields: [standaloneWorkoutId], references: [id], onDelete: Cascade)
   completedSets     StandaloneCompletedSet[]
+  sharedInPost      Post?
 
   @@index([userId])
   @@index([standaloneWorkoutId])
@@ -595,9 +603,20 @@ model Post {
   createdAt DateTime  @default(now())
   editedAt  DateTime?
 
-  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  photos    PostPhoto[]
-  reactions PostReaction[]
+  /// Set when the post shares a workout. With sharedProgramName, a snapshot
+  /// taken at creation, so the share text survives the session being deleted.
+  sharedWorkoutKind   WorkoutShareKind?
+  /// The program's name when shared (PROGRAM only).
+  sharedProgramName   String?
+  /// Once-per-session guards; nulled if the session is deleted.
+  workoutSessionId    String?           @unique
+  standaloneSessionId String?           @unique
+
+  author            User                      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  photos            PostPhoto[]
+  reactions         PostReaction[]
+  workoutSession    WorkoutSession?           @relation(fields: [workoutSessionId], references: [id], onDelete: SetNull)
+  standaloneSession StandaloneWorkoutSession? @relation(fields: [standaloneSessionId], references: [id], onDelete: SetNull)
 
   // Serves a profile's posts and the feed: posts by these authors, newest first.
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])

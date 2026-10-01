@@ -1,4 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { Prisma } from '@prisma/client'
 
 import handler from './index.post'
 
@@ -9,13 +10,16 @@ const mockAttach = prisma.postPhoto.updateMany as ReturnType<typeof vi.fn>
 const mockTransaction = prisma.$transaction as ReturnType<typeof vi.fn>
 const mockRateLimitByKey = rateLimitByKey as ReturnType<typeof vi.fn>
 const mockSign = signPostPhotos as ReturnType<typeof vi.fn>
+const mockFindSession = prisma.workoutSession.findUnique as ReturnType<typeof vi.fn>
+const mockFindStandalone = prisma.standaloneWorkoutSession.findUnique as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string }; node: { res: { statusCode: number } } }
 
 const me = { id: 'ca', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' }
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
 const row = (overrides = {}) => ({
-  id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me, photos: [], ...overrides,
+  id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me, photos: [],
+  sharedWorkoutKind: null, sharedProgramName: null, ...overrides,
 })
 
 function makeEvent(): Event {
@@ -32,6 +36,8 @@ describe('POST /api/posts', () => {
     mockFindUnique.mockResolvedValue(row())
     mockAttach.mockResolvedValue({ count: 1 })
     mockSign.mockResolvedValue({ urls: new Map(), expiresAt: null })
+    mockFindSession.mockReset()
+    mockFindStandalone.mockReset()
   })
 
   test('creates a text post authored by the caller with a trimmed body → 201 Post', async () => {
@@ -44,7 +50,7 @@ describe('POST /api/posts', () => {
     expect(mockAttach).not.toHaveBeenCalled()
     expect(event.node.res.statusCode).toBe(201)
     expect(result).toEqual({
-      id: 'p1', author: me, body: 'Leg day', createdAt, editedAt: null, isMine: true, photos: [], photosExpireAt: null, reactions: [],
+      id: 'p1', author: me, body: 'Leg day', createdAt, editedAt: null, isMine: true, photos: [], photosExpireAt: null, reactions: [], workout: null,
     })
   })
 
@@ -151,6 +157,93 @@ describe('POST /api/posts', () => {
     mockReadBody.mockResolvedValueOnce(body)
     await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 400 })
     expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  describe('sharing a workout', () => {
+    const programSession = (overrides = {}) => ({ userId: 'ca', status: 'COMPLETED', userProgram: { program: { name: 'Arm Farm 2' } }, ...overrides })
+
+    test('an own COMPLETED program session, no text → snapshots the program name; payload is text-only data', async () => {
+      mockReadBody.mockResolvedValueOnce({ workoutSessionId: 's1' })
+      mockFindSession.mockResolvedValueOnce(programSession())
+      mockFindUnique.mockResolvedValueOnce(row({ body: '', sharedWorkoutKind: 'PROGRAM', sharedProgramName: 'Arm Farm 2' }))
+      const event = makeEvent()
+
+      const result = await call(event)
+
+      expect(mockFindSession).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        select: { userId: true, status: true, userProgram: { select: { program: { select: { name: true } } } } },
+      })
+      expect(mockCreate).toHaveBeenCalledWith({
+        data: { authorId: 'ca', body: '', sharedWorkoutKind: 'PROGRAM', sharedProgramName: 'Arm Farm 2', workoutSessionId: 's1' },
+        select: { id: true },
+      })
+      expect(event.node.res.statusCode).toBe(201)
+      expect(result.workout).toEqual({ programName: 'Arm Farm 2' })
+    })
+
+    test('an own COMPLETED standalone session → kind STANDALONE, no program name', async () => {
+      mockReadBody.mockResolvedValueOnce({ body: 'Quick one', standaloneSessionId: 'x1' })
+      mockFindStandalone.mockResolvedValueOnce({ userId: 'ca', status: 'COMPLETED' })
+
+      await call(makeEvent())
+
+      expect(mockFindStandalone).toHaveBeenCalledWith({ where: { id: 'x1' }, select: { userId: true, status: true } })
+      expect(mockCreate.mock.calls[0]![0].data).toEqual({
+        authorId: 'ca', body: 'Quick one', sharedWorkoutKind: 'STANDALONE', sharedProgramName: null, standaloneSessionId: 'x1',
+      })
+    })
+
+    test('a share can carry photos too', async () => {
+      mockReadBody.mockResolvedValueOnce({ photoIds: ['ph1'], workoutSessionId: 's1' })
+      mockFindSession.mockResolvedValueOnce(programSession())
+
+      await call(makeEvent())
+
+      expect(mockCreate.mock.calls[0]![0].data.workoutSessionId).toBe('s1')
+      expect(mockAttach).toHaveBeenCalledWith({ where: { id: 'ph1', uploaderId: 'ca', postId: null }, data: { postId: 'p1', position: 0 } })
+    })
+
+    test.each([
+      ['a missing program session', { workoutSessionId: 's1' }, null, null],
+      ["another user's program session", { workoutSessionId: 's1' }, { userId: 'mallory', status: 'COMPLETED', userProgram: { program: { name: 'X' } } }, null],
+      ['a missing standalone session', { standaloneSessionId: 'x1' }, null, null],
+      ["another user's standalone session", { standaloneSessionId: 'x1' }, null, { userId: 'mallory', status: 'COMPLETED' }],
+    ])('404 for %s — never reveals that it exists', async (_label, input, program, standalone) => {
+      mockReadBody.mockResolvedValueOnce(input)
+      // Persistent, not Once: only one of the two is read, and an unread Once
+      // value would leak into the next test.
+      mockFindSession.mockResolvedValue(program)
+      mockFindStandalone.mockResolvedValue(standalone)
+
+      await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Workout not found' })
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    test.each(['IN_PROGRESS', 'EDITING'])('409 for an own %s session', async (status) => {
+      mockReadBody.mockResolvedValueOnce({ workoutSessionId: 's1' })
+      mockFindSession.mockResolvedValueOnce(programSession({ status }))
+
+      await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Workout is not completed' })
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    test('409 for an already-shared session, including a concurrent share (P2002 on the unique column)', async () => {
+      mockReadBody.mockResolvedValueOnce({ workoutSessionId: 's1' })
+      mockFindSession.mockResolvedValueOnce(programSession())
+      mockCreate.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' }))
+
+      await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Workout already shared' })
+      expect(logger.error).not.toHaveBeenCalled()
+    })
+
+    test('400 for both session ids, before any read', async () => {
+      mockReadBody.mockResolvedValueOnce({ workoutSessionId: 's1', standaloneSessionId: 'x1' })
+
+      await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 400 })
+      expect(mockFindSession).not.toHaveBeenCalled()
+      expect(mockFindStandalone).not.toHaveBeenCalled()
+    })
   })
 
   test('rate-limits per user, 30 per hour, before writing', async () => {

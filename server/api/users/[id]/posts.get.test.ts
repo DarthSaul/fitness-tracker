@@ -48,7 +48,7 @@ describe('GET /api/users/:id/posts', () => {
       select: expect.objectContaining({ id: true }),
     })
     expect(mockIsFollowing).not.toHaveBeenCalled()
-    expect(result.posts).toEqual([{ id: 'p1', author: zed, body: 'Hi', createdAt, editedAt: null, isMine: false, photos: [], photosExpireAt: null, reactions: [] }])
+    expect(result.posts).toEqual([{ id: 'p1', author: zed, body: 'Hi', createdAt, editedAt: null, isMine: false, photos: [], photosExpireAt: null, reactions: [], workout: null }])
   })
 
   test('a PRIVATE profile: an accepted follower sees their posts', async () => {
