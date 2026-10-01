@@ -198,8 +198,9 @@ gets a new, simpler spec after `follows`.
 
 ### Checkpoint: reactions
 - [x] verify-app passes
-- [ ] PR opened
-- [ ] Migration applied (BEFORE merge: every post route reads `PostReaction`)
+- [x] PR opened (#139)
+- [x] Migration applied before merge (2026-10-01): status up to date, no drift, CHECK + indexes live; counts / mine / who-reacted queries probed read-only against Postgres
+- [ ] Merge #139
 
 ## Later PRs (spec written when reached)
 
