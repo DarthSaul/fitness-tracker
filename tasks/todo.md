@@ -206,7 +206,7 @@ gets a new, simpler spec after `follows`.
 
 - [x] Spec approved (`docs/social/SPEC-workout-shares.md`), 2026-10-01
 - [x] **W1: schema + migration** (S): `WorkoutShareKind`, snapshot columns, unique
-  session FKs `SET NULL`, half-share CHECK. Not applied.
+  session FKs `SET NULL`, half-share CHECK. Applied 2026-10-01.
 - [x] **W2: post helpers** (S): `parsePostContent` takes one session id; `postSelect` +
   `workout` in the payload (no extra queries).
 - [x] **W3: `POST /api/posts` shares** (M): own + COMPLETED (404 / 409), snapshot
@@ -217,7 +217,7 @@ gets a new, simpler spec after `follows`.
 ### Checkpoint: workout-shares
 - [x] verify-app passes
 - [x] PR opened (#140)
-- [ ] Migration applied before merge
+- [x] Migration applied before merge (2026-10-01): status up to date, no drift; CHECK, both SET NULL FKs and both unique indexes live; postSelect + session lookups probed read-only
 - [ ] Merge
 
 ## Later PRs (spec written when reached)
