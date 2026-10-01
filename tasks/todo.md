@@ -171,7 +171,10 @@ gets a new, simpler spec after `follows`.
 ### Checkpoint: post-photos
 - [x] verify-app passes (sharp externalized + traced; lockfile has linux-x64)
 - [x] PR opened (#138)
-- [ ] Bucket created · migration applied · Vercel preview real-photo check
+- [x] Bucket created by the user (2026-10-01); verified private, 4 MB, `image/jpeg` only, no storage policies
+- [x] Migration applied (2026-10-01, before merge — code reads `PostPhoto` on every post route); status up to date, no drift, corrected CHECK live, sweep SQL probed (rolled back)
+- [ ] Merge #138
+- [ ] Vercel preview real-photo check (GPS stripped; sharp runs on Vercel)
 
 ## Later PRs (spec written when reached)
 
