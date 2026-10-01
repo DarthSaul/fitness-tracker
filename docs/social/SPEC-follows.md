@@ -31,7 +31,7 @@ Production data on 2026-09-30: 7 users, **0** `Friendship`, **0** `Post`, **0**
      - New code never reads or writes them; `Post.visibility`'s DB default
        fills new rows.
 2. **`friendships-removal` (contract).** Once this PR is live in production, a
-   separate PR drops those four. It is the only destructive migration in the
+   separate PR drops those four ([SPEC-friendships-removal.md](SPEC-friendships-removal.md)). It is the only destructive migration in the
    initiative, and it ships alone.
 
 **Down path for this PR's migration:** drop `Follow`, `User.profileVisibility`,

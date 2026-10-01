@@ -138,9 +138,17 @@ gets a new, simpler spec after `follows`.
 
 ### Checkpoint: feed
 - [x] verify-app passes
-- [ ] PR opened
+- [x] PR opened (#136, merged)
 
-## PR 7 — `friendships-removal` (contract; only after PR 5 is live in production)
+## PR 7 — `friendships-removal` (branch `chore/social-friendships-removal`)
+
+- [x] Precondition: #135 (`8fff1a4`) is the live production deployment (Vercel, 2026-09-30)
+- [x] Precondition: 0 `Friendship` / 0 `Post` rows; no code references
+- [x] Schema change + guarded drop migration `20260930160000_drop_friendships`
+- [x] verify-app
+- [ ] PR opened
+- [ ] **Apply — needs explicit go-ahead** (destructive; disables instant rollback to ≤#134)
+- [ ] Post-apply: status, drift, objects gone, production smoke
 
 ## Later PRs (spec written when reached)
 

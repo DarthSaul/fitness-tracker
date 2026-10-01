@@ -70,7 +70,7 @@ describe('toPost', () => {
     expect(postSelect.author).toEqual({ select: { id: true, name: true, avatarUrl: true, profileVisibility: true } })
   })
 
-  test('postSelect no longer reads the deprecated Post.visibility column', () => {
+  test('postSelect has no per-post visibility — privacy is per profile', () => {
     expect(postSelect).not.toHaveProperty('visibility')
   })
 })
