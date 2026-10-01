@@ -41,21 +41,32 @@ function solid(width: number, height: number) {
   return sharp({ create: { width, height, channels: 3, background: '#c33' } })
 }
 
-/** A phone-like JPEG: EXIF orientation 6 (rotate 90° to display) plus GPS coordinates. */
+const FIXTURE_XMP = '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+  + '<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" dc:creator="fixture"/></rdf:RDF></x:xmpmeta>'
+
+/**
+ * A phone-like JPEG: EXIF orientation 6 (rotate 90° to display) plus GPS
+ * coordinates, a Display P3 ICC profile and an XMP packet — every kind of
+ * metadata a JPEG can carry.
+ */
 async function phoneJpegWithGps(width = 120, height = 60): Promise<Buffer> {
   return solid(width, height)
     .jpeg()
     .withMetadata({ orientation: 6 })
     .withExifMerge({ IFD3: { GPSLatitudeRef: 'N', GPSLatitude: '51/1 30/1 0/1', GPSLongitudeRef: 'W', GPSLongitude: '0/1 7/1 0/1' } })
+    .withIccProfile('p3')
+    .withXmp(FIXTURE_XMP)
     .toBuffer()
 }
 
 describe('processPostPhoto', () => {
-  test('the fixture really does carry GPS EXIF and an orientation flag (guards the tests below)', async () => {
+  test('the fixture really does carry GPS EXIF, ICC, XMP and an orientation flag (guards the tests below)', async () => {
     const meta = await sharp(await phoneJpegWithGps()).metadata()
     expect(hasGpsTag(meta.exif)).toBe(true)
-    // ...and the segment walk used below can see it.
-    expect(metadataSegments(await phoneJpegWithGps())).toContain('Exif')
+    expect(meta.icc).toBeDefined()
+    expect(meta.xmp).toBeDefined()
+    // ...and the segment walk used below can see all three.
+    expect(metadataSegments(await phoneJpegWithGps())).toEqual(expect.arrayContaining(['Exif', 'ICC', 'XMP']))
     expect(meta.orientation).toBe(6)
   })
 

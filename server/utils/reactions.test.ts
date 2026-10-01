@@ -30,6 +30,12 @@ describe('parseReactionEmoji — exactly one emoji', () => {
     ['leading space', ' 👍'],
     ['emoji plus text', '👍ok'],
     ['a long string', '👍'.repeat(40)],
+    // Regression (PR #139 review): only a bare ❤ gets U+FE0F appended. These
+    // become RGI emoji with it, but the contract rejects them.
+    ['a bare © (text presentation)', '©'],
+    ['a bare ™', '™'],
+    ['a bare ☺', '☺'],
+    ['a bare ♀', '♀'],
     ['not a string', 7],
     ['missing', undefined],
   ])('400 for %s', (_label, raw) => {

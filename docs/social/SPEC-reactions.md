@@ -20,9 +20,9 @@ For each emoji, the caller can also list who reacted.
   (👨‍👩‍👧), flags (🇬🇧) and keycaps (1️⃣). Two emoji, text or padded input is
   `400`. Verified on Node 24.
 - **Normalized before storing.** A bare `❤` (U+2764 with no U+FE0F) is
-  accepted when adding the emoji-presentation selector makes it valid, and is
-  stored as `❤️`. Clients that send either form then count as the same
-  reaction.
+  accepted and stored as `❤️`. Clients that send either form then count as the
+  same reaction. No other bare form is normalized: `©`, `™`, `☺` and similar
+  text-presentation characters are `400`.
 - **Who reacted is listable, per emoji** (decided 2026-10-01), through
   `GET /api/posts/:id/reactions/:emoji`, paginated. Reactors appear as
   `PublicUser`, which is already public through `GET /api/users/:id`. A

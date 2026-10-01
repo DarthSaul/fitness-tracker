@@ -18,18 +18,19 @@ export interface ReactionSummary {
 const SINGLE_EMOJI = /^\p{RGI_Emoji}$/v
 // Longer than any RGI emoji (the longest is ~35 bytes); rejects junk early.
 const MAX_INPUT_LENGTH = 32
+// The one bare form the contract normalizes: ❤ (U+2764) without U+FE0F.
+const BARE_HEART = '❤'
 
 /**
- * Validate and normalize a reaction. A bare emoji missing its presentation
- * selector (❤ U+2764) is stored fully qualified (❤️) when that makes it a valid
- * emoji, so clients sending either form count as the same reaction.
+ * Validate and normalize a reaction. A bare ❤ (U+2764, missing its
+ * presentation selector) is stored fully qualified (❤️), so clients sending
+ * either form count as the same reaction. No other input is normalized.
  * @throws {H3Error} 400 unless the input is exactly one emoji.
  */
 export function parseReactionEmoji(raw: unknown): string {
   if (typeof raw === 'string' && raw.length > 0 && raw.length <= MAX_INPUT_LENGTH) {
     if (SINGLE_EMOJI.test(raw)) return raw
-    const qualified = `${raw}\uFE0F`
-    if (SINGLE_EMOJI.test(qualified)) return qualified
+    if (raw === BARE_HEART) return `${BARE_HEART}\uFE0F`
   }
   throw createError({ statusCode: 400, statusMessage: 'Reaction must be a single emoji' })
 }
