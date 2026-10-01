@@ -10,7 +10,8 @@ import { vi } from 'vitest'
 
 import { publicUserSelect } from './server/utils/public-user'
 import { followSelect } from './server/utils/follows'
-import { postSelect, toPost, parsePageQuery, pageWhere, newestFirst, parsePostBody } from './server/utils/posts'
+import { postPhotoPath, POST_PHOTOS_BUCKET } from './server/utils/post-photo-storage'
+import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, parsePostBody, parsePostContent } from './server/utils/posts'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
@@ -31,6 +32,7 @@ vi.stubGlobal('getQuery', vi.fn(() => ({})))
 vi.stubGlobal('getHeader', vi.fn(() => null))
 vi.stubGlobal('getRequestHeader', vi.fn(() => undefined))
 vi.stubGlobal('readBody', vi.fn())
+vi.stubGlobal('readMultipartFormData', vi.fn())
 vi.stubGlobal('createError', vi.fn((opts: { statusCode: number; statusMessage: string; data?: unknown }) => {
   const err = new Error(opts.statusMessage) as Error & {
     statusCode: number
@@ -97,6 +99,7 @@ vi.stubGlobal('prisma', {
   workoutExerciseSkip: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
   deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  postPhoto: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   post: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   follow: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   userBlock: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
@@ -122,12 +125,21 @@ vi.stubGlobal('followStatesWith', vi.fn().mockResolvedValue(new Map()))
 vi.stubGlobal('followingIdsOf', vi.fn().mockResolvedValue([]))
 // Posts: real pure helpers; canViewPostsBy is mocked so routes are tested against the rule's outcome.
 vi.stubGlobal('postSelect', postSelect)
-vi.stubGlobal('toPost', toPost)
+vi.stubGlobal('toPostPayloads', toPostPayloads)
+vi.stubGlobal('parsePostContent', parsePostContent)
 vi.stubGlobal('parsePageQuery', parsePageQuery)
 vi.stubGlobal('pageWhere', pageWhere)
 vi.stubGlobal('newestFirst', newestFirst)
 vi.stubGlobal('parsePostBody', parsePostBody)
 vi.stubGlobal('canViewPostsBy', vi.fn().mockResolvedValue(true))
+// Post photos: processing and storage are mocked in route tests (both have
+// their own unit tests — processing on real image bytes).
+vi.stubGlobal('postPhotoPath', postPhotoPath)
+vi.stubGlobal('POST_PHOTOS_BUCKET', POST_PHOTOS_BUCKET)
+vi.stubGlobal('processPostPhoto', vi.fn())
+vi.stubGlobal('uploadPostPhotoObject', vi.fn().mockResolvedValue(undefined))
+vi.stubGlobal('removePostPhotoObjects', vi.fn().mockResolvedValue(undefined))
+vi.stubGlobal('signPostPhotos', vi.fn().mockResolvedValue({ urls: new Map(), expiresAt: null }))
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))

@@ -11,6 +11,8 @@
  *    after a partial failure can complete
  *  - Feedback screenshots: removed from the storage bucket; best-effort —
  *    a storage error is logged but does not block deletion
+ *  - Post photos (attached or not): removed from the post-photos bucket via
+ *    removePostPhotoObjects, which is itself best-effort and logged
  *  - Not found: 404 when the user record is missing
  *  - Error propagation: 500 on unexpected error, H3 errors pass through
  */
@@ -35,15 +37,18 @@ function makeEvent() {
 type Handler = (e: ReturnType<typeof makeEvent>) => Promise<unknown>
 const run = (event = makeEvent()) => (handler as unknown as Handler)(event)
 
-/** A user record as the handler selects it: identities + feedback paths. */
-function dbUser(overrides: Partial<{ identities: unknown[], feedback: unknown[] }> = {}) {
+/** A user record as the handler selects it: identities, feedback and post-photo paths. */
+function dbUser(overrides: Partial<{ identities: unknown[], feedback: unknown[], postPhotos: unknown[] }> = {}) {
   return {
     id: 'user001',
     identities: [],
     feedback: [],
+    postPhotos: [],
     ...overrides,
   }
 }
+
+const mockRemovePostPhotoObjects = removePostPhotoObjects as ReturnType<typeof vi.fn>
 
 const storageRemove = vi.fn()
 
@@ -145,6 +150,18 @@ describe('DELETE /api/auth/me', () => {
 
     expect(mockStorageFrom).toHaveBeenCalledWith('feedback-screenshots')
     expect(storageRemove).toHaveBeenCalledWith(['user001/1-a.png', 'user001/2-b.png'])
+  })
+
+  test("removes every post photo the user uploaded (attached or not), before the row cascade", async () => {
+    mockFindUniqueUser.mockResolvedValueOnce(dbUser({
+      postPhotos: [{ storagePath: 'user001/a.jpg' }, { storagePath: 'user001/b.jpg' }],
+    }))
+
+    await run()
+
+    expect(mockFindUniqueUser.mock.calls[0]![0].select.postPhotos).toEqual({ select: { storagePath: true } })
+    expect(mockRemovePostPhotoObjects).toHaveBeenCalledWith(['user001/a.jpg', 'user001/b.jpg'], expect.anything(), 'DELETE /api/auth/me')
+    expect(mockRemovePostPhotoObjects.mock.invocationCallOrder[0]!).toBeLessThan(mockDeleteUser.mock.invocationCallOrder[0]!)
   })
 
   test('does not touch storage when no feedback has a screenshot', async () => {

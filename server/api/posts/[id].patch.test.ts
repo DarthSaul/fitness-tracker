@@ -13,7 +13,7 @@ type Event = { path: string; context: { userId: string } }
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
 const editedAt = new Date('2026-09-30T13:00:00.000Z')
 const me = { id: 'ca', name: 'Ada', avatarUrl: null, profileVisibility: 'PUBLIC' }
-const mine = { id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me }
+const mine = { id: 'p1', authorId: 'ca', body: 'Leg day', createdAt, editedAt: null, author: me, photos: [] as { id: string; storagePath: string; width: number; height: number }[] }
 
 function call(body: unknown, userId = 'ca') {
   mockGetRouterParam.mockReturnValue('p1')
@@ -40,6 +40,27 @@ describe('PATCH /api/posts/:id', () => {
       select: expect.objectContaining({ id: true }),
     })
     expect(result).toMatchObject({ body: 'Arm day', editedAt })
+  })
+
+  test("a photo post's text may be cleared; a text-only post's may not", async () => {
+    const withPhoto = { ...mine, photos: [{ id: 'ph1', storagePath: 'ca/ph1.jpg', width: 1, height: 1 }] }
+    mockFindUnique.mockResolvedValueOnce(withPhoto)
+    mockUpdate.mockResolvedValueOnce({ ...withPhoto, body: '', editedAt })
+
+    await call({ body: '   ' })
+
+    expect(mockUpdate.mock.calls[0]![0].data).toEqual({ body: '', editedAt: expect.any(Date) })
+
+    mockFindUnique.mockResolvedValueOnce(mine)
+    await expect(call({ body: '' })).rejects.toMatchObject({ statusCode: 400 })
+  })
+
+  test('photos are fixed once posted: a photoIds key is ignored', async () => {
+    mockUpdate.mockResolvedValueOnce({ ...mine, body: 'Arm day', editedAt })
+
+    await call({ body: 'Arm day', photoIds: ['other'] })
+
+    expect(mockUpdate.mock.calls[0]![0].data).toEqual({ body: 'Arm day', editedAt: expect.any(Date) })
   })
 
   test('a legacy visibility key is ignored — privacy is per profile now', async () => {
@@ -75,7 +96,7 @@ describe('PATCH /api/posts/:id', () => {
     ['an empty object', {}],
     ['no body at all', undefined],
     ['only a legacy visibility key', { visibility: 'PUBLIC' }],
-    ['an empty body', { body: '  ' }],
+    ['an empty body on a text-only post', { body: '  ' }],
     ['a body over 2000 characters', { body: 'x'.repeat(2001) }],
   ])('400 on %s', async (_label, body) => {
     await expect(call(body)).rejects.toMatchObject({ statusCode: 400 })

@@ -149,21 +149,43 @@ interface FollowRequest {
 interface Post {
   id: string
   author: PublicUser
-  body: string                        // 1–2,000 characters
+  body: string                        // 0–2,000 characters; empty only when there are photos
   createdAt: string
   editedAt: string | null             // non-null → show "Edited"
   isMine: boolean
+  photos: { id: string; url: string; width: number; height: number }[]  // display order; [] if none
+  photosExpireAt: string | null       // signed URLs stop working then — re-fetch; null if no photos
 }
 ```
 
 | Action | Route | Success |
 |---|---|---|
-| Create | `POST /api/posts`, `{ body }` | `201 Post` |
+| Upload a photo | `POST /api/post-photos`, multipart field `photo` | `201 { id, width, height }` |
+| Create | `POST /api/posts`, `{ body?, photoIds? }` | `201 Post` |
 | Get one | `GET /api/posts/:id` | `200 Post` |
 | Edit my post | `PATCH /api/posts/:id`, `{ body }` | `200 Post` |
 | Delete my post | `DELETE /api/posts/:id` | `204` |
 | A user's posts | `GET /api/users/:id/posts?limit=&before=&beforeId=` | `200 { posts: Post[] }`, newest first |
 
+- **Photos: upload, then attach.**
+  - **Prepare on the device:** downscale to ~2048 px on the long edge and
+    encode as **JPEG** before uploading.
+  - **Size:** the server accepts at most **4 MB** per upload (`413` over that),
+    since Vercel caps a request at 4.5 MB. Only JPEG, PNG and WebP are
+    accepted, checked from the bytes; HEIC is `415`.
+  - **Processing:** every photo is decoded, turned upright, stripped of **all**
+    metadata (EXIF, including GPS location), resized to ≤ 2048 px and stored
+    as JPEG. Nothing the phone embedded is kept.
+  - **Attaching:** pass up to **4** returned ids as `photoIds`, in display
+    order. Each must be your own upload, not yet attached; otherwise the post
+    is `400` and nothing is created. The upload response has no URL, so show
+    your local copy until the post exists.
+  - **Cleanup:** uploads never attached are deleted after 24 hours.
+  - **After posting:** photos are fixed. `PATCH` edits only `body`, which may
+    be emptied on a photo post. Deleting the post deletes its photos.
+  - **URLs:** photo URLs are signed for 15 minutes. Re-fetch the post or
+    page when `photosExpireAt` passes.
+  - **Limits:** 60 uploads per hour.
 - **Who sees a post:** the author's profile decides (see above). A post has
   no visibility of its own, and a `visibility` key in a request is ignored.
 - **Editing:** only the author can edit or delete. Anyone else gets `404`,
@@ -174,8 +196,9 @@ interface Post {
     (its `id`) from the **last** post of the previous page, together.
   - A page shorter than `limit` is the end.
 - **Errors:**
-  - `400` for a body that is empty, whitespace or over 2,000 characters, or
-    for bad paging parameters.
+  - `400` for a body that is empty or whitespace with no photos, a body over
+    2,000 characters, more than 4 or duplicate `photoIds`, a photo that isn't
+    your own unattached upload, or bad paging parameters.
   - `403 profile_private` and `404` as described above.
   - `429` after 30 new posts in an hour.
 

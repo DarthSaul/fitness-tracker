@@ -39,7 +39,7 @@ export default defineEventHandler(async (event): Promise<{ posts: PostPayload[] 
       select: postSelect,
     })
 
-    return { posts: posts.map((p) => toPost(p, userId)) }
+    return { posts: await toPostPayloads(posts, userId) }
   } catch (error) {
     ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/feed' }, '[GET /api/feed] Failed to fetch feed')
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch feed' })

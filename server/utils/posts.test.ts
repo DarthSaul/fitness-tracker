@@ -1,9 +1,10 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-import { canViewPostsBy, toPost, parsePageQuery, pageWhere, parsePostBody, postSelect } from './posts'
+import { canViewPostsBy, toPostPayloads, parsePageQuery, pageWhere, parsePostBody, parsePostContent, postSelect } from './posts'
 
 const mockIsBlocked = isBlockedEitherWay as ReturnType<typeof vi.fn>
 const mockIsFollowing = isFollowing as ReturnType<typeof vi.fn>
+const mockSign = signPostPhotos as ReturnType<typeof vi.fn>
 
 describe('canViewPostsBy — the visibility rule', () => {
   beforeEach(() => {
@@ -44,30 +45,80 @@ describe('canViewPostsBy — the visibility rule', () => {
   })
 })
 
-describe('toPost', () => {
-  const row = {
-    id: 'p1',
+describe('toPostPayloads', () => {
+  const author = { id: 'author', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' as const }
+  const row = (id: string, photos: { id: string; storagePath: string; width: number; height: number }[] = []) => ({
+    id,
     authorId: 'author',
     body: 'Leg day',
     createdAt: new Date('2026-09-30T12:00:00.000Z'),
     editedAt: null,
-    author: { id: 'author', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' as const },
-  }
+    author,
+    photos,
+  })
+  const expiresAt = '2026-09-30T12:15:00.000Z'
 
-  test('builds the payload without leaking authorId, and flags isMine for the author', () => {
-    expect(toPost(row, 'author')).toEqual({
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSign.mockResolvedValue({ urls: new Map(), expiresAt: null })
+  })
+
+  test('builds the payload without leaking authorId or storage keys, and flags isMine for the author', async () => {
+    const [mine] = await toPostPayloads([row('p1')], 'author')
+    const [theirs] = await toPostPayloads([row('p1')], 'someone-else')
+
+    expect(mine).toEqual({
       id: 'p1',
-      author: { id: 'author', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' },
+      author,
       body: 'Leg day',
-      createdAt: row.createdAt,
+      createdAt: row('p1').createdAt,
       editedAt: null,
       isMine: true,
+      photos: [],
+      photosExpireAt: null,
     })
-    expect(toPost(row, 'someone-else').isMine).toBe(false)
+    expect(theirs!.isMine).toBe(false)
+  })
+
+  test('signs every photo on the page in ONE storage call, keeping each post\'s position order', async () => {
+    mockSign.mockResolvedValueOnce({
+      urls: new Map([['u/a.jpg', 'https://s/a'], ['u/b.jpg', 'https://s/b'], ['u/c.jpg', 'https://s/c']]),
+      expiresAt,
+    })
+
+    const posts = await toPostPayloads([
+      row('p1', [{ id: 'a', storagePath: 'u/a.jpg', width: 10, height: 20 }, { id: 'b', storagePath: 'u/b.jpg', width: 30, height: 40 }]),
+      row('p2'),
+      row('p3', [{ id: 'c', storagePath: 'u/c.jpg', width: 50, height: 60 }]),
+    ], 'viewer')
+
+    expect(mockSign).toHaveBeenCalledTimes(1)
+    expect(mockSign).toHaveBeenCalledWith(['u/a.jpg', 'u/b.jpg', 'u/c.jpg'])
+    expect(posts[0]!.photos).toEqual([
+      { id: 'a', url: 'https://s/a', width: 10, height: 20 },
+      { id: 'b', url: 'https://s/b', width: 30, height: 40 },
+    ])
+    expect(posts[0]!.photosExpireAt).toBe(expiresAt)
+    // A text-only post on the same page carries no expiry.
+    expect(posts[1]!.photos).toEqual([])
+    expect(posts[1]!.photosExpireAt).toBeNull()
+    expect(posts[2]!.photos[0]!.url).toBe('https://s/c')
+  })
+
+  test('an empty page makes no storage call', async () => {
+    expect(await toPostPayloads([], 'viewer')).toEqual([])
+    expect(mockSign).toHaveBeenCalledWith([])
   })
 
   test('postSelect selects the author as a PublicUser only', () => {
     expect(postSelect.author).toEqual({ select: { id: true, name: true, avatarUrl: true, profileVisibility: true } })
+  })
+
+  test('postSelect reads photos in display (position) order', () => {
+    expect(postSelect.photos).toEqual({
+      select: { id: true, storagePath: true, width: true, height: true },
+      orderBy: { position: 'asc' },
+    })
   })
 
   test('postSelect has no per-post visibility — privacy is per profile', () => {
@@ -75,7 +126,43 @@ describe('toPost', () => {
   })
 })
 
+describe('parsePostContent', () => {
+  test('text only: the body rule applies, no photos', () => {
+    expect(parsePostContent({ body: '  hi ' })).toEqual({ body: 'hi', photoIds: [] })
+  })
+
+  test('photos may come with no text at all', () => {
+    expect(parsePostContent({ photoIds: ['a', 'b'] })).toEqual({ body: '', photoIds: ['a', 'b'] })
+    expect(parsePostContent({ body: '   ', photoIds: ['a'] })).toEqual({ body: '', photoIds: ['a'] })
+  })
+
+  test('text and photos together, photo order preserved', () => {
+    expect(parsePostContent({ body: 'Leg day', photoIds: ['c', 'a', 'b', 'd'] })).toEqual({ body: 'Leg day', photoIds: ['c', 'a', 'b', 'd'] })
+  })
+
+  test.each([
+    ['no text and no photos', {}],
+    ['empty text and an empty photo list', { body: '', photoIds: [] }],
+    ['5 photos', { photoIds: ['a', 'b', 'c', 'd', 'e'] }],
+    ['a duplicate photo id', { photoIds: ['a', 'a'] }],
+    ['photoIds not an array', { photoIds: 'a' }],
+    ['a non-string id', { photoIds: ['a', 7] }],
+    ['a blank id', { photoIds: [' '] }],
+    ['text over 2000 characters, even with photos', { body: 'x'.repeat(2001), photoIds: ['a'] }],
+    ['a non-string body with photos', { body: 5, photoIds: ['a'] }],
+    ['no body object at all', undefined],
+  ])('400 for %s', (_label, input) => {
+    expect(() => parsePostContent(input)).toThrow(expect.objectContaining({ statusCode: 400 }))
+  })
+})
+
 describe('parsePostBody', () => {
+  test('may be empty when the post has photos (editing a photo post)', () => {
+    expect(parsePostBody('  ', { allowEmpty: true })).toBe('')
+    expect(() => parsePostBody('x'.repeat(2001), { allowEmpty: true })).toThrow(expect.objectContaining({ statusCode: 400 }))
+    expect(() => parsePostBody(undefined, { allowEmpty: true })).toThrow(expect.objectContaining({ statusCode: 400 }))
+  })
+
   test('trims and accepts 1–2000 characters', () => {
     expect(parsePostBody('  hi  ')).toBe('hi')
     expect(parsePostBody('x'.repeat(2000))).toHaveLength(2000)

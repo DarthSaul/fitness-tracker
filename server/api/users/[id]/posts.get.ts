@@ -52,7 +52,7 @@ export default defineEventHandler(async (event): Promise<{ posts: PostPayload[] 
       select: postSelect,
     })
 
-    return { posts: posts.map((p) => toPost(p, userId)) }
+    return { posts: await toPostPayloads(posts, userId) }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'GET /api/users/:id/posts' }, "[GET /api/users/:id/posts] Failed to fetch user's posts")

@@ -94,6 +94,7 @@ model User {
   following                 Follow[]                   @relation("Following")
   followers                 Follow[]                   @relation("Followers")
   posts                     Post[]
+  postPhotos                PostPhoto[]
 }
 
 model Identity {
@@ -593,7 +594,8 @@ model Post {
   createdAt DateTime  @default(now())
   editedAt  DateTime?
 
-  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  photos PostPhoto[]
 
   // Serves a profile's posts and the feed: posts by these authors, newest first.
   @@index([authorId, createdAt(sort: Desc), id(sort: Desc)])
@@ -618,4 +620,28 @@ model Follow {
 
   @@unique([followerId, followeeId])
   @@index([followeeId, status])
+}
+
+// A photo on a post, already processed: orientation baked in, ALL metadata
+// (EXIF/GPS) stripped, ≤2048px, JPEG (server/utils/post-photos.ts). The bytes
+// live in the PRIVATE `post-photos` Storage bucket at `storagePath`; reads sign
+// them for 15 minutes. Uploaded first (postId null), then attached when the
+// post is created; fixed from then on. Raw SQL CHECK in the migration:
+//   CHECK ((postId IS NULL AND position IS NULL) OR
+//          (postId IS NOT NULL AND position BETWEEN 0 AND 3))
+model PostPhoto {
+  id          String   @id @default(cuid())
+  uploaderId  String
+  postId      String?
+  position    Int?
+  storagePath String   @unique
+  width       Int
+  height      Int
+  createdAt   DateTime @default(now())
+
+  uploader User  @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  post     Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, position])
+  @@index([uploaderId, postId])
 }

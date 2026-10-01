@@ -35,7 +35,7 @@ describe('GET /api/users/:id/posts', () => {
 
   test('a PUBLIC profile: anyone not blocked sees all their posts, newest first, default page of 20', async () => {
     mockFindPosts.mockResolvedValueOnce([
-      { id: 'p1', authorId: THEM, body: 'Hi', createdAt, editedAt: null, author: zed },
+      { id: 'p1', authorId: THEM, body: 'Hi', createdAt, editedAt: null, author: zed, photos: [] },
     ])
 
     const result = await call()
@@ -48,7 +48,7 @@ describe('GET /api/users/:id/posts', () => {
       select: expect.objectContaining({ id: true }),
     })
     expect(mockIsFollowing).not.toHaveBeenCalled()
-    expect(result.posts).toEqual([{ id: 'p1', author: zed, body: 'Hi', createdAt, editedAt: null, isMine: false }])
+    expect(result.posts).toEqual([{ id: 'p1', author: zed, body: 'Hi', createdAt, editedAt: null, isMine: false, photos: [], photosExpireAt: null }])
   })
 
   test('a PRIVATE profile: an accepted follower sees their posts', async () => {
@@ -66,6 +66,7 @@ describe('GET /api/users/:id/posts', () => {
 
     await expect(call()).rejects.toMatchObject({ statusCode: 403, data: { code: 'profile_private' } })
     expect(mockFindPosts).not.toHaveBeenCalled()
+    expect(signPostPhotos).not.toHaveBeenCalled()
   })
 
   test('the caller sees their own posts, private or not, without block or follow lookups', async () => {

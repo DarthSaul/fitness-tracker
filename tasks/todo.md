@@ -147,9 +147,32 @@ gets a new, simpler spec after `follows`.
 - [x] Schema change + guarded drop migration `20260930160000_drop_friendships`
 - [x] verify-app
 - [ ] PR opened
-- [ ] **Apply — needs explicit go-ahead** (destructive; disables instant rollback to ≤#134)
+- [ ] **Apply** — go-ahead given on merge (2026-09-30), but the session's permission check blocked `migrate deploy`; needs to be run by the user
 - [ ] Post-apply: status, drift, objects gone, production smoke
+
+## PR 8 — `post-photos` (branch `feat/social-post-photos`; #137 merged, now on main)
+
+- [x] Spec approved (`docs/social/SPEC-post-photos.md`)
+- [x] **PH1: add `sharp`** (XS): the one agreed new dependency.
+- [x] **PH2: processing pipeline** (S): `processPostPhoto` (decode-sniff, pixel
+  limit, rotate, strip, resize, JPEG); tests on **real image bytes**, including
+  GPS EXIF removed and an orientation fix.
+- [x] **PH3: `PostPhoto` model + migration + CHECK + mocks** (S). Not applied.
+- [x] **PH4: signing + storage helpers** (S): `signPostPhotos` (one storage call
+  per response), `removePostPhotoObjects` (best-effort, logged).
+- [x] **PH5: `POST /api/post-photos`** (M): multipart, 413/415/400, rate limit,
+  24 h sweep of the caller's unattached uploads.
+- [x] **PH6: posts integration** (M): create with `photoIds` (atomic, guarded
+  attach, photo-only posts), `photos` + `photosExpireAt` on every post route,
+  delete removes objects.
+- [x] **PH7: account deletion removes photo objects** (S).
+- [x] **PH8: contract + auth guard cases + verify-app** (S).
+
+### Checkpoint: post-photos
+- [x] verify-app passes (sharp externalized + traced; lockfile has linux-x64)
+- [ ] PR opened
+- [ ] Bucket created · migration applied · Vercel preview real-photo check
 
 ## Later PRs (spec written when reached)
 
-- [ ] `post-photos` · [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`
+- [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`
