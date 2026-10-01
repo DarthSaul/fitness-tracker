@@ -155,6 +155,7 @@ interface Post {
   isMine: boolean
   photos: { id: string; url: string; width: number; height: number }[]  // display order; [] if none
   photosExpireAt: string | null       // signed URLs stop working then — re-fetch; null if no photos
+  reactions: { emoji: string; count: number; mine: boolean }[]  // most-used first; [] if none
 }
 ```
 
@@ -201,6 +202,36 @@ interface Post {
     your own unattached upload, or bad paging parameters.
   - `403 profile_private` and `404` as described above.
   - `429` after 30 new posts in an hour.
+
+## Reactions
+
+| Action | Route | Success |
+|---|---|---|
+| React | `PUT /api/posts/:id/reactions/:emoji` | `201 { reactions }`, or `200` if you already had it |
+| Remove my reaction | `DELETE /api/posts/:id/reactions/:emoji` | `204`, also when you hadn't reacted |
+| Who reacted | `GET /api/posts/:id/reactions/:emoji?limit=&before=&beforeId=` | `200 { users: (PublicUser & Relationship & { reactedAt: string; cursorId: string })[] }`, newest first |
+
+- **`:emoji`:** exactly one emoji, URL-encoded (👍 → `%F0%9F%91%8D`). Skin tones,
+  combined emoji (👨‍👩‍👧), flags and keycaps all work.
+  - **Normalization:** a bare `❤` is stored as `❤️`, so both are the same
+    reaction.
+  - **Rejected:** anything else is `400`.
+- **Several emoji per post:** you can add several *different* emoji to one
+  post, each once, **up to 10**. The 11th is `409`.
+- **Visibility:** you can react to any post you can see. A post you can't see
+  is `404` on all three routes, the same as a missing post.
+- **Counts and the who-reacted list always agree.**
+  - **Blocked users:** both leave out anyone blocked in either direction.
+  - **Your own reactions:** `mine` marks yours, and in the list you appear
+    with `isSelf: true`.
+- **Who-reacted rows** carry your follow state toward each person
+  (`Relationship`), so the same Follow / Requested button works there.
+- **Paging the list:**
+  - **Next page:** send the last row's `reactedAt` as `before` and its
+    `cursorId` as `beforeId`. Use `cursorId`, not the user's `id`.
+  - **Limits:** `limit` defaults to 20 and is clamped to 1–50.
+  - **End:** a page shorter than `limit` is the end.
+- **Rate limit:** 300 reactions per hour (`429`).
 
 ## Feed
 

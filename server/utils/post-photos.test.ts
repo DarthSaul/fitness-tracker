@@ -7,9 +7,35 @@ import sharp from 'sharp'
 
 import { processPostPhoto, isPhotoInputError, POST_PHOTO_MAX_BYTES } from './post-photos'
 
-// GPS tag id 0x8825 (GPSInfo IFD pointer), in either byte order.
+// GPS tag id 0x8825 (GPSInfo IFD pointer), in either byte order. Only meaningful
+// on an EXIF block — never scan a whole JPEG for it: compressed pixel data
+// contains any 2-byte sequence by chance (a false alarm hit this in the
+// 2026-10-01 real-photo check).
 const hasGpsTag = (exif: Buffer | undefined) =>
   !!exif && (exif.includes(Buffer.from([0x88, 0x25])) || exif.includes(Buffer.from([0x25, 0x88])))
+
+/**
+ * The metadata-bearing segments of a JPEG: APPn segments before the scan
+ * data (SOS) whose header marks them as Exif, XMP or an ICC profile. This is
+ * the only place a JPEG can carry metadata.
+ */
+function metadataSegments(jpeg: Buffer): string[] {
+  const found: string[] = []
+  let i = 2 // skip SOI (FFD8)
+  while (i + 4 <= jpeg.length && jpeg[i] === 0xff) {
+    const marker = jpeg[i + 1]!
+    if (marker === 0xda) break // SOS: scan data follows
+    const length = jpeg.readUInt16BE(i + 2)
+    if (marker >= 0xe0 && marker <= 0xef) {
+      const head = jpeg.subarray(i + 4, i + 4 + 29).toString('latin1')
+      if (head.startsWith('Exif')) found.push('Exif')
+      else if (head.startsWith('http://ns.adobe.com/xap/1.0/')) found.push('XMP')
+      else if (head.startsWith('ICC_PROFILE')) found.push('ICC')
+    }
+    i += 2 + length
+  }
+  return found
+}
 
 function solid(width: number, height: number) {
   return sharp({ create: { width, height, channels: 3, background: '#c33' } })
@@ -28,6 +54,8 @@ describe('processPostPhoto', () => {
   test('the fixture really does carry GPS EXIF and an orientation flag (guards the tests below)', async () => {
     const meta = await sharp(await phoneJpegWithGps()).metadata()
     expect(hasGpsTag(meta.exif)).toBe(true)
+    // ...and the segment walk used below can see it.
+    expect(metadataSegments(await phoneJpegWithGps())).toContain('Exif')
     expect(meta.orientation).toBe(6)
   })
 
@@ -36,7 +64,7 @@ describe('processPostPhoto', () => {
 
     const meta = await sharp(out.data).metadata()
     expect(meta.exif).toBeUndefined()
-    expect(hasGpsTag(out.data)).toBe(false)
+    expect(metadataSegments(out.data)).toEqual([])
     expect(meta.icc).toBeUndefined()
     expect(meta.xmp).toBeUndefined()
   })

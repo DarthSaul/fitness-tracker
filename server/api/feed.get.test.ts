@@ -53,8 +53,8 @@ describe('GET /api/feed', () => {
       select: expect.objectContaining({ id: true, author: expect.anything() }),
     })
     expect(result.posts).toEqual([
-      { id: 'p2', author: ann, body: 'Leg day', createdAt: t1, editedAt: null, isMine: false, photos: [{ id: 'ph1', url: 'https://s/1', width: 10, height: 20 }], photosExpireAt: '2026-09-30T12:15:00.000Z' },
-      { id: 'p1', author: meUser, body: 'Arm day', createdAt: t2, editedAt: null, isMine: true, photos: [{ id: 'ph2', url: 'https://s/2', width: 30, height: 40 }], photosExpireAt: '2026-09-30T12:15:00.000Z' },
+      { id: 'p2', author: ann, body: 'Leg day', createdAt: t1, editedAt: null, isMine: false, photos: [{ id: 'ph1', url: 'https://s/1', width: 10, height: 20 }], photosExpireAt: '2026-09-30T12:15:00.000Z', reactions: [] },
+      { id: 'p1', author: meUser, body: 'Arm day', createdAt: t2, editedAt: null, isMine: true, photos: [{ id: 'ph2', url: 'https://s/2', width: 30, height: 40 }], photosExpireAt: '2026-09-30T12:15:00.000Z', reactions: [] },
     ])
   })
 

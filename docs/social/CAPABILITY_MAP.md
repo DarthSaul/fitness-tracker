@@ -63,9 +63,9 @@ and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
 | `posts` | ✅ #134, reworked by `follows` | Create / edit / delete own posts; a user's posts | `follows`, `blocking` |
 | `follows` | ✅ #135 | Follow / unfollow, requests, followers; profile visibility; the post visibility rule; removes friends | `user-discovery`, `blocking` |
 | `feed` | ✅ #136 | `GET /api/feed`: own + followed users' posts | `follows`, `posts` |
-| `friendships-removal` | ⏭ in progress (#135 confirmed live) | Drop `Friendship`, `FriendshipStatus`, `Post.visibility`, `PostVisibility` | `follows` deployed |
-| `post-photos` | ⏳ | ≤4 photos per post; EXIF strip; private bucket + signed URLs | `posts` |
-| `reactions` | ⏳ | Emoji reactions; counts + "mine" on every post | `posts` |
+| `friendships-removal` | ✅ #137 (applied) | Drop `Friendship`, `FriendshipStatus`, `Post.visibility`, `PostVisibility` | `follows` deployed |
+| `post-photos` | ✅ #138 | ≤4 photos per post; EXIF strip; private bucket + signed URLs | `posts` |
+| `reactions` | ⏭ spec | Emoji reactions; counts + "mine" on every post | `posts` |
 | `workout-shares` | ⏳ | A post may reference one of the author's `COMPLETED` sessions, rendered as text only, e.g. "Saul completed a workout from Arm Farm 2" (or "Saul completed a workout" for a standalone). Never the session's sets or data. | `posts` |
 | `reports` | ⏳ | Report a post or user; stored for moderation | `posts`, `user-discovery` |
 

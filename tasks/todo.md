@@ -173,9 +173,34 @@ gets a new, simpler spec after `follows`.
 - [x] PR opened (#138)
 - [x] Bucket created by the user (2026-10-01); verified private, 4 MB, `image/jpeg` only, no storage policies
 - [x] Migration applied (2026-10-01, before merge — code reads `PostPhoto` on every post route); status up to date, no drift, corrected CHECK live, sweep SQL probed (rolled back)
-- [ ] Merge #138
-- [ ] Vercel preview real-photo check (GPS stripped; sharp runs on Vercel)
+- [x] Merge #138 (`45cdad3`, live in production 2026-10-01)
+- [x] Real-photo check, **local dev server against the real DB + bucket** (2026-10-01; the user
+  chose this over reading the production JWT secret): GPS-tagged 3.4 MB JPEG → stored
+  1536×2048 upright, **no APP segments** (no EXIF/GPS/ICC/XMP); signed URL works, public URL
+  refused; post delete removed the object; no test rows left.
+- [ ] sharp-on-Vercel proof: the first real iOS upload (watch its `POST /api/post-photos` log)
+
+## PR 9 — `reactions` (branch `feat/social-reactions`)
+
+- [x] Spec approved (`docs/social/SPEC-reactions.md`), incl. who-reacted + cap 10
+- [x] **R0: photo test metadata check** (XS): replace the whole-file GPS byte scan with a
+  JPEG APP-segment walk (carried over from the post-photos check).
+- [x] **R1: `PostReaction` model + migration + mocks** (S). Not applied.
+- [x] **R2: reaction helpers** (S): `parseReactionEmoji` (one RGI emoji, `❤`→`❤️`),
+  `reactionSummaries` (blocked-aware counts + mine, one page in 3 queries),
+  `requireVisiblePost`.
+- [x] **R3: `reactions` on every Post payload** (S) via `toPostPayloads`.
+- [x] **R4: `PUT …/reactions/:emoji`** (M): idempotent, cap 10 under a lock, P2002 race, rate limit.
+- [x] **R5: `DELETE …/reactions/:emoji`** (S): own only, idempotent 204.
+- [x] **R6: `GET …/reactions/:emoji`** (M): who reacted, newest first, blocked excluded,
+  follow state, `cursorId` paging.
+- [x] **R7: contract + auth guard cases + verify-app** (S).
+
+### Checkpoint: reactions
+- [x] verify-app passes
+- [ ] PR opened
+- [ ] Migration applied (BEFORE merge: every post route reads `PostReaction`)
 
 ## Later PRs (spec written when reached)
 
-- [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`
+- [ ] `workout-shares` · [ ] `reports`

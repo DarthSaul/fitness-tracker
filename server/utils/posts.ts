@@ -42,15 +42,21 @@ export interface PostPayload {
   photos: PostPhotoPayload[]
   /** When the photo URLs stop working; null when the post has no photos. */
   photosExpireAt: string | null
+  /** Per-emoji totals (blocked users excluded) and whether the caller reacted. */
+  reactions: ReactionSummary[]
 }
 
 /**
  * Build the payloads for a page of posts the viewer has already passed the
  * visibility rule for. Every photo on the page is signed in ONE storage call,
- * so a feed page costs one round trip however many photos it shows.
+ * and reactions are summarized for the whole page at once, so a feed page's
+ * cost doesn't grow with the number of photos or reactions it shows.
  */
 export async function toPostPayloads(rows: PostRow[], viewerId: string): Promise<PostPayload[]> {
-  const signed = await signPostPhotos(rows.flatMap((r) => r.photos.map((p) => p.storagePath)))
+  const [signed, reactions] = await Promise.all([
+    signPostPhotos(rows.flatMap((r) => r.photos.map((p) => p.storagePath))),
+    reactionSummaries(rows.map((r) => r.id), viewerId),
+  ])
 
   return rows.map((row) => ({
     id: row.id,
@@ -61,6 +67,7 @@ export async function toPostPayloads(rows: PostRow[], viewerId: string): Promise
     isMine: row.authorId === viewerId,
     photos: row.photos.map((p) => ({ id: p.id, url: signed.urls.get(p.storagePath)!, width: p.width, height: p.height })),
     photosExpireAt: row.photos.length > 0 ? signed.expiresAt : null,
+    reactions: reactions.get(row.id) ?? [],
   }))
 }
 
@@ -75,6 +82,23 @@ export async function canViewPostsBy(viewerId: string, author: { id: string; pro
   if (await isBlockedEitherWay(viewerId, author.id)) return false
   if (author.profileVisibility === 'PUBLIC') return true
   return isFollowing(viewerId, author.id)
+}
+
+/**
+ * The post, if `viewerId` may see it; otherwise 404, the same as a post that
+ * doesn't exist, so a hidden post never reveals itself. The shared gate for
+ * routes that act on a post by id (reactions).
+ * @throws {H3Error} 404
+ */
+export async function requireVisiblePost(postId: string, viewerId: string): Promise<{ id: string; author: { id: string; profileVisibility: ProfileVisibility } }> {
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true, author: { select: { id: true, profileVisibility: true } } },
+  })
+  if (!post || !(await canViewPostsBy(viewerId, post.author))) {
+    throw createError({ statusCode: 404, statusMessage: 'Post not found' })
+  }
+  return post
 }
 
 /**
@@ -161,9 +185,13 @@ export function parsePageQuery(query: Record<string, unknown>): PageQuery {
  * Rows strictly after the cursor in newest-first order. Equal timestamps are
  * tiebroken by id so a page boundary never drops or repeats a post.
  */
-export function pageWhere(before: PageQuery['before']): Prisma.PostWhereInput {
+// Model-agnostic: any table with `createdAt` + `id` (posts, reactions) pages
+// the same way, so these are typed structurally rather than against one model.
+type PageWhere = { OR?: ({ createdAt: { lt: Date } } | { createdAt: Date; id: { lt: string } })[] }
+
+export function pageWhere(before: PageQuery['before']): PageWhere {
   if (!before) return {}
   return { OR: [{ createdAt: { lt: before.createdAt } }, { createdAt: before.createdAt, id: { lt: before.id } }] }
 }
 
-export const newestFirst = [{ createdAt: 'desc' }, { id: 'desc' }] satisfies Prisma.PostOrderByWithRelationInput[]
+export const newestFirst: [{ createdAt: 'desc' }, { id: 'desc' }] = [{ createdAt: 'desc' }, { id: 'desc' }]
