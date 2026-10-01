@@ -146,9 +146,9 @@ gets a new, simpler spec after `follows`.
 - [x] Precondition: 0 `Friendship` / 0 `Post` rows; no code references
 - [x] Schema change + guarded drop migration `20260930160000_drop_friendships`
 - [x] verify-app
-- [ ] PR opened
-- [ ] **Apply** — go-ahead given on merge (2026-09-30), but the session's permission check blocked `migrate deploy`; needs to be run by the user
-- [ ] Post-apply: status, drift, objects gone, production smoke
+- [x] PR opened (#137, merged)
+- [x] Applied 2026-09-30 at the user's explicit request (after the first attempt was blocked by the permission check)
+- [x] Post-apply: status up to date, no drift, all four objects gone (`Follow` intact), production health 200 + social routes 401
 
 ## PR 8 — `post-photos` (branch `feat/social-post-photos`; #137 merged, now on main)
 
@@ -170,7 +170,7 @@ gets a new, simpler spec after `follows`.
 
 ### Checkpoint: post-photos
 - [x] verify-app passes (sharp externalized + traced; lockfile has linux-x64)
-- [ ] PR opened
+- [x] PR opened (#138)
 - [ ] Bucket created · migration applied · Vercel preview real-photo check
 
 ## Later PRs (spec written when reached)
