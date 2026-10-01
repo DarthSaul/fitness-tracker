@@ -15,7 +15,6 @@ export const postSelect = {
   id: true,
   authorId: true,
   body: true,
-  // Post.visibility is deprecated (privacy is per profile) and deliberately unread.
   createdAt: true,
   editedAt: true,
   author: { select: publicUserSelect },
