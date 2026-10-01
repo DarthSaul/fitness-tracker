@@ -94,7 +94,43 @@ Commands: `npx vitest run <paths>` · `npx nuxi typecheck` · `npx nuxt build`.
 - [x] pushed to PR #134
 - [x] migration applied (2026-09-30, via session pooler)
 
+## ⚠️ Pivot (2026-09-30): friends → follows
+
+PR 3 (`friendships`) is superseded and PR 4 (`posts`) is reworked; see
+`docs/social/SPEC-follows.md`. The old feed draft was discarded, and `feed`
+gets a new, simpler spec after `follows`.
+
+## PR 5 — `follows` (branch `feat/social-follows`) — breaking, `feat!`
+
+- [x] Spec approved (`docs/social/SPEC-follows.md`)
+- [x] **W1: schema + migration** (S): enums, `User.profileVisibility` (default
+  PRIVATE), `Follow` + CHECK; `@deprecated` markers on the friend/visibility
+  objects; mocks. Not applied.
+- [x] **W2: helpers** (S): `user-pair.ts` (move `orderedPair`, `withPairLock`),
+  `follows.ts` (`isFollowing`, `followStatesWith`, `followingIdsOf`).
+- [x] **W3: `/api/following` + `/api/followers` routes** (M): follow (lock +
+  block check, PUBLIC→accepted / PRIVATE→pending, idempotent, rate limit),
+  unfollow/cancel, lists, remove follower.
+- [x] **W4: `/api/follow-requests` routes** (M): list, accept (lock, guarded),
+  decline/cancel.
+- [x] **W5: profile privacy** (S): `PATCH /api/auth/me` optional fields +
+  `profileVisibility`; going public auto-accepts in one transaction; `GET` returns it.
+- [x] **W6: posts rework** (M): `canViewPostsBy`; payload drops `visibility`;
+  body-only create/edit; profile posts 403 `profile_private`.
+- [x] **W7: shipped-module changes** (M): block deletes follows both ways;
+  search/profile `Relationship` + counts; `PublicUser.profileVisibility`.
+- [x] **W8: remove friends** (M): delete `/api/friend-requests*`, `/api/friends*`,
+  `friends.ts` + tests; grep finds no friend references outside deprecated schema.
+- [x] **W9: contract rewrite + auth guard cases + verify-app full suite**
+
+### Checkpoint: follows
+- [x] verify-app passes
+- [x] migration applied (2026-09-30, via session pooler; FOR SHARE probe passed)
+- [ ] PR opened
+
+## PR 6 — `feed` (spec after follows)
+## PR 7 — `friendships-removal` (contract; only after PR 5 is live in production)
+
 ## Later PRs (spec written when reached)
 
-- [ ] `feed` · [ ] `post-photos` ·
-      [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`
+- [ ] `post-photos` · [ ] `reactions` · [ ] `workout-shares` · [ ] `reports`

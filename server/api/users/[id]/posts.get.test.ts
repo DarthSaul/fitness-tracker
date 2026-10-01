@@ -7,7 +7,7 @@ const mockGetQuery = getQuery as ReturnType<typeof vi.fn>
 const mockFindUser = prisma.user.findUnique as ReturnType<typeof vi.fn>
 const mockFindPosts = prisma.post.findMany as ReturnType<typeof vi.fn>
 const mockIsBlocked = isBlockedEitherWay as ReturnType<typeof vi.fn>
-const mockAreFriends = areFriends as ReturnType<typeof vi.fn>
+const mockIsFollowing = isFollowing as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string } }
 type Result = { posts: { id: string; isMine: boolean }[] }
@@ -15,7 +15,7 @@ type Result = { posts: { id: string; isMine: boolean }[] }
 const ME = 'ca'
 const THEM = 'cz'
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
-const zed = { id: THEM, name: 'Zed', avatarUrl: null }
+const zed = { id: THEM, name: 'Zed', avatarUrl: null, profileVisibility: 'PRIVATE' }
 const newestFirst = [{ createdAt: 'desc' }, { id: 'desc' }]
 
 function call(userId = THEM, query: Record<string, unknown> = {}) {
@@ -27,58 +27,62 @@ function call(userId = THEM, query: Record<string, unknown> = {}) {
 describe('GET /api/users/:id/posts', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockFindUser.mockResolvedValue({ id: THEM })
+    mockFindUser.mockResolvedValue({ id: THEM, profileVisibility: 'PUBLIC' })
     mockIsBlocked.mockResolvedValue(false)
-    mockAreFriends.mockResolvedValue(false)
+    mockIsFollowing.mockResolvedValue(false)
     mockFindPosts.mockResolvedValue([])
   })
 
-  test('a stranger sees only PUBLIC posts, newest first, default page of 20', async () => {
+  test('a PUBLIC profile: anyone not blocked sees all their posts, newest first, default page of 20', async () => {
     mockFindPosts.mockResolvedValueOnce([
-      { id: 'p1', authorId: THEM, body: 'Hi', visibility: 'PUBLIC', createdAt, editedAt: null, author: zed },
+      { id: 'p1', authorId: THEM, body: 'Hi', createdAt, editedAt: null, author: zed },
     ])
 
     const result = await call()
 
+    expect(mockFindUser).toHaveBeenCalledWith({ where: { id: THEM }, select: { id: true, profileVisibility: true } })
     expect(mockFindPosts).toHaveBeenCalledWith({
-      where: { authorId: THEM, visibility: 'PUBLIC' },
+      where: { authorId: THEM },
       orderBy: newestFirst,
       take: 20,
       select: expect.objectContaining({ id: true }),
     })
-    expect(result.posts).toEqual([
-      { id: 'p1', author: zed, body: 'Hi', visibility: 'PUBLIC', createdAt, editedAt: null, isMine: false },
-    ])
+    expect(mockIsFollowing).not.toHaveBeenCalled()
+    expect(result.posts).toEqual([{ id: 'p1', author: zed, body: 'Hi', createdAt, editedAt: null, isMine: false }])
   })
 
-  test('a friend sees PUBLIC and FRIENDS posts', async () => {
-    mockAreFriends.mockResolvedValueOnce(true)
+  test('a PRIVATE profile: an accepted follower sees their posts', async () => {
+    mockFindUser.mockResolvedValueOnce({ id: THEM, profileVisibility: 'PRIVATE' })
+    mockIsFollowing.mockResolvedValueOnce(true)
 
     await call()
 
-    expect(mockAreFriends).toHaveBeenCalledWith(ME, THEM)
-    expect(mockFindPosts.mock.calls[0]![0].where).toEqual({ authorId: THEM })
+    expect(mockIsFollowing).toHaveBeenCalledWith(ME, THEM)
+    expect(mockFindPosts).toHaveBeenCalled()
   })
 
-  test('the caller sees all of their own posts, without block or friend lookups', async () => {
-    mockFindUser.mockResolvedValueOnce({ id: ME })
+  test("a PRIVATE profile: anyone else gets 403 profile_private (the profile itself shows it's private)", async () => {
+    mockFindUser.mockResolvedValueOnce({ id: THEM, profileVisibility: 'PRIVATE' })
+
+    await expect(call()).rejects.toMatchObject({ statusCode: 403, data: { code: 'profile_private' } })
+    expect(mockFindPosts).not.toHaveBeenCalled()
+  })
+
+  test('the caller sees their own posts, private or not, without block or follow lookups', async () => {
+    mockFindUser.mockResolvedValueOnce({ id: ME, profileVisibility: 'PRIVATE' })
 
     await call(ME)
 
     expect(mockFindPosts.mock.calls[0]![0].where).toEqual({ authorId: ME })
     expect(mockIsBlocked).not.toHaveBeenCalled()
-    expect(mockAreFriends).not.toHaveBeenCalled()
+    expect(mockIsFollowing).not.toHaveBeenCalled()
   })
 
   test('pages past the cursor with the id tiebreak and the requested limit', async () => {
     await call(THEM, { limit: '5', before: '2026-09-30T12:00:00.000Z', beforeId: 'p9' })
 
     expect(mockFindPosts).toHaveBeenCalledWith(expect.objectContaining({
-      where: {
-        authorId: THEM,
-        visibility: 'PUBLIC',
-        OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: 'p9' } }],
-      },
+      where: { authorId: THEM, OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: 'p9' } }] },
       take: 5,
     }))
   })
@@ -89,7 +93,7 @@ describe('GET /api/users/:id/posts', () => {
     expect(mockFindPosts).not.toHaveBeenCalled()
   })
 
-  test('404 — identical to not-found — when a block exists either way', async () => {
+  test('404 — identical to not-found, never 403 — when a block exists either way', async () => {
     mockIsBlocked.mockResolvedValueOnce(true)
 
     await expect(call()).rejects.toMatchObject({ statusCode: 404, statusMessage: 'User not found' })

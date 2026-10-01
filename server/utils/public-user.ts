@@ -8,6 +8,8 @@ export const publicUserSelect = {
   id: true,
   name: true,
   avatarUrl: true,
+  // Public by definition, and lets any list label its button "Follow" vs "Request".
+  profileVisibility: true,
 } satisfies Prisma.UserSelect
 
 export type PublicUser = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>

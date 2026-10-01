@@ -14,6 +14,7 @@ const mockDbUser = {
   name: 'Test User',
   avatarUrl: null,
   ptRoutineInWorkout: false,
+  profileVisibility: 'PRIVATE' as const,
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User

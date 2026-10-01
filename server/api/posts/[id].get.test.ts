@@ -4,12 +4,12 @@ import handler from './[id].get'
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUnique = prisma.post.findUnique as ReturnType<typeof vi.fn>
-const mockCanView = canViewPost as ReturnType<typeof vi.fn>
+const mockCanView = canViewPostsBy as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string } }
 
 const createdAt = new Date('2026-09-30T12:00:00.000Z')
-const row = { id: 'p1', authorId: 'cz', body: 'Leg day', visibility: 'FRIENDS', createdAt, editedAt: null, author: { id: 'cz', name: 'Zed', avatarUrl: null } }
+const row = { id: 'p1', authorId: 'cz', body: 'Leg day', createdAt, editedAt: null, author: { id: 'cz', name: 'Zed', avatarUrl: null, profileVisibility: 'PRIVATE' } }
 
 function call(id: string | undefined = 'p1') {
   mockGetRouterParam.mockReturnValue(id)
@@ -23,17 +23,17 @@ describe('GET /api/posts/:id', () => {
     mockCanView.mockResolvedValue(true)
   })
 
-  test('returns the post when the visibility rule allows it', async () => {
+  test("returns the post when the author's profile rule allows it", async () => {
     const result = await call()
 
-    expect(mockFindUnique).toHaveBeenCalledWith({ where: { id: 'p1' }, select: expect.objectContaining({ authorId: true, visibility: true }) })
-    expect(mockCanView).toHaveBeenCalledWith('ca', row)
+    expect(mockFindUnique).toHaveBeenCalledWith({ where: { id: 'p1' }, select: expect.objectContaining({ authorId: true, author: expect.anything() }) })
+    expect(mockCanView).toHaveBeenCalledWith('ca', row.author)
     expect(result).toEqual({
-      id: 'p1', author: row.author, body: 'Leg day', visibility: 'FRIENDS', createdAt, editedAt: null, isMine: false,
+      id: 'p1', author: row.author, body: 'Leg day', createdAt, editedAt: null, isMine: false,
     })
   })
 
-  test('404 — identical to not-found — when the rule denies it', async () => {
+  test('404 — identical to not-found — when the rule denies it (a single post never reveals itself)', async () => {
     mockCanView.mockResolvedValueOnce(false)
     await expect(call()).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Post not found' })
   })

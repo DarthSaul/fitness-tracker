@@ -6,7 +6,7 @@ const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockFindUser = prisma.user.findUnique as ReturnType<typeof vi.fn>
 const mockFindBlock = prisma.userBlock.findUnique as ReturnType<typeof vi.fn>
 const mockCreateBlock = prisma.userBlock.create as ReturnType<typeof vi.fn>
-const mockDeleteFriendships = prisma.friendship.deleteMany as ReturnType<typeof vi.fn>
+const mockDeleteFollows = prisma.follow.deleteMany as ReturnType<typeof vi.fn>
 const mockWithPairLock = withPairLock as ReturnType<typeof vi.fn>
 
 // Tracks whether code is running inside the pair lock, so tests can assert
@@ -30,7 +30,7 @@ describe('POST /api/blocks', () => {
     mockReadBody.mockResolvedValue({ userId: 'bob' })
     mockFindUser.mockResolvedValue({ id: 'bob' })
     mockFindBlock.mockResolvedValue(null)
-    mockDeleteFriendships.mockResolvedValue({ count: 0 })
+    mockDeleteFollows.mockResolvedValue({ count: 0 })
     mockWithPairLock.mockImplementation(async (_a: string, _b: string, fn: (tx: unknown) => unknown) => {
       inLock = true
       try { return await fn(prisma) } finally { inLock = false }
@@ -51,30 +51,37 @@ describe('POST /api/blocks', () => {
     expect(result).toEqual({ userId: 'bob', blockedAt })
   })
 
-  test('severs any friendship or pending request between the pair', async () => {
+  test('removes follows and requests in both directions between the pair', async () => {
     mockCreateBlock.mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
 
     await call(makeEvent())
 
-    // 'alice' < 'bob', so alice is the low id; no status filter — pending and accepted both go.
-    expect(mockDeleteFriendships).toHaveBeenCalledWith({ where: { userLowId: 'alice', userHighId: 'bob' } })
+    // No status filter: accepted follows and pending requests both go, both ways.
+    expect(mockDeleteFollows).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { followerId: 'alice', followeeId: 'bob' },
+          { followerId: 'bob', followeeId: 'alice' },
+        ],
+      },
+    })
   })
 
-  // Regression (PR #133 review): a friend request that passed its block check
-  // could be written after this route's cleanup, leaving a pending request —
-  // acceptable by the blocker — alongside the block. Both routes now serialize
-  // on the same pair lock, so the existence check, the block and the cleanup
-  // must all run inside it.
-  test('checks, blocks and severs the friendship while holding the pair lock', async () => {
+  // Regression (PR #133 review, carried into follows): a follow request that
+  // passed its block check could be written after this route's cleanup, leaving
+  // a pending request — acceptable by the blocker — alongside the block. Both
+  // routes serialize on the same pair lock, so the existence check, the block
+  // and the cleanup must all run inside it.
+  test('checks, blocks and removes the follows while holding the pair lock', async () => {
     const calls: string[] = []
     mockFindBlock.mockImplementationOnce(async () => { underLock('findBlock', calls)(); return null })
     mockCreateBlock.mockImplementationOnce(async () => { underLock('create', calls)(); return { blockedId: 'bob', createdAt: blockedAt } })
-    mockDeleteFriendships.mockImplementationOnce(async () => { underLock('deleteFriendships', calls)(); return { count: 1 } })
+    mockDeleteFollows.mockImplementationOnce(async () => { underLock('deleteFollows', calls)(); return { count: 1 } })
 
     await call(makeEvent())
 
     expect(mockWithPairLock).toHaveBeenCalledWith('alice', 'bob', expect.any(Function))
-    expect(calls).toEqual(['findBlock:locked', 'create:locked', 'deleteFriendships:locked'])
+    expect(calls).toEqual(['findBlock:locked', 'create:locked', 'deleteFollows:locked'])
   })
 
   test('an existing block writes nothing', async () => {
@@ -83,7 +90,7 @@ describe('POST /api/blocks', () => {
     await call(makeEvent())
 
     expect(mockCreateBlock).not.toHaveBeenCalled()
-    expect(mockDeleteFriendships).not.toHaveBeenCalled()
+    expect(mockDeleteFollows).not.toHaveBeenCalled()
   })
 
   test('takes the blocker from the session, never the body', async () => {

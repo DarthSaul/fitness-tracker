@@ -3,7 +3,9 @@
  *
  * Coverage strategy:
  *  - Happy path: updates ptRoutineInWorkout and returns the profile shape
- *  - Validation: 400 for non-object body, missing field, non-boolean value
+ *  - Validation: 400 for non-object body, no recognised field, bad values
+ *  - Profile privacy: profileVisibility updates; going public accepts pending
+ *    follow requests in the same transaction, after the user row update
  *  - Not found: throws 404 when the user record is missing
  *  - Error propagation: throws 500 on unexpected error
  *  - H3 error pass-through: re-throws H3 errors without wrapping as 500
@@ -16,6 +18,10 @@ const mockFindUniqueUser = (prisma as typeof prisma).user.findUnique as ReturnTy
 const mockUpdateUser = (prisma as typeof prisma).user.update as ReturnType<typeof vi.fn>
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
+const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
+const mockUpdateManyFollows = (prisma as typeof prisma).follow.updateMany as ReturnType<typeof vi.fn>
+
+const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true }
 
 function makeEvent(body: unknown = { ptRoutineInWorkout: true }) {
   mockReadBody.mockResolvedValue(body)
@@ -31,6 +37,7 @@ const mockUpdatedUser = {
   name: 'Jane Appleseed',
   avatarUrl: null,
   ptRoutineInWorkout: true,
+  profileVisibility: 'PRIVATE',
 }
 
 describe('PATCH /api/auth/me', () => {
@@ -42,7 +49,9 @@ describe('PATCH /api/auth/me', () => {
       err.statusMessage = opts.statusMessage
       return err
     })
-    mockFindUniqueUser.mockResolvedValue({ id: 'user001' })
+    mockFindUniqueUser.mockResolvedValue({ id: 'user001', profileVisibility: 'PRIVATE' })
+    mockTransaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma))
+    mockUpdateManyFollows.mockResolvedValue({ count: 0 })
   })
 
   test('updates ptRoutineInWorkout and returns the profile', async () => {
@@ -55,7 +64,7 @@ describe('PATCH /api/auth/me', () => {
     expect(mockUpdateUser).toHaveBeenCalledWith({
       where: { id: 'user001' },
       data: { ptRoutineInWorkout: true },
-      select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true },
+      select: meSelect,
     })
   })
 
@@ -73,15 +82,70 @@ describe('PATCH /api/auth/me', () => {
   test.each([
     ['body is an array', ['nope'], 'Invalid request body'],
     ['body is a string', 'nope', 'Invalid request body'],
-    ['field is missing', {}, 'ptRoutineInWorkout must be provided'],
-    ['body is null', null, 'ptRoutineInWorkout must be provided'],
+    ['no recognised field', {}, 'Provide ptRoutineInWorkout and/or profileVisibility'],
+    ['body is null', null, 'Provide ptRoutineInWorkout and/or profileVisibility'],
     ['value is not a boolean', { ptRoutineInWorkout: 'yes' }, 'ptRoutineInWorkout must be a boolean'],
+    ['profileVisibility is invalid', { profileVisibility: 'FRIENDS' }, 'profileVisibility must be PUBLIC or PRIVATE'],
+    ['profileVisibility is lowercase', { profileVisibility: 'public' }, 'profileVisibility must be PUBLIC or PRIVATE'],
   ])('throws 400 when %s', async (_label, body, statusMessage) => {
     const event = makeEvent(body)
     await expect(
       (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
     ).rejects.toMatchObject({ statusCode: 400, statusMessage })
     expect(mockUpdateUser).not.toHaveBeenCalled()
+  })
+
+  test('updates profileVisibility alone (ptRoutineInWorkout is now optional)', async () => {
+    mockFindUniqueUser.mockResolvedValueOnce({ id: 'user001', profileVisibility: 'PUBLIC' })
+    mockUpdateUser.mockResolvedValueOnce({ ...mockUpdatedUser, profileVisibility: 'PRIVATE' })
+
+    const event = makeEvent({ profileVisibility: 'PRIVATE' })
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockUpdateUser).toHaveBeenCalledWith({
+      where: { id: 'user001' },
+      data: { profileVisibility: 'PRIVATE' },
+      select: meSelect,
+    })
+    // Going private keeps existing followers.
+    expect(mockUpdateManyFollows).not.toHaveBeenCalled()
+  })
+
+  test('going PRIVATE → PUBLIC accepts every pending request, after the user row update, in one transaction', async () => {
+    mockUpdateUser.mockResolvedValueOnce({ ...mockUpdatedUser, profileVisibility: 'PUBLIC' })
+    mockUpdateManyFollows.mockResolvedValueOnce({ count: 3 })
+
+    const event = makeEvent({ profileVisibility: 'PUBLIC' })
+    const result = await (handler as unknown as (e: typeof event) => Promise<{ profileVisibility: string }>)(event)
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockUpdateManyFollows).toHaveBeenCalledWith({
+      where: { followeeId: 'user001', status: 'PENDING' },
+      data: { status: 'ACCEPTED', acceptedAt: expect.any(Date) },
+    })
+    // The user row is updated first: POST /api/following reads it FOR SHARE,
+    // so a request inserted concurrently is either seen as PUBLIC or accepted here.
+    expect(mockUpdateUser.mock.invocationCallOrder[0]!).toBeLessThan(mockUpdateManyFollows.mock.invocationCallOrder[0]!)
+    expect(result.profileVisibility).toBe('PUBLIC')
+  })
+
+  test('staying PUBLIC does not touch follow requests', async () => {
+    mockFindUniqueUser.mockResolvedValueOnce({ id: 'user001', profileVisibility: 'PUBLIC' })
+    mockUpdateUser.mockResolvedValueOnce({ ...mockUpdatedUser, profileVisibility: 'PUBLIC' })
+
+    const event = makeEvent({ profileVisibility: 'PUBLIC' })
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockUpdateManyFollows).not.toHaveBeenCalled()
+  })
+
+  test('updates both fields together', async () => {
+    mockUpdateUser.mockResolvedValueOnce(mockUpdatedUser)
+
+    const event = makeEvent({ ptRoutineInWorkout: false, profileVisibility: 'PRIVATE' })
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(mockUpdateUser.mock.calls[0]![0].data).toEqual({ ptRoutineInWorkout: false, profileVisibility: 'PRIVATE' })
   })
 
   test('throws 404 when user record is missing', async () => {

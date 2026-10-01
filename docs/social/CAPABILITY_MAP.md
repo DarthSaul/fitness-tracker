@@ -1,47 +1,75 @@
 # Capability Map: Social
 
-Friends, posts with photos, emoji reactions, and a friends-only feed. API-only
+Follows, posts with photos, emoji reactions, and a following feed. API-only
 this round (native iOS + web both consume it); web UI is a later initiative.
 
-## Decisions (2026-09-29)
+## Pivot (2026-09-30): friends → follows
 
-- **Visibility:** each post is `PUBLIC` or `FRIENDS`. The feed shows **friends' posts
-  only** (both visibilities). `PUBLIC` posts are additionally visible to anyone on
-  the author's profile / by direct link. No global "discover" feed.
-- **Feed is computed on read** (fan-out-on-read): one indexed join against
-  currently-`ACCEPTED` friendships, keyset-paginated on `(createdAt, id)`. Unfriend
-  → posts vanish next fetch; re-friend → they return, history included. No
-  materialized feed, no backfill/purge jobs.
+The initiative started on mutual **friends** with per-post `PUBLIC`/`FRIENDS`
+visibility (#133, #134). It now uses one-way **follows** with **profile-level**
+privacy, which simplifies both the feed and the post visibility rule. The old
+model is superseded; see [`SPEC-follows.md`](SPEC-follows.md) for the migration
+and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
+
+## Decisions
+
+- **Follows, not friends.**
+  - Following is one-way.
+  - Following a `PUBLIC` profile is accepted instantly.
+  - Following a `PRIVATE` profile creates a request the owner approves.
+- **Privacy is per profile, not per post.**
+  - Every user is `PUBLIC` or `PRIVATE`, and defaults to **`PRIVATE`**.
+  - Going public auto-approves pending requests.
+- **Who can see a user's posts:**
+  - The user themselves can.
+  - Anyone else needs no block in either direction, **and** the profile to be
+    `PUBLIC` or the viewer to be an accepted follower.
+- **Feed** is your own posts plus those of everyone you follow (accepted),
+  newest first.
+  - It's computed on read, keyset-paginated like `GET /api/history`.
+  - Unfollowing removes their posts from the next fetch; re-following
+    restores them.
+  - There's no global "discover" feed.
+- **Lists:** every profile shows follower and following counts. Only your own
+  followers and following can be listed.
 - **Ownership:** only the author edits or deletes a post. Anyone who can see a
   post can react to it.
-- **Reactions:** many distinct emojis per user per post (Slack-style), unique on
-  `(postId, userId, emoji)`.
-- **Photos:** private Storage bucket, object keys in the DB, 15-minute signed URLs
-  per read (the `exercise-media` pattern). EXIF/GPS stripped server-side with
-  `sharp` before upload.
+- **Reactions:** many distinct emojis per user per post (Slack-style), unique
+  on `(postId, userId, emoji)`.
+- **Photos:**
+  - Stored in a private Storage bucket; the DB holds object keys.
+  - Every read gets 15-minute signed URLs (the `exercise-media` pattern).
+  - EXIF/GPS is stripped server-side with `sharp` before upload.
 - **Safety:** block + report ship in this initiative (App Store Guideline 1.2).
-  A block severs any friendship and hides each user's content from the other.
+  A block removes follows in both directions and hides each user from the
+  other.
+- **Concurrency:** block creation and every write that creates or advances a
+  follow hold `withPairLock`, so "blocked" and "following / requested" can't
+  both be true.
 - **Auth:** all routes live under `/api/` outside the public prefixes, so the
-  existing dual-auth guard (`server/middleware/auth.ts`) covers them; routes add
-  ownership/visibility checks on top.
-- **Migrations:** new tables only (additive — safe against the shared DB).
+  existing dual-auth guard (`server/middleware/auth.ts`) covers them; routes
+  add ownership/visibility checks on top.
+- **Migrations:** additive first; drops ship alone after the code that stopped
+  using them is live (expand/contract, since production shares the database).
   `DELETE /api/auth/me` must cascade every new row and remove the user's photos.
 
 ## Modules
 
-| Module id | Responsibility | Depends on |
-|---|---|---|
-| `user-discovery` | Search users; minimal public profile (name, avatar, relationship status) | `blocking` |
-| `blocking` | Block / unblock / list blocked; the `isBlockedEitherWay` check every other module uses | — |
-| `friendships` | Request, accept, decline, cancel, remove; list friends + incoming/outgoing requests | `user-discovery`, `blocking` |
-| `posts` | Create / edit / delete own posts; visibility; get one post; a user's profile posts | `friendships`, `blocking` |
-| `feed` | `GET /api/feed` — friends' posts, cursor-paginated | `posts`, `friendships` |
-| `post-photos` | Attach ≤4 photos per post; EXIF strip; private bucket + signed URLs | `posts` |
-| `reactions` | Add / remove emoji reactions; per-emoji counts + "mine" on every post payload | `posts` |
-| `workout-shares` | A post may reference one of the author's `COMPLETED` sessions (program or standalone). Rendered as text only — "Saul completed a workout from Arm Farm 2", or "Saul completed a workout" for a standalone — never the session's sets or data | `posts` |
-| `reports` | Report a post or user with a reason; stored for moderation (no admin UI yet) | `posts`, `user-discovery` |
+| Module id | Status | Responsibility | Depends on |
+|---|---|---|---|
+| `blocking` | ✅ #131 | Block / unblock / list; `isBlockedEitherWay` | — |
+| `user-discovery` | ✅ #132 | Search users; public profile | `blocking` |
+| ~~`friendships`~~ | ⛔ #133, superseded | Mutual friends; replaced by `follows` | — |
+| `posts` | ✅ #134, reworked by `follows` | Create / edit / delete own posts; a user's posts | `follows`, `blocking` |
+| `follows` | ⏭ next | Follow / unfollow, requests, followers; profile visibility; the post visibility rule; removes friends | `user-discovery`, `blocking` |
+| `feed` | ⏳ | `GET /api/feed`: own + followed users' posts | `follows`, `posts` |
+| `friendships-removal` | ⏳ after `follows` is live | Drop `Friendship`, `FriendshipStatus`, `Post.visibility`, `PostVisibility` | `follows` deployed |
+| `post-photos` | ⏳ | ≤4 photos per post; EXIF strip; private bucket + signed URLs | `posts` |
+| `reactions` | ⏳ | Emoji reactions; counts + "mine" on every post | `posts` |
+| `workout-shares` | ⏳ | A post may reference one of the author's `COMPLETED` sessions, rendered as text only, e.g. "Saul completed a workout from Arm Farm 2" (or "Saul completed a workout" for a standalone). Never the session's sets or data. | `posts` |
+| `reports` | ⏳ | Report a post or user; stored for moderation | `posts`, `user-discovery` |
 
-Build order: `blocking` → `user-discovery` → `friendships` → `posts` → `feed` →
+Build order: `follows` → `feed` → `friendships-removal` (own deploy) →
 `post-photos`, `reactions`, `workout-shares`, `reports`
 
 Each module gets `docs/social/SPEC-<module-id>.md` and ships as its own PR.
@@ -51,9 +79,11 @@ Each module gets `docs/social/SPEC-<module-id>.md` and ships as its own PR.
 | Resource | Routes |
 |---|---|
 | Users | `GET /api/users/search?q=` · `GET /api/users/:id` · `GET /api/users/:id/posts` |
+| Profile privacy | `PATCH /api/auth/me` `{ profileVisibility }` |
 | Blocks | `GET /api/blocks` · `POST /api/blocks` `{ userId }` · `DELETE /api/blocks/:userId` |
-| Friend requests | `GET /api/friend-requests?direction=incoming\|outgoing` · `POST /api/friend-requests` `{ userId }` · `POST /api/friend-requests/:id/accept` · `DELETE /api/friend-requests/:id` (decline or cancel) |
-| Friends | `GET /api/friends` · `DELETE /api/friends/:userId` |
+| Following | `GET /api/following` · `POST /api/following` `{ userId }` · `DELETE /api/following/:userId` (unfollow or cancel) |
+| Followers | `GET /api/followers` · `DELETE /api/followers/:userId` (remove a follower) |
+| Follow requests | `GET /api/follow-requests?direction=incoming\|outgoing` · `POST /api/follow-requests/:id/accept` · `DELETE /api/follow-requests/:id` (decline or cancel) |
 | Posts | `POST /api/posts` · `GET\|PATCH\|DELETE /api/posts/:id` |
 | Feed | `GET /api/feed?limit=&before=&beforeId=` (same pagination as `GET /api/history`) |
 | Reactions | `PUT\|DELETE /api/posts/:id/reactions/:emoji` (URL-encoded) |
@@ -77,7 +107,7 @@ Each module gets `docs/social/SPEC-<module-id>.md` and ships as its own PR.
 - **Testing:** TDD — failing Vitest unit test first, per route, covering
   happy path, validation 400s, 404s, ownership/visibility, block hiding, and
   the 500 path. Prisma is mocked.
-- **Boundaries.** *Always:* additive migrations, `onDelete: Cascade` from
+- **Boundaries.** *Always:* additive migrations (drops only in their own later deploy), `onDelete: Cascade` from
   `User` on every new table, ownership checks in the route. *Ask first:* any
   change to existing tables/routes beyond the ones a spec names, any new
   dependency other than `sharp`. *Never:* expose another user's email or

@@ -182,8 +182,8 @@ describe('server/middleware/auth', () => {
   describe('social routes are protected', () => {
     test.each([
       '/api/users/search?q=bo', '/api/users/clusr001', '/api/blocks', '/api/blocks/clusr001',
-      '/api/friend-requests', '/api/friend-requests/clfr001', '/api/friend-requests/clfr001/accept',
-      '/api/friends', '/api/friends/clusr001',
+      '/api/following', '/api/following/clusr001', '/api/followers', '/api/followers/clusr001',
+      '/api/follow-requests', '/api/follow-requests/clfr001', '/api/follow-requests/clfr001/accept',
       '/api/posts', '/api/posts/clpost001', '/api/users/clusr001/posts',
     ])(
       '401 for unauthenticated %s',

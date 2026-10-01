@@ -1,22 +1,21 @@
-import type { Prisma, PostVisibility } from '@prisma/client'
+import type { Prisma, ProfileVisibility } from '@prisma/client'
 
 // Explicit (not auto-imported): postSelect reads it at module load.
 import { publicUserSelect, type PublicUser } from './public-user'
 
 /**
  * Post helpers shared by every social route that reads or writes posts
- * (docs/social/SPEC-posts.md). `canViewPost` is the only implementation of the
- * visibility rule; `toPost` the only builder of the payload.
+ * (docs/social/SPEC-posts.md, SPEC-follows.md). `canViewPostsBy` is the only
+ * implementation of the visibility rule; `toPost` the only builder of the payload.
  */
 
 export const POST_BODY_MAX = 2000
-const VISIBILITIES: readonly PostVisibility[] = ['PUBLIC', 'FRIENDS']
 
 export const postSelect = {
   id: true,
   authorId: true,
   body: true,
-  visibility: true,
+  // Post.visibility is deprecated (privacy is per profile) and deliberately unread.
   createdAt: true,
   editedAt: true,
   author: { select: publicUserSelect },
@@ -28,7 +27,6 @@ export interface PostPayload {
   id: string
   author: PublicUser
   body: string
-  visibility: PostVisibility
   createdAt: Date
   editedAt: Date | null
   isMine: boolean
@@ -39,7 +37,6 @@ export function toPost(row: PostRow, viewerId: string): PostPayload {
     id: row.id,
     author: row.author,
     body: row.body,
-    visibility: row.visibility,
     createdAt: row.createdAt,
     editedAt: row.editedAt,
     isMine: row.authorId === viewerId,
@@ -47,14 +44,16 @@ export function toPost(row: PostRow, viewerId: string): PostPayload {
 }
 
 /**
- * The author always sees their post. Anyone else needs no block in either
- * direction, and the post to be PUBLIC or the two to be friends now.
+ * Whether `viewerId` may see `author`'s posts. The author always may. Anyone
+ * else needs no block in either direction, and the profile to be PUBLIC or an
+ * ACCEPTED follow of it. Read live on every call, so going private, removing a
+ * follower or unfollowing takes effect on the next request.
  */
-export async function canViewPost(viewerId: string, post: { authorId: string; visibility: PostVisibility }): Promise<boolean> {
-  if (post.authorId === viewerId) return true
-  if (await isBlockedEitherWay(viewerId, post.authorId)) return false
-  if (post.visibility === 'PUBLIC') return true
-  return areFriends(viewerId, post.authorId)
+export async function canViewPostsBy(viewerId: string, author: { id: string; profileVisibility: ProfileVisibility }): Promise<boolean> {
+  if (author.id === viewerId) return true
+  if (await isBlockedEitherWay(viewerId, author.id)) return false
+  if (author.profileVisibility === 'PUBLIC') return true
+  return isFollowing(viewerId, author.id)
 }
 
 /** Trimmed body, 1–POST_BODY_MAX characters. @throws {H3Error} 400 */
@@ -64,14 +63,6 @@ export function parsePostBody(raw: unknown): string {
     throw createError({ statusCode: 400, statusMessage: `body must be 1–${POST_BODY_MAX} characters` })
   }
   return body
-}
-
-/** @throws {H3Error} 400 unless `PUBLIC` or `FRIENDS`. */
-export function parseVisibility(raw: unknown): PostVisibility {
-  if (typeof raw !== 'string' || !VISIBILITIES.includes(raw as PostVisibility)) {
-    throw createError({ statusCode: 400, statusMessage: 'visibility must be PUBLIC or FRIENDS' })
-  }
-  return raw as PostVisibility
 }
 
 const DEFAULT_LIMIT = 20

@@ -1,41 +1,46 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
-import { canViewPost, toPost, parsePageQuery, pageWhere, parsePostBody, parseVisibility, postSelect } from './posts'
+import { canViewPostsBy, toPost, parsePageQuery, pageWhere, parsePostBody, postSelect } from './posts'
 
 const mockIsBlocked = isBlockedEitherWay as ReturnType<typeof vi.fn>
-const mockAreFriends = areFriends as ReturnType<typeof vi.fn>
+const mockIsFollowing = isFollowing as ReturnType<typeof vi.fn>
 
-describe('canViewPost — the visibility rule', () => {
+describe('canViewPostsBy — the visibility rule', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsBlocked.mockResolvedValue(false)
-    mockAreFriends.mockResolvedValue(false)
+    mockIsFollowing.mockResolvedValue(false)
   })
 
   test.each([
-    // [label, visibility, blocked, friends, expected]
-    ['a stranger sees a PUBLIC post', 'PUBLIC', false, false, true],
-    ['a stranger does not see a FRIENDS post', 'FRIENDS', false, false, false],
-    ['a friend sees a FRIENDS post', 'FRIENDS', false, true, true],
-    ['a friend sees a PUBLIC post', 'PUBLIC', false, true, true],
-    ['a blocked user does not see a PUBLIC post', 'PUBLIC', true, false, false],
-    ['a blocked user does not see a FRIENDS post, even if a stale friendship existed', 'FRIENDS', true, true, false],
-  ] as const)('%s', async (_label, visibility, blocked, friends, expected) => {
+    // [label, profile, blocked, accepted follower, expected]
+    ['a stranger sees a PUBLIC profile', 'PUBLIC', false, false, true],
+    ['a stranger does not see a PRIVATE profile', 'PRIVATE', false, false, false],
+    ['an accepted follower sees a PRIVATE profile', 'PRIVATE', false, true, true],
+    ['a follower sees a PUBLIC profile', 'PUBLIC', false, true, true],
+    ['a blocked user does not see a PUBLIC profile', 'PUBLIC', true, false, false],
+    ['a blocked user does not see a PRIVATE profile, even with a stale follow', 'PRIVATE', true, true, false],
+  ] as const)('%s', async (_label, profileVisibility, blocked, following, expected) => {
     mockIsBlocked.mockResolvedValue(blocked)
-    mockAreFriends.mockResolvedValue(friends)
+    mockIsFollowing.mockResolvedValue(following)
 
-    expect(await canViewPost('viewer', { authorId: 'author', visibility })).toBe(expected)
+    expect(await canViewPostsBy('viewer', { id: 'author', profileVisibility })).toBe(expected)
   })
 
-  test('the author always sees their own post, without any lookups', async () => {
-    expect(await canViewPost('author', { authorId: 'author', visibility: 'FRIENDS' })).toBe(true)
+  test('a pending request is not enough: isFollowing is the ACCEPTED check', async () => {
+    await canViewPostsBy('viewer', { id: 'author', profileVisibility: 'PRIVATE' })
+    expect(mockIsFollowing).toHaveBeenCalledWith('viewer', 'author')
+  })
+
+  test('the author always sees their own posts, without any lookups', async () => {
+    expect(await canViewPostsBy('author', { id: 'author', profileVisibility: 'PRIVATE' })).toBe(true)
     expect(mockIsBlocked).not.toHaveBeenCalled()
-    expect(mockAreFriends).not.toHaveBeenCalled()
+    expect(mockIsFollowing).not.toHaveBeenCalled()
   })
 
-  test('a PUBLIC post skips the friendship lookup', async () => {
-    await canViewPost('viewer', { authorId: 'author', visibility: 'PUBLIC' })
-    expect(mockAreFriends).not.toHaveBeenCalled()
+  test('a PUBLIC profile skips the follow lookup', async () => {
+    await canViewPostsBy('viewer', { id: 'author', profileVisibility: 'PUBLIC' })
+    expect(mockIsFollowing).not.toHaveBeenCalled()
   })
 })
 
@@ -44,18 +49,16 @@ describe('toPost', () => {
     id: 'p1',
     authorId: 'author',
     body: 'Leg day',
-    visibility: 'FRIENDS' as const,
     createdAt: new Date('2026-09-30T12:00:00.000Z'),
     editedAt: null,
-    author: { id: 'author', name: 'Ada', avatarUrl: null },
+    author: { id: 'author', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' as const },
   }
 
   test('builds the payload without leaking authorId, and flags isMine for the author', () => {
     expect(toPost(row, 'author')).toEqual({
       id: 'p1',
-      author: { id: 'author', name: 'Ada', avatarUrl: null },
+      author: { id: 'author', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' },
       body: 'Leg day',
-      visibility: 'FRIENDS',
       createdAt: row.createdAt,
       editedAt: null,
       isMine: true,
@@ -64,7 +67,11 @@ describe('toPost', () => {
   })
 
   test('postSelect selects the author as a PublicUser only', () => {
-    expect(postSelect.author).toEqual({ select: { id: true, name: true, avatarUrl: true } })
+    expect(postSelect.author).toEqual({ select: { id: true, name: true, avatarUrl: true, profileVisibility: true } })
+  })
+
+  test('postSelect no longer reads the deprecated Post.visibility column', () => {
+    expect(postSelect).not.toHaveProperty('visibility')
   })
 })
 
@@ -80,17 +87,6 @@ describe('parsePostBody', () => {
       expect(() => parsePostBody(raw)).toThrow(expect.objectContaining({ statusCode: 400 }))
     },
   )
-})
-
-describe('parseVisibility', () => {
-  test('accepts PUBLIC and FRIENDS', () => {
-    expect(parseVisibility('PUBLIC')).toBe('PUBLIC')
-    expect(parseVisibility('FRIENDS')).toBe('FRIENDS')
-  })
-
-  test.each([['lowercase', 'public'], ['unknown', 'EVERYONE'], ['not a string', 1], ['null', null]])('400 when %s', (_label, raw) => {
-    expect(() => parseVisibility(raw)).toThrow(expect.objectContaining({ statusCode: 400 }))
-  })
 })
 
 describe('parsePageQuery — same contract as GET /api/history', () => {

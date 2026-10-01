@@ -1,5 +1,10 @@
 # Spec: friendships
 
+> **Superseded (2026-09-30)** by [`SPEC-follows.md`](SPEC-follows.md). Mutual
+> friends were replaced by one-way follows with profile-level privacy. This
+> document records the design shipped in #133, which the `follows` PR removes.
+> Its tables are dropped by `friendships-removal`.
+
 Module of [CAPABILITY_MAP.md](CAPABILITY_MAP.md). Shared commands, structure,
 style, testing and boundaries are defined there.
 

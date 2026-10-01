@@ -6,17 +6,18 @@ const mockGetQuery = getQuery as ReturnType<typeof vi.fn>
 const mockFindMany = prisma.user.findMany as ReturnType<typeof vi.fn>
 const mockBlockedUserIds = blockedUserIds as ReturnType<typeof vi.fn>
 const mockRateLimitByKey = rateLimitByKey as ReturnType<typeof vi.fn>
-const mockRelationshipsWith = relationshipsWith as ReturnType<typeof vi.fn>
+const mockFollowStatesWith = followStatesWith as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string } }
-type Result = { users: ({ id: string; name: string | null; avatarUrl: string | null; relationship: string; requestId?: string })[] }
+type Result = { users: Record<string, unknown>[] }
 
 function call(q: unknown) {
   mockGetQuery.mockReturnValue(q === undefined ? {} : { q })
   return (handler as unknown as (e: Event) => Promise<Result>)({ path: '/api/users/search', context: { userId: 'alice' } })
 }
 
-const publicSelect = { id: true, name: true, avatarUrl: true }
+const publicSelect = { id: true, name: true, avatarUrl: true, profileVisibility: true }
+const none = { isSelf: false, outgoing: 'none', incoming: 'none', incomingRequestId: null }
 
 describe('GET /api/users/search', () => {
   beforeEach(() => {
@@ -24,13 +25,13 @@ describe('GET /api/users/search', () => {
     mockFindMany.mockResolvedValue([])
     mockBlockedUserIds.mockResolvedValue([])
     mockRateLimitByKey.mockResolvedValue(undefined)
-    mockRelationshipsWith.mockResolvedValue(new Map())
+    mockFollowStatesWith.mockResolvedValue(new Map())
   })
 
   test('matches names case-insensitively by substring, capped at 20, public fields only', async () => {
     const users = [{ id: 'bob', name: 'Bob Smith', avatarUrl: null }]
     mockFindMany.mockResolvedValueOnce(users)
-    mockRelationshipsWith.mockResolvedValueOnce(new Map([['bob', { relationship: 'none' }]]))
+    mockFollowStatesWith.mockResolvedValueOnce(new Map([['bob', none]]))
 
     const result = await call('  smi ')
 
@@ -40,26 +41,26 @@ describe('GET /api/users/search', () => {
       take: 20,
       select: publicSelect,
     })
-    expect(result).toEqual({ users: [{ ...users[0], relationship: 'none' }] })
+    expect(result).toEqual({ users: [{ ...users[0], ...none }] })
   })
 
-  test("annotates every result with the caller's relationship in one lookup", async () => {
+  test("annotates every result with the caller's follow state, both directions, in one lookup", async () => {
     mockFindMany.mockResolvedValueOnce([
       { id: 'bob', name: 'Bob', avatarUrl: null },
       { id: 'cat', name: 'Cat', avatarUrl: null },
     ])
-    mockRelationshipsWith.mockResolvedValueOnce(new Map<string, object>([
-      ['bob', { relationship: 'friends' }],
-      ['cat', { relationship: 'request_received', requestId: 'f9' }],
+    mockFollowStatesWith.mockResolvedValueOnce(new Map<string, object>([
+      ['bob', { ...none, outgoing: 'following', incoming: 'following' }],
+      ['cat', { ...none, incoming: 'requested', incomingRequestId: 'f9' }],
     ]))
 
     const result = await call('ca')
 
-    expect(mockRelationshipsWith).toHaveBeenCalledTimes(1)
-    expect(mockRelationshipsWith).toHaveBeenCalledWith('alice', ['bob', 'cat'])
+    expect(mockFollowStatesWith).toHaveBeenCalledTimes(1)
+    expect(mockFollowStatesWith).toHaveBeenCalledWith('alice', ['bob', 'cat'])
     expect(result.users).toEqual([
-      { id: 'bob', name: 'Bob', avatarUrl: null, relationship: 'friends' },
-      { id: 'cat', name: 'Cat', avatarUrl: null, relationship: 'request_received', requestId: 'f9' },
+      { id: 'bob', name: 'Bob', avatarUrl: null, ...none, outgoing: 'following', incoming: 'following' },
+      { id: 'cat', name: 'Cat', avatarUrl: null, ...none, incoming: 'requested', incomingRequestId: 'f9' },
     ])
   })
 

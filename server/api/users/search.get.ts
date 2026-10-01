@@ -5,9 +5,9 @@ defineRouteMeta({
     tags: ['Social'],
     summary: 'Search users',
     description:
-      'Finds users to add as friends. A query containing "@" matches an email exactly (case-insensitive) and never by '
+      'Finds users to follow. A query containing "@" matches an email exactly (case-insensitive) and never by '
       + 'prefix; anything else matches names by substring. Excludes the caller and anyone blocked in either direction. '
-      + 'Returns at most 20 public profiles (never emails), each with the caller\'s `relationship` to them. Rate-limited to 30 requests per minute per user.',
+      + 'Returns at most 20 public profiles (never emails), each with the caller\'s follow state toward them (`outgoing`, `incoming`, `incomingRequestId`). Rate-limited to 30 requests per minute per user.',
     parameters: [{ name: 'q', in: 'query', required: true, schema: { type: 'string' }, description: '2–100 characters after trimming. Contains "@" → exact email match; otherwise a name substring.' }],
     responses: {
       200: { description: 'Matching users' },
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event): Promise<{ users: (PublicUser & 
       select: publicUserSelect,
     })
 
-    const relationships = await relationshipsWith(userId, users.map((u) => u.id))
+    const relationships = await followStatesWith(userId, users.map((u) => u.id))
     return { users: users.map((u) => ({ ...u, ...relationships.get(u.id)! })) }
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
