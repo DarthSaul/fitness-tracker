@@ -2,8 +2,11 @@ import * as Sentry from '@sentry/nuxt'
 
 // Path prefixes that do not require authentication
 const PUBLIC_PREFIXES = ['/api/auth/', '/api/_auth/', '/api/docs', '/_openapi']
-// Exact paths that do not require authentication
-const PUBLIC_EXACT = ['/api/health']
+// Exact paths that do not require authentication. The notifications sweep is
+// machine-to-machine (pg_cron): it verifies its own shared secret, whose Bearer
+// must not be mistaken for a user JWT here. Listed exactly, never as an
+// /api/internal/ prefix, so a future internal route is protected by default.
+const PUBLIC_EXACT = ['/api/health', '/api/internal/notifications/sweep']
 // Exact paths nested under a PUBLIC_PREFIXES entry that still require auth.
 // Listed here so we don't have to slice prefixes into ever-narrower patterns.
 const PROTECTED_EXACT = ['/api/auth/me']

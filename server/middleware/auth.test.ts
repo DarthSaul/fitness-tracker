@@ -68,6 +68,30 @@ describe('server/middleware/auth', () => {
       expect(mockGetUserSession).not.toHaveBeenCalled()
     })
 
+    // The sweep authenticates itself with a shared secret, which the middleware
+    // must not mistake for a user JWT (that would 401 every call).
+    test('lets the notifications sweep through without verifying its Bearer as a user token', async () => {
+      const event = makeEvent('/api/internal/notifications/sweep')
+      await (handler as (e: typeof event) => Promise<void>)(event)
+      // Returns before even reading Authorization, so the secret is never parsed as a JWT.
+      expect(mockGetHeader).not.toHaveBeenCalled()
+      expect(mockVerifyAccessToken).not.toHaveBeenCalled()
+      expect(mockGetUserSession).not.toHaveBeenCalled()
+      expect(event.context.userId).toBeUndefined()
+    })
+
+    // Exact path, not an /api/internal/ prefix: a future internal route that
+    // forgot its own secret check must not be public by default.
+    test('requires auth for any other /api/internal/ route', async () => {
+      mockGetUserSession.mockResolvedValueOnce(null)
+      mockGetHeader.mockReturnValueOnce(null)
+      const event = makeEvent('/api/internal/something-else')
+      await expect(
+        (handler as (e: typeof event) => Promise<void>)(event),
+      ).rejects.toMatchObject({ statusCode: 401 })
+      expect(mockGetUserSession).toHaveBeenCalled()
+    })
+
     test('requires auth for /api/auth/me even though it sits under /api/auth/', async () => {
       // /api/auth/me is listed in PROTECTED_EXACT so the public-prefix carve-out
       // does NOT apply; the middleware must run a session check.

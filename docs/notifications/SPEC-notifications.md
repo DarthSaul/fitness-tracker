@@ -165,7 +165,7 @@ returns `404`.
 | `PATCH /api/notifications/:id` `{ status: 'read' \| 'unread' \| 'dismissed' }` | Changes one notification's status. `read` keeps the first `readAt` and un-dismisses. `dismissed` also marks it read. |
 | `POST /api/notifications/read-all` `{ before? }` | Marks everything up to `before` as read. The cursor stops a notification that arrives mid-tap from being silently read. |
 | `GET\|PATCH /api/notifications/preferences` | `{ push: { [type]: boolean }, timezone, workoutReminderTime: "HH:MM" }`. GET lists every type with its default filled in. PATCH accepts any subset. |
-| `POST /api/internal/notifications/sweep` | **Not user-facing.** Runs scheduled work; needs `Authorization: Bearer $NOTIFICATIONS_CRON_SECRET`, compared in constant time. Kept under `/api/internal/` and allow-listed in the auth middleware. |
+| `POST /api/internal/notifications/sweep` | **Not user-facing.** Runs scheduled work; needs `Authorization: Bearer $NUXT_NOTIFICATIONS_CRON_SECRET`, compared in constant time. Allow-listed in the auth middleware by its exact path. |
 
 Item shape:
 
@@ -234,11 +234,54 @@ by `dedupeKey`.
    - A reminder is skipped if a session for that `(userProgramId, week, day)`
      has already started or completed.
    - It is also skipped if the run is terminal (`completedAt` / `archivedAt`).
-3. **Push retry** of the outbox (§5).
-4. **Retention.** Dismissed notifications are deleted after 30 days, and all
+   - The time zone and date math runs in Postgres. `User.timezone` is checked
+     against `pg_timezone_names` first, so one zone Postgres doesn't recognise
+     can't make `AT TIME ZONE` fail the whole query.
+3. **Stale dismissal.** A `WORKOUT_UNFINISHED` notification whose session is no
+   longer `IN_PROGRESS` is dismissed.
+   - Both complete routes already dismiss it, best-effort, after the
+     completion commits. A failed dismiss never fails the user's completion.
+   - This step is the backstop for anything they miss.
+   - A session can finish between the sweep reading it and writing the
+     reminder. `deliverPush` therefore re-checks the session first: if it's no
+     longer `IN_PROGRESS`, the reminder is dismissed rather than pushed.
+4. **Push retry** of the outbox (§5).
+   - It picks rows aged 2 minutes to 1 hour that are unpushed, unread and
+     undismissed, with fewer than 3 attempts.
+   - Rows under 2 minutes old are left to the triggering request's own
+     `waitUntil` push.
+   - It sends at most 10 pushes at a time, and starts none after 40 s.
+     pg_net gives up at 60 s. Anything not started stays unpushed, so the next
+     retry step picks it up; the summary reports it as `deferred`.
+   - **Each push is claimed before it's sent.** `deliverPush` increments
+     `pushAttempts` with a compare-and-set, and only the caller that wins
+     sends. That way overlapping sweeps, or a sweep racing the request's own
+     push, can't double-send. Counting the attempt up front also caps re-sends
+     after a crash at `maxPushAttempts`.
+5. **Retention.** Dismissed notifications are deleted after 30 days, and all
    notifications after 90 days.
 
+Each run handles at most 200 sessions and 200 scheduled workouts; anything
+beyond that waits for the next run.
+
+**Failure isolation.** Each step catches and logs its own error, and the other
+steps still run. If any step failed, the route answers `500` naming the failed
+steps, which sends it to Sentry.
+
 Each run logs a single `notifications.sweep` line with counts per step.
+
+The route is `POST /api/internal/notifications/sweep`.
+- The auth middleware lists the route as an exact public path. Without that,
+  it would try to verify the cron secret as a user JWT and return 401.
+- It is listed exactly, not as an `/api/internal/` prefix, so any future
+  internal route stays protected by default.
+- The route rate-limits by IP first.
+- It then checks `Authorization: Bearer` against
+  `NUXT_NOTIFICATIONS_CRON_SECRET`, comparing SHA-256 digests in constant time.
+- With no secret configured, it returns the same 401 as a wrong secret, so a
+  caller can't tell whether one is set. It logs an error so an operator can.
+
+Scheduling and secrets are covered in [OPERATIONS.md](OPERATIONS.md).
 
 ## 7. Observability
 

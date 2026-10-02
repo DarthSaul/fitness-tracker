@@ -74,6 +74,36 @@ export const notificationKeys = {
   newFollower: (followerId: string, followeeId: string) => `new_follower:${followerId}:${followeeId}`,
   followAccepted: (followId: string) => `follow_accepted:${followId}`,
   reaction: (postId: string, reactorId: string) => `reaction:${postId}:${reactorId}`,
+  unfinished: (sessionId: string) => `unfinished:${sessionId}`,
+  reminder: (scheduledWorkoutId: string) => `reminder:${scheduledWorkoutId}`,
+}
+
+/**
+ * Writes system notifications (no actor, so no block or self check) in one
+ * insert. Used by the sweep. Returns the dedupeKeys actually created; an
+ * event already recorded is skipped.
+ */
+export async function notifySystem(db: Prisma.TransactionClient, inputs: Omit<NotifyInput, 'actorId'>[]): Promise<string[]> {
+  if (inputs.length === 0) return []
+  const created = await db.notification.createManyAndReturn({
+    data: inputs.map(({ recipientId, type, dedupeKey, target = {}, data = {} }) => ({ recipientId, actorId: null, type, dedupeKey, ...target, data })),
+    skipDuplicates: true,
+    select: { dedupeKey: true },
+  })
+  return created.map((c) => c.dedupeKey)
+}
+
+/**
+ * Dismisses the "finish your workout" reminder once its session is completed.
+ * Scoped to the recipient, so a request naming someone else's session id can
+ * never touch their inbox. Returns a lazy PrismaPromise, so it can join an
+ * array `$transaction`. The sweep dismisses any this misses.
+ */
+export function dismissUnfinishedReminder(recipientId: string, sessionId: string) {
+  return prisma.notification.updateMany({
+    where: { dedupeKey: notificationKeys.unfinished(sessionId), recipientId, dismissedAt: null },
+    data: { dismissedAt: new Date() },
+  })
 }
 
 /**
@@ -231,11 +261,25 @@ export async function deliverPush(dedupeKey: string): Promise<DeliveryOutcome> {
         readAt: true,
         dismissedAt: true,
         pushedAt: true,
+        pushAttempts: true,
         actorId: true,
         actor: { select: { name: true } },
+        workoutSession: { select: { status: true } },
+        standaloneSession: { select: { status: true } },
       },
     })
     if (!n || n.pushedAt || n.readAt || n.dismissedAt) return 'skipped'
+
+    // The sweep reads a session as IN_PROGRESS before writing the reminder; the
+    // user may finish it in between. A finished workout gets no "still working
+    // out?" push, and its reminder is dismissed.
+    if (n.type === 'WORKOUT_UNFINISHED') {
+      const status = n.workoutSession?.status ?? n.standaloneSession?.status
+      if (status !== 'IN_PROGRESS') {
+        await prisma.notification.update({ where: { id: n.id }, data: { dismissedAt: new Date() } })
+        return 'skipped'
+      }
+    }
 
     // notify() checked for a block, but not every trigger holds the user-pair
     // lock a block takes (a reaction locks on user + post), so a block can
@@ -255,6 +299,16 @@ export async function deliverPush(dedupeKey: string): Promise<DeliveryOutcome> {
       return 'skipped'
     }
 
+    // Claim this attempt before sending: a compare-and-set on pushAttempts, so
+    // of two concurrent deliveries (overlapping sweeps, or a sweep racing the
+    // request's own waitUntil) only one sends. Counting it up front also means
+    // a crash after sending still uses up an attempt, capping re-sends.
+    const { count: claimed } = await prisma.notification.updateMany({
+      where: { id: n.id, pushedAt: null, pushAttempts: n.pushAttempts },
+      data: { pushAttempts: { increment: 1 } },
+    })
+    if (claimed === 0) return 'skipped'
+
     const outcome = await sendPush(n.recipientId, {
       aps: { alert: pushAlert(n.type, n.actor?.name ?? null, n.data), badge: await unreadCount(n.recipientId), sound: 'default' },
       notificationId: n.id,
@@ -262,10 +316,10 @@ export async function deliverPush(dedupeKey: string): Promise<DeliveryOutcome> {
       target: targetOf(n),
     })
 
-    await prisma.notification.update({
-      where: { id: n.id },
-      data: { pushAttempts: { increment: 1 }, ...(outcome !== 'failed' && { pushedAt: new Date() }) },
-    })
+    // A failed push keeps pushedAt null, so the sweep retries it.
+    if (outcome !== 'failed') {
+      await prisma.notification.update({ where: { id: n.id }, data: { pushedAt: new Date() } })
+    }
     logger.info({ notificationId: n.id, type: n.type, outcome }, 'notification.push')
     return outcome
   } catch (err) {

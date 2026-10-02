@@ -523,11 +523,11 @@ One inbox per user, with an APNs push for each item. Spec:
 - Nobody is notified of their own actions.
 - No notification carries another user's workout data (ADR 001).
 
-- [ ] **v1 slice 1** — schema (`Notification`, `NotificationPreference`,
+- [x] **v1 slice 1** (#146) — schema (`Notification`, `NotificationPreference`,
       `User.timezone` / `workoutReminderMinute`), `server/utils/notifications.ts`,
       inbox API (`GET /api/notifications`, `…/unread-count`, `PATCH …/:id`,
       `POST …/read-all`, `GET|PATCH …/preferences`)
-- [ ] **v1 slice 2** — social triggers:
+- [x] **v1 slice 2** (#147) — social triggers:
   - follow request
   - new follower (public profile)
   - request accepted, including requests auto-accepted on going public
@@ -540,11 +540,23 @@ One inbox per user, with an APNs push for each item. Spec:
   - an unfinished-workout reminder 4 h after an `IN_PROGRESS` session
     started, program or standalone, auto-dismissed on complete
   - push retry and retention
+- [ ] **Schedule the `pg_cron` job** once slice 3 is live in production:
+      `docs/notifications/OPERATIONS.md` steps 1–2. The secrets are already
+      set: Vault `notifications_cron_secret` / `notifications_sweep_url`, and
+      Vercel `NUXT_NOTIFICATIONS_CRON_SECRET`, production only.
 
 **Backlog**
 - [ ] New post from someone you follow (fan-out on write is capped. Decide
       between per-follower rows and a feed-style query before building it)
 - [ ] Mid-week progress (e.g. "2 of 4 workouts done this week")
+- [ ] Staleness alert for the sweep: page if no `notifications.sweep` log line
+      appears for 30 min. Sentry only sees sweeps that fail, not ones that never
+      run.
+- [ ] Indexes for the sweep's scans once `Notification` grows. Today's queries
+      have no leading index: retry (`pushedAt IS NULL`, `createdAt`), stale
+      dismissal (`type`, `dismissedAt IS NULL`) and retention (`dismissedAt`,
+      `createdAt`). Partial indexes such as `(createdAt) WHERE "pushedAt" IS NULL`
+      would cover them. Fine while the table is small.
 - [ ] iOS wiring: inbox screen, push permission, device registration,
       deep links from `target`, sending `timezone`. Tracked in the app repo;
       check this off when iOS notifications v1 ships.

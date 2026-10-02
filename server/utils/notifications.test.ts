@@ -13,6 +13,8 @@ import {
   notifyEach,
   clearNotificationsBetween,
   notificationKeys,
+  notifySystem,
+  dismissUnfinishedReminder,
 } from './notifications'
 
 const db = prisma as unknown as {
@@ -113,6 +115,8 @@ describe('notificationKeys', () => {
     expect(notificationKeys.newFollower('a', 'b')).toBe('new_follower:a:b')
     expect(notificationKeys.followAccepted('f1')).toBe('follow_accepted:f1')
     expect(notificationKeys.reaction('p1', 'a')).toBe('reaction:p1:a')
+    expect(notificationKeys.unfinished('s1')).toBe('unfinished:s1')
+    expect(notificationKeys.reminder('sw1')).toBe('reminder:sw1')
   })
 })
 
@@ -268,8 +272,11 @@ describe('deliverPush', () => {
     readAt: null,
     dismissedAt: null,
     pushedAt: null,
+    pushAttempts: 0,
     actorId: 'ann',
     actor: { name: 'Ann' },
+    workoutSession: null,
+    standaloneSession: null,
   }
 
   beforeEach(() => {
@@ -280,11 +287,12 @@ describe('deliverPush', () => {
     db.notification.findUnique!.mockResolvedValue(row)
     db.notification.count!.mockResolvedValue(3)
     db.notification.update!.mockResolvedValue({})
+    db.notification.updateMany!.mockResolvedValue({ count: 1 })
     db.notificationPreference.findUnique!.mockResolvedValue(null)
     mockSendPush.mockResolvedValue('sent')
   })
 
-  test('sends the alert with badge and deep-link keys, then stamps pushedAt', async () => {
+  test('claims an attempt, sends the alert with badge and deep-link keys, then stamps pushedAt', async () => {
     await expect(deliverPush('reaction:p1:ann')).resolves.toBe('sent')
 
     expect(mockSendPush).toHaveBeenCalledWith('author', {
@@ -293,29 +301,37 @@ describe('deliverPush', () => {
       type: 'POST_REACTION',
       target: { postId: 'p1' },
     })
-    expect(db.notification.update).toHaveBeenCalledWith({
-      where: { id: 'n1' },
-      data: { pushAttempts: { increment: 1 }, pushedAt: expect.any(Date) },
+    expect(db.notification.updateMany).toHaveBeenCalledWith({
+      where: { id: 'n1', pushedAt: null, pushAttempts: 0 },
+      data: { pushAttempts: { increment: 1 } },
     })
+    expect(db.notification.updateMany!.mock.invocationCallOrder[0]!).toBeLessThan(mockSendPush.mock.invocationCallOrder[0]!)
+    expect(db.notification.update).toHaveBeenCalledWith({ where: { id: 'n1' }, data: { pushedAt: expect.any(Date) } })
     expect(logger.info).toHaveBeenCalledWith(
       { notificationId: 'n1', type: 'POST_REACTION', outcome: 'sent' },
       'notification.push',
     )
   })
 
+  // Regression (slice 3 review): two sweeps, or a sweep and the request's own
+  // waitUntil, could both read pushedAt = null and both send.
+  test('another delivery claimed this attempt first: nothing is sent', async () => {
+    db.notification.updateMany!.mockResolvedValueOnce({ count: 0 })
+    await expect(deliverPush('k')).resolves.toBe('skipped')
+    expect(mockSendPush).not.toHaveBeenCalled()
+  })
+
   test('no device also completes delivery: nothing to retry', async () => {
     mockSendPush.mockResolvedValueOnce('no_device')
     await deliverPush('k')
-    expect(db.notification.update).toHaveBeenCalledWith({
-      where: { id: 'n1' },
-      data: { pushAttempts: { increment: 1 }, pushedAt: expect.any(Date) },
-    })
+    expect(db.notification.update).toHaveBeenCalledWith({ where: { id: 'n1' }, data: { pushedAt: expect.any(Date) } })
   })
 
-  test('a failed push counts the attempt but leaves pushedAt null for the sweep to retry', async () => {
+  test('a failed push keeps its claimed attempt but leaves pushedAt null for the sweep to retry', async () => {
     mockSendPush.mockResolvedValueOnce('failed')
     await expect(deliverPush('k')).resolves.toBe('failed')
-    expect(db.notification.update).toHaveBeenCalledWith({ where: { id: 'n1' }, data: { pushAttempts: { increment: 1 } } })
+    expect(db.notification.updateMany).toHaveBeenCalledTimes(1)
+    expect(db.notification.update).not.toHaveBeenCalled()
   })
 
   test('push disabled for this type: completes without sending', async () => {
@@ -361,6 +377,30 @@ describe('deliverPush', () => {
     expect(mockSendPush).toHaveBeenCalled()
   })
 
+  // Regression (slice 3 review): the sweep can read a session as IN_PROGRESS,
+  // the user completes it, and the reminder is then written and pushed.
+  describe('WORKOUT_UNFINISHED re-checks its session before pushing', () => {
+    const unfinished = { ...row, type: 'WORKOUT_UNFINISHED', actorId: null, actor: null, postId: null, data: {} }
+
+    test.each([
+      ['program session completed', { ...unfinished, workoutSessionId: 's1', workoutSession: { status: 'COMPLETED' } }],
+      ['program session deleted', { ...unfinished, workoutSessionId: null, workoutSession: null }],
+      ['standalone session completed', { ...unfinished, standaloneSessionId: 's2', standaloneSession: { status: 'COMPLETED' } }],
+    ])('%s: dismissed, not pushed', async (_label, found) => {
+      db.notification.findUnique!.mockResolvedValueOnce(found)
+
+      await expect(deliverPush('unfinished:s1')).resolves.toBe('skipped')
+
+      expect(db.notification.update).toHaveBeenCalledWith({ where: { id: 'n1' }, data: { dismissedAt: expect.any(Date) } })
+      expect(mockSendPush).not.toHaveBeenCalled()
+    })
+
+    test('still in progress: pushed', async () => {
+      db.notification.findUnique!.mockResolvedValueOnce({ ...unfinished, workoutSessionId: 's1', workoutSession: { status: 'IN_PROGRESS' } })
+      await expect(deliverPush('unfinished:s1')).resolves.toBe('sent')
+    })
+  })
+
   test('never throws: a database error is logged and reported as failed', async () => {
     const err = new Error('db down')
     db.notification.findUnique!.mockRejectedValueOnce(err)
@@ -392,5 +432,49 @@ describe('pushAfterCommit', () => {
     pushAfterCommit({ waitUntil } as never, null)
     expect(waitUntil).not.toHaveBeenCalled()
     expect(db.notification.findUnique).not.toHaveBeenCalled()
+  })
+})
+
+describe('notifySystem', () => {
+  const tx = { notification: { createManyAndReturn: vi.fn() } }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    tx.notification.createManyAndReturn.mockImplementation(({ data }: { data: { dedupeKey: string }[] }) =>
+      Promise.resolve(data.map(({ dedupeKey }) => ({ dedupeKey }))))
+  })
+
+  test('writes actor-less notifications in one insert, skipping duplicates; returns the keys created', async () => {
+    const keys = await notifySystem(tx as never, [
+      { recipientId: 'u1', type: 'WORKOUT_UNFINISHED', dedupeKey: 'unfinished:s1', target: { workoutSessionId: 's1' } },
+      { recipientId: 'u2', type: 'WORKOUT_REMINDER', dedupeKey: 'reminder:sw1', target: { scheduledWorkoutId: 'sw1' }, data: { programName: 'Arm Farm', weekNumber: 1, dayNumber: 2 } },
+    ])
+
+    expect(keys).toEqual(['unfinished:s1', 'reminder:sw1'])
+    expect(tx.notification.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        { recipientId: 'u1', actorId: null, type: 'WORKOUT_UNFINISHED', dedupeKey: 'unfinished:s1', workoutSessionId: 's1', data: {} },
+        { recipientId: 'u2', actorId: null, type: 'WORKOUT_REMINDER', dedupeKey: 'reminder:sw1', scheduledWorkoutId: 'sw1', data: { programName: 'Arm Farm', weekNumber: 1, dayNumber: 2 } },
+      ],
+      skipDuplicates: true,
+      select: { dedupeKey: true },
+    })
+  })
+
+  test('nothing to write: no insert', async () => {
+    await expect(notifySystem(tx as never, [])).resolves.toEqual([])
+    expect(tx.notification.createManyAndReturn).not.toHaveBeenCalled()
+  })
+})
+
+describe('dismissUnfinishedReminder', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  test('dismisses only the caller\'s reminder for that session, once', () => {
+    dismissUnfinishedReminder('me', 's1')
+    expect(db.notification.updateMany).toHaveBeenCalledWith({
+      where: { dedupeKey: 'unfinished:s1', recipientId: 'me', dismissedAt: null },
+      data: { dismissedAt: expect.any(Date) },
+    })
   })
 })

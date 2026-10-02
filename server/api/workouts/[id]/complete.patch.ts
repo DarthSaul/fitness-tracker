@@ -139,8 +139,16 @@ export default defineEventHandler(async (event) => {
       data: { status: 'COMPLETED', completedAt: completedAtDate },
     })
 
+    // A finished workout no longer needs the "finish your workout" nudge.
+    // Best-effort and after the commit: a failed dismiss must never fail the
+    // completion, and the sweep dismisses any reminder this misses.
+    const dismissReminder = () => dismissUnfinishedReminder(userId, id).catch((err: unknown) => {
+      ;(event.context.logger ?? logger).warn({ err, route: 'PATCH /api/workouts/:id/complete' }, '[PATCH /api/workouts/:id/complete] Failed to dismiss unfinished-workout reminder')
+    })
+
     if (!isAtCurrentPosition) {
       const [updatedSession] = await prisma.$transaction([sessionUpdate])
+      await dismissReminder()
       const { program: _program, ...unchangedUserProgram } = userProgram
       return { session: updatedSession, userProgram: unchangedUserProgram, programCompleted }
     }
@@ -154,6 +162,7 @@ export default defineEventHandler(async (event) => {
           : { currentWeek: nextWeek, currentDay: nextDay },
       }),
     ])
+    await dismissReminder()
 
     return { session: updatedSession, userProgram: updatedUserProgram, programCompleted }
   } catch (error) {

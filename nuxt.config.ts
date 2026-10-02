@@ -99,6 +99,9 @@ export default defineNuxtConfig({
     apnsTeamId: '',
     apnsKeyId: '',
     apnsPrivateKey: '',
+    // Bearer secret pg_cron sends to POST /api/internal/notifications/sweep.
+    // Must match the Supabase Vault secret `notifications_cron_secret`.
+    notificationsCronSecret: '',
     public: {
       // Surfaced on the Settings screen; single source of truth is package.json.
       appVersion: version,

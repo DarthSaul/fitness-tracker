@@ -20,8 +20,21 @@ Clients must ignore unknown `type` values, because new types will be added
 without a version bump.
 
 > Rollout: the four social types are live. `WORKOUT_REMINDER` and
-> `WORKOUT_UNFINISHED` arrive with the scheduled sweep (see the Notifications
-> section of the CLAUDE.md roadmap).
+> `WORKOUT_UNFINISHED` come from a scheduled job that runs every 5 minutes, so
+> they can arrive up to 5 minutes after they fall due.
+
+What the workout types do:
+- **`WORKOUT_UNFINISHED` fires once per session,** 4 hours after a workout
+  started if it's still in progress.
+  - It covers program workouts and Strength on the Go.
+  - Completing the workout dismisses it.
+  - Deep-link to the session through `target`, so the user can finish it and
+    correct its date.
+- **`WORKOUT_REMINDER` fires once per scheduled workout,** on its scheduled
+  date, once the user's local `workoutReminderTime` has passed.
+  - It needs `timezone` in preferences. Without one, no reminder fires.
+  - It's skipped if that program day already has a session, or the program run
+    has ended.
 
 What the social types do:
 - **`FOLLOW_REQUEST` disappears from the list** once the request is accepted,
