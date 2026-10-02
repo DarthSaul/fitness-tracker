@@ -101,6 +101,10 @@ model User {
   username           String?           @unique
   /// Optional profile bio, at most 100 characters (raw CHECK).
   bio                String?
+  /// Profile stats (docs/social/SPEC-profile-stats.md, ADR 001 amendment):
+  /// shown to whoever can see the user's posts; the owner always sees both.
+  showActiveProgram  Boolean           @default(true)
+  showWorkoutCount   Boolean           @default(true)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
@@ -329,6 +333,9 @@ model WorkoutSession {
   workoutExerciseSkips WorkoutExerciseSkip[]
   coreWorkout          CoreWorkout?
   sharedInPost         Post?
+
+  // Serves the profile's completed-workout count (docs/social/SPEC-profile-stats.md).
+  @@index([userId, status])
 }
 
 model CompletedSet {
@@ -539,6 +546,8 @@ model StandaloneWorkoutSession {
 
   @@index([userId])
   @@index([standaloneWorkoutId])
+  // Serves the profile's completed-workout count (docs/social/SPEC-profile-stats.md).
+  @@index([userId, status])
 }
 
 model StandaloneCompletedSet {

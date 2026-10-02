@@ -7,6 +7,7 @@ const mockFindUnique = prisma.user.findUnique as ReturnType<typeof vi.fn>
 const mockCount = prisma.follow.count as ReturnType<typeof vi.fn>
 const mockIsBlocked = isBlockedEitherWay as ReturnType<typeof vi.fn>
 const mockFollowStatesWith = followStatesWith as ReturnType<typeof vi.fn>
+const mockProfileStats = profileStats as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string } }
 type Result = Record<string, unknown>
@@ -16,13 +17,17 @@ function call(id: string | undefined) {
   return (handler as unknown as (e: Event) => Promise<Result>)({ path: `/api/users/${id}`, context: { userId: 'alice' } })
 }
 
-const bob = { id: 'bob', name: 'Bob', avatarUrl: 'https://img/b.png', profileVisibility: 'PRIVATE' }
+// What the profile shows publicly, and the row the route reads (with the two stats settings).
+const bobPublic = { id: 'bob', name: 'Bob', avatarUrl: 'https://img/b.png', profileVisibility: 'PRIVATE' }
+const bob = { ...bobPublic, showActiveProgram: true, showWorkoutCount: false }
+const stats = { activeProgram: { name: 'Arm Farm 2' }, completedWorkoutCount: null }
 const none = { isSelf: false, outgoing: 'none', incoming: 'none', incomingRequestId: null }
 
 describe('GET /api/users/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockFindUnique.mockResolvedValue(bob)
+    mockProfileStats.mockResolvedValue(stats)
     mockIsBlocked.mockResolvedValue(false)
     mockCount.mockResolvedValue(0)
     mockFollowStatesWith.mockImplementation(async (me: string, ids: string[]) =>
@@ -36,11 +41,33 @@ describe('GET /api/users/:id', () => {
 
     expect(mockFindUnique).toHaveBeenCalledWith({
       where: { id: 'bob' },
-      select: { id: true, name: true, avatarUrl: true, profileVisibility: true, username: true, bio: true },
+      select: {
+        id: true, name: true, avatarUrl: true, profileVisibility: true, username: true, bio: true,
+        showActiveProgram: true, showWorkoutCount: true,
+      },
     })
     expect(mockCount).toHaveBeenCalledWith({ where: { followeeId: 'bob', status: 'ACCEPTED' } })
     expect(mockCount).toHaveBeenCalledWith({ where: { followerId: 'bob', status: 'ACCEPTED' } })
-    expect(result).toEqual({ ...bob, ...none, followerCount: 12, followingCount: 3 })
+    expect(result).toEqual({ ...bobPublic, ...none, followerCount: 12, followingCount: 3, ...stats })
+  })
+
+  test('profile stats come from profileStats(owner, viewer), and the settings themselves never leave the route', async () => {
+    const result = await call('bob')
+
+    expect(mockProfileStats).toHaveBeenCalledWith(
+      { id: 'bob', profileVisibility: 'PRIVATE', showActiveProgram: true, showWorkoutCount: false },
+      'alice',
+    )
+    expect(result).not.toHaveProperty('showActiveProgram')
+    expect(result).not.toHaveProperty('showWorkoutCount')
+    expect(result).toMatchObject(stats)
+  })
+
+  test('a blocked or unknown user runs no stats lookup', async () => {
+    mockIsBlocked.mockResolvedValueOnce(true)
+
+    await expect(call('bob')).rejects.toMatchObject({ statusCode: 404 })
+    expect(mockProfileStats).not.toHaveBeenCalled()
   })
 
   test('carries incomingRequestId so their request can be accepted from the profile', async () => {

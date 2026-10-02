@@ -31,7 +31,7 @@ Nothing else about their workouts is ever shown.
 
    Posts and profile stats then follow one visibility rule.
 3. **What "current program" exposes:** only the active program's **name**,
-   from the `UserProgram` row with `isActive`. Program names are public
+   from the `UserProgram` row with `isActive` that is not terminal (`completedAt` and `archivedAt` both null). Program names are public
    library data. It's `null` when nothing is active.
    - **Never shown:** week or day position, progress, the run, dates or
      sessions.

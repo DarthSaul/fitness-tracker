@@ -253,9 +253,23 @@ gets a new, simpler spec after `follows`.
 - [x] verify-app passes
 - [x] PR opened (#144, stacked on #142)
 - [x] Migrations 1 + 2 applied before merge (2026-10-02): status up to date, no drift; both CHECKs + unique index live; all 7 users backfilled with distinct user_NNNNNN names; route queries probed read-only
-- [ ] Merge
+- [x] Merge (#144, squash 9346958, identical to the PR head)
 - [ ] Later PR: migration 3 (re-run backfill, `SET NOT NULL`) once this deploy is live
 
-## PR 13 — `profile-stats` (spec approved 2026-10-02; after `usernames`)
+## PR 13 — `profile-stats` (branch `feat/social-profile-stats`; #144 merged, now on main)
 
-- [ ] Plan tasks when started (`docs/social/SPEC-profile-stats.md`), incl. ADR 001 amendment + CLAUDE.md
+- [x] Spec approved (`docs/social/SPEC-profile-stats.md`), 2026-10-02; owner bypass clarified in #144 review
+- [x] **S1: schema + migration** (S): `showActiveProgram` / `showWorkoutCount` (default true),
+  `(userId, status)` indexes on both session tables. Applied 2026-10-02.
+- [x] **S2: `profileStats(owner, viewerId)`** (S): owner always; others need `canViewPostsBy`
+  **and** the setting; only the program's name + one count; hidden runs no query.
+- [x] **S3: `GET /api/users/:id`** (S): `activeProgram` + `completedWorkoutCount`; the settings
+  themselves never leave the route.
+- [x] **S4: `/api/auth/me` settings** (S): `meSelect` + PATCH booleans.
+- [x] **S5: ADR 001 amendment, CLAUDE.md, contract, capability map, verify-app** (S).
+
+### Checkpoint: profile-stats
+- [x] verify-app passes
+- [x] PR opened (#145)
+- [x] Migration applied before merge (2026-10-02): status up to date, no drift; both (userId, status) indexes live; all 7 users default to showing both stats; route read probed
+- [ ] Merge

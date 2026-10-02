@@ -24,7 +24,7 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockUpdateManyFollows = (prisma as typeof prisma).follow.updateMany as ReturnType<typeof vi.fn>
 
-const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true }
+const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true, showActiveProgram: true, showWorkoutCount: true }
 
 function makeEvent(body: unknown = { ptRoutineInWorkout: true }) {
   mockReadBody.mockResolvedValue(body)
@@ -87,8 +87,8 @@ describe('PATCH /api/auth/me', () => {
   test.each([
     ['body is an array', ['nope'], 'Invalid request body'],
     ['body is a string', 'nope', 'Invalid request body'],
-    ['no recognised field', {}, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio'],
-    ['body is null', null, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio'],
+    ['no recognised field', {}, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount'],
+    ['body is null', null, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount'],
     ['value is not a boolean', { ptRoutineInWorkout: 'yes' }, 'ptRoutineInWorkout must be a boolean'],
     ['profileVisibility is invalid', { profileVisibility: 'FRIENDS' }, 'profileVisibility must be PUBLIC or PRIVATE'],
     ['profileVisibility is lowercase', { profileVisibility: 'public' }, 'profileVisibility must be PUBLIC or PRIVATE'],
@@ -219,6 +219,22 @@ describe('PATCH /api/auth/me', () => {
       const event = makeEvent(body)
       await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 400 })
       expect(mockUpdateUser).not.toHaveBeenCalled()
+    })
+
+    test('the two profile-stats settings take booleans, each on its own', async () => {
+      expect(await update({ showActiveProgram: false })).toEqual({ showActiveProgram: false })
+      mockUpdateUser.mockClear()
+      expect(await update({ showWorkoutCount: true })).toEqual({ showWorkoutCount: true })
+    })
+
+    test.each([
+      ['showActiveProgram', { showActiveProgram: 'no' }],
+      ['showWorkoutCount', { showWorkoutCount: null }],
+    ])('400 for a non-boolean %s, before any write', async (field, body) => {
+      const event = makeEvent(body)
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event))
+        .rejects.toMatchObject({ statusCode: 400, statusMessage: `${field} must be a boolean` })
+      expect(mockTransaction).not.toHaveBeenCalled()
     })
 
     test('username and bio can be sent with the other settings', async () => {

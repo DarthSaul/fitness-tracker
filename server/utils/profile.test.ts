@@ -37,5 +37,6 @@ describe('parseBio', () => {
 test('meSelect is the caller\'s own profile, including email, username and bio', () => {
   expect(meSelect).toEqual({
     id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true,
+    showActiveProgram: true, showWorkoutCount: true,
   })
 })
