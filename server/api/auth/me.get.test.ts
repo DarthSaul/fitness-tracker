@@ -18,6 +18,9 @@ const mockUser = {
   name: 'Jane Appleseed',
   avatarUrl: null,
   ptRoutineInWorkout: false,
+  profileVisibility: 'PRIVATE',
+  username: 'jane_doe',
+  bio: 'Lifting since 2010',
 }
 
 describe('GET /api/auth/me', () => {

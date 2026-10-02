@@ -41,6 +41,8 @@ const mockUpdatedUser = {
   avatarUrl: null,
   ptRoutineInWorkout: true,
   profileVisibility: 'PRIVATE',
+  username: 'jane_doe',
+  bio: null,
 }
 
 describe('PATCH /api/auth/me', () => {
@@ -163,15 +165,20 @@ describe('PATCH /api/auth/me', () => {
   })
 
   describe('username and bio', () => {
-    const update = async (body: unknown) => {
-      mockUpdateUser.mockResolvedValueOnce(mockUpdatedUser)
+    // Sends `body`, asserts the handler returns the updated profile (with
+    // `returned` applied: the row as the database would hand it back), and
+    // returns the data written, for the normalization assertions.
+    const update = async (body: unknown, returned: Record<string, unknown> = {}) => {
+      const row = { ...mockUpdatedUser, ...returned }
+      mockUpdateUser.mockResolvedValueOnce(row)
       const event = makeEvent(body)
-      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+      const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+      expect(result).toEqual(row)
       return mockUpdateUser.mock.calls[0]![0].data
     }
 
     test('a username is normalized before saving: "@SaulG" → "saulg"', async () => {
-      expect(await update({ username: ' @SaulG ' })).toEqual({ username: 'saulg' })
+      expect(await update({ username: ' @SaulG ' }, { username: 'saulg' })).toEqual({ username: 'saulg' })
     })
 
     test.each([
@@ -194,7 +201,7 @@ describe('PATCH /api/auth/me', () => {
     })
 
     test('a bio is trimmed; blank or null clears it', async () => {
-      expect(await update({ bio: '  Lifting since 2010  ' })).toEqual({ bio: 'Lifting since 2010' })
+      expect(await update({ bio: '  Lifting since 2010  ' }, { bio: 'Lifting since 2010' })).toEqual({ bio: 'Lifting since 2010' })
       mockUpdateUser.mockClear()
       expect(await update({ bio: '   ' })).toEqual({ bio: null })
       mockUpdateUser.mockClear()
@@ -215,7 +222,7 @@ describe('PATCH /api/auth/me', () => {
     })
 
     test('username and bio can be sent with the other settings', async () => {
-      expect(await update({ username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' }))
+      expect(await update({ username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' }, { username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' }))
         .toEqual({ username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' })
     })
   })
