@@ -18,9 +18,10 @@ export function parseReminderTime(raw: unknown): number | null {
 }
 
 /**
- * True for an IANA zone this runtime knows, e.g. `America/Chicago`. Fixed UTC
- * offsets (`+05:30`, `-08:00`) are rejected even though Intl accepts them:
- * they carry no DST rules, so local reminder times would drift twice a year.
+ * True for a named IANA zone this runtime knows, e.g. `America/Chicago` or
+ * `Etc/GMT+5`. Raw offset strings (`+05:30`, `-08:00`) are rejected even though
+ * Intl accepts them: a device that sends one has a real zone it could send
+ * instead, and a bare offset would miss that zone's DST changes.
  */
 export function isValidTimeZone(raw: unknown): raw is string {
   if (typeof raw !== 'string' || raw === '') return false

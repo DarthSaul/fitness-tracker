@@ -84,8 +84,8 @@ Body: any subset of the GET shape, with at least one recognised change.
 - an unknown type
 - a value that isn't a boolean
 - a timezone that isn't an IANA zone (send `TimeZone.current.identifier`).
-  Fixed offsets such as `+05:30` are rejected: they have no daylight saving
-  rules
+  Raw offset strings such as `+05:30` or `-08:00` are rejected. Named IANA
+  zones are accepted, including `Etc/GMT±N` (which has no daylight saving)
 - a time that isn't `HH:MM` in 24-hour form
 - no recognised change, e.g. `{}`, `{ "push": {} }`, or only unknown fields
 
