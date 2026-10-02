@@ -14,6 +14,8 @@ import { postPhotoPath, POST_PHOTOS_BUCKET } from './server/utils/post-photo-sto
 import { parseReactionEmoji, REACTION_CAP } from './server/utils/reactions'
 import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, parsePostBody, parsePostContent } from './server/utils/posts'
 import { parseReportInput } from './server/utils/reports'
+import { parseUsername, normalizeUsername, usernameProblem } from './server/utils/usernames'
+import { meSelect, parseBio } from './server/utils/profile'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
@@ -85,7 +87,7 @@ vi.stubGlobal('prisma', {
   $queryRaw: vi.fn(),
   $transaction: vi.fn(),
   $executeRaw: vi.fn(),
-  user: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  user: { upsert: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
   identity: { findUnique: vi.fn(), create: vi.fn() },
   program: { findMany: vi.fn(), findUnique: vi.fn() },
   programDay: { findUnique: vi.fn(), findFirst: vi.fn() },
@@ -153,6 +155,12 @@ vi.stubGlobal('reactionSummaries', vi.fn().mockResolvedValue(new Map()))
 vi.stubGlobal('requireVisiblePost', vi.fn())
 // Reports: the real input parser (it has its own unit tests).
 vi.stubGlobal('parseReportInput', parseReportInput)
+// Usernames and profile: the real pure helpers (each has its own unit tests).
+vi.stubGlobal('parseUsername', parseUsername)
+vi.stubGlobal('normalizeUsername', normalizeUsername)
+vi.stubGlobal('usernameProblem', usernameProblem)
+vi.stubGlobal('meSelect', meSelect)
+vi.stubGlobal('parseBio', parseBio)
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))

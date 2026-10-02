@@ -1,5 +1,9 @@
 import type { User } from '@prisma/client'
 import { prisma } from './prisma'
+import { generateUsername } from './usernames'
+
+/** Fresh generated usernames tried before a sign-up gives up on collisions. */
+const USERNAME_ATTEMPTS = 5
 
 export interface ProviderProfile {
   provider: 'google' | 'apple' | 'email'
@@ -43,39 +47,7 @@ export async function findOrLinkUser(profile: ProviderProfile): Promise<User> {
   }
 
   try {
-    return await prisma.$transaction(async (tx) => {
-      const userByEmail = await tx.user.findUnique({ where: { email: profile.email } })
-      if (userByEmail) {
-        await tx.identity.create({
-          data: {
-            userId: userByEmail.id,
-            provider: profile.provider,
-            providerId: profile.providerId,
-          },
-        })
-        return tx.user.update({
-          where: { id: userByEmail.id },
-          data: {
-            ...(profile.name !== undefined && profile.name !== null && { name: profile.name }),
-            ...(profile.avatarUrl !== undefined && profile.avatarUrl !== null && { avatarUrl: profile.avatarUrl }),
-          },
-        })
-      }
-
-      return tx.user.create({
-        data: {
-          email: profile.email,
-          name: profile.name ?? null,
-          avatarUrl: profile.avatarUrl ?? null,
-          identities: {
-            create: {
-              provider: profile.provider,
-              providerId: profile.providerId,
-            },
-          },
-        },
-      })
-    })
+    return await linkOrCreateUser(profile)
   } catch (error) {
     // Concurrent first-login: another request already created the Identity (or
     // the User by email). One re-resolve via the identity index covers both.
@@ -94,6 +66,60 @@ export async function findOrLinkUser(profile: ProviderProfile): Promise<User> {
     }
     throw error
   }
+}
+
+/**
+ * Links the identity to the User with this email, or creates both. A new User
+ * gets a generated username (docs/social/SPEC-usernames.md); a P2002 on
+ * `username` is a collision with an existing name, not the first-login race,
+ * so it is retried here with fresh digits before anything else sees it.
+ */
+async function linkOrCreateUser(profile: ProviderProfile): Promise<User> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await linkOrCreateOnce(profile)
+    } catch (error) {
+      if (attempt < USERNAME_ATTEMPTS && isP2002(error, 'username')) continue
+      throw error
+    }
+  }
+}
+
+function linkOrCreateOnce(profile: ProviderProfile): Promise<User> {
+  return prisma.$transaction(async (tx) => {
+    const userByEmail = await tx.user.findUnique({ where: { email: profile.email } })
+    if (userByEmail) {
+      await tx.identity.create({
+        data: {
+          userId: userByEmail.id,
+          provider: profile.provider,
+          providerId: profile.providerId,
+        },
+      })
+      return tx.user.update({
+        where: { id: userByEmail.id },
+        data: {
+          ...(profile.name !== undefined && profile.name !== null && { name: profile.name }),
+          ...(profile.avatarUrl !== undefined && profile.avatarUrl !== null && { avatarUrl: profile.avatarUrl }),
+        },
+      })
+    }
+
+    return tx.user.create({
+      data: {
+        email: profile.email,
+        name: profile.name ?? null,
+        avatarUrl: profile.avatarUrl ?? null,
+        username: generateUsername(),
+        identities: {
+          create: {
+            provider: profile.provider,
+            providerId: profile.providerId,
+          },
+        },
+      },
+    })
+  })
 }
 
 /**

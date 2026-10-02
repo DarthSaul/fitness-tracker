@@ -7,7 +7,7 @@ const mockFindMany = prisma.follow.findMany as ReturnType<typeof vi.fn>
 
 type Event = { path: string; context: { userId: string } }
 
-const pub = { select: { id: true, name: true, avatarUrl: true, profileVisibility: true } }
+const pub = { select: { id: true, name: true, avatarUrl: true, profileVisibility: true, username: true } }
 const ann = { id: 'ann', name: 'Ann', avatarUrl: null, profileVisibility: 'PUBLIC' }
 const t1 = new Date('2026-09-30T12:00:00.000Z')
 

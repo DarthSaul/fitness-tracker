@@ -22,7 +22,7 @@ describe('GET /api/followers', () => {
     expect(mockFindMany).toHaveBeenCalledWith({
       where: { followeeId: 'me', status: 'ACCEPTED' },
       orderBy: [{ acceptedAt: 'desc' }, { id: 'desc' }],
-      select: { acceptedAt: true, follower: { select: { id: true, name: true, avatarUrl: true, profileVisibility: true } } },
+      select: { acceptedAt: true, follower: { select: { id: true, name: true, avatarUrl: true, profileVisibility: true, username: true } } },
     })
     expect(result).toEqual({ users: [{ ...bo, since: t1 }] })
   })

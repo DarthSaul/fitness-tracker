@@ -12,6 +12,7 @@
  *  - H3 error pass-through: re-throws H3 errors without wrapping as 500
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { Prisma } from '@prisma/client'
 
 import handler from './me.patch'
 
@@ -23,7 +24,7 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockUpdateManyFollows = (prisma as typeof prisma).follow.updateMany as ReturnType<typeof vi.fn>
 
-const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true }
+const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true }
 
 function makeEvent(body: unknown = { ptRoutineInWorkout: true }) {
   mockReadBody.mockResolvedValue(body)
@@ -84,8 +85,8 @@ describe('PATCH /api/auth/me', () => {
   test.each([
     ['body is an array', ['nope'], 'Invalid request body'],
     ['body is a string', 'nope', 'Invalid request body'],
-    ['no recognised field', {}, 'Provide ptRoutineInWorkout and/or profileVisibility'],
-    ['body is null', null, 'Provide ptRoutineInWorkout and/or profileVisibility'],
+    ['no recognised field', {}, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio'],
+    ['body is null', null, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio'],
     ['value is not a boolean', { ptRoutineInWorkout: 'yes' }, 'ptRoutineInWorkout must be a boolean'],
     ['profileVisibility is invalid', { profileVisibility: 'FRIENDS' }, 'profileVisibility must be PUBLIC or PRIVATE'],
     ['profileVisibility is lowercase', { profileVisibility: 'public' }, 'profileVisibility must be PUBLIC or PRIVATE'],
@@ -159,6 +160,64 @@ describe('PATCH /api/auth/me', () => {
     expect((strings as string[]).join('?')).toMatch(/FROM "User".*FOR UPDATE/s)
     expect(values).toEqual(['user001'])
     expect(mockLockUser.mock.invocationCallOrder[0]!).toBeLessThan(mockUpdateUser.mock.invocationCallOrder[0]!)
+  })
+
+  describe('username and bio', () => {
+    const update = async (body: unknown) => {
+      mockUpdateUser.mockResolvedValueOnce(mockUpdatedUser)
+      const event = makeEvent(body)
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+      return mockUpdateUser.mock.calls[0]![0].data
+    }
+
+    test('a username is normalized before saving: "@SaulG" → "saulg"', async () => {
+      expect(await update({ username: ' @SaulG ' })).toEqual({ username: 'saulg' })
+    })
+
+    test.each([
+      ['invalid', { username: 'sa..ul' }],
+      ['reserved', { username: 'Admin' }],
+      ['not a string', { username: 42 }],
+      ['null (a username is required)', { username: null }],
+    ])('400 for a %s username, before any write', async (_label, body) => {
+      const event = makeEvent(body)
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 400 })
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+
+    test('409 when the username is taken, including a race (P2002 on username)', async () => {
+      mockUpdateUser.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test', meta: { target: ['username'] } }))
+      const event = makeEvent({ username: 'taken_name' })
+
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 409, statusMessage: 'Username taken' })
+      expect(logger.error).not.toHaveBeenCalled()
+    })
+
+    test('a bio is trimmed; blank or null clears it', async () => {
+      expect(await update({ bio: '  Lifting since 2010  ' })).toEqual({ bio: 'Lifting since 2010' })
+      mockUpdateUser.mockClear()
+      expect(await update({ bio: '   ' })).toEqual({ bio: null })
+      mockUpdateUser.mockClear()
+      expect(await update({ bio: null })).toEqual({ bio: null })
+    })
+
+    test('the 100-character bio limit counts characters, not UTF-16 units (matches the DB CHECK)', async () => {
+      expect(await update({ bio: '💪'.repeat(100) })).toEqual({ bio: '💪'.repeat(100) })
+    })
+
+    test.each([
+      ['over 100 characters', { bio: 'x'.repeat(101) }],
+      ['not a string', { bio: 7 }],
+    ])('400 for a bio %s', async (_label, body) => {
+      const event = makeEvent(body)
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 400 })
+      expect(mockUpdateUser).not.toHaveBeenCalled()
+    })
+
+    test('username and bio can be sent with the other settings', async () => {
+      expect(await update({ username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' }))
+        .toEqual({ username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' })
+    })
   })
 
   test('updates both fields together', async () => {

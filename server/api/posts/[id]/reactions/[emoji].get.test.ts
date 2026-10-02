@@ -52,7 +52,7 @@ describe('GET /api/posts/:id/reactions/:emoji — who reacted', () => {
       where: { postId: 'p1', emoji: '👍' },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 20,
-      select: { id: true, createdAt: true, user: { select: { id: true, name: true, avatarUrl: true, profileVisibility: true } } },
+      select: { id: true, createdAt: true, user: { select: { id: true, name: true, avatarUrl: true, profileVisibility: true, username: true } } },
     })
     expect(mockFollowStatesWith).toHaveBeenCalledWith('me', ['ann', 'me'])
     expect(result.users).toEqual([

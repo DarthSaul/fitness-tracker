@@ -36,7 +36,7 @@ describe('GET /api/users/:id', () => {
 
     expect(mockFindUnique).toHaveBeenCalledWith({
       where: { id: 'bob' },
-      select: { id: true, name: true, avatarUrl: true, profileVisibility: true },
+      select: { id: true, name: true, avatarUrl: true, profileVisibility: true, username: true, bio: true },
     })
     expect(mockCount).toHaveBeenCalledWith({ where: { followeeId: 'bob', status: 'ACCEPTED' } })
     expect(mockCount).toHaveBeenCalledWith({ where: { followerId: 'bob', status: 'ACCEPTED' } })

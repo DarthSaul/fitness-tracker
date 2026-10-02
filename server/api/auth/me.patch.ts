@@ -1,19 +1,12 @@
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 
-const meSelect = {
-  id: true,
-  email: true,
-  name: true,
-  avatarUrl: true,
-  ptRoutineInWorkout: true,
-  profileVisibility: true,
-} satisfies Prisma.UserSelect
+const FIELDS = ['ptRoutineInWorkout', 'profileVisibility', 'username', 'bio'] as const
 
 defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
     summary: 'Update current user settings',
-    description: 'Updates the authenticated user\'s profile settings. Send at least one of: `ptRoutineInWorkout` (whether PT routines are shown in the active workout view) and `profileVisibility` (`PUBLIC` or `PRIVATE` — who can see the user\'s posts). Switching from PRIVATE to PUBLIC accepts every pending follow request.',
+    description: 'Updates the authenticated user\'s profile settings. Send at least one of: `ptRoutineInWorkout` (whether PT routines are shown in the active workout view) `profileVisibility` (`PUBLIC` or `PRIVATE` — who can see the user\'s posts), `username` (3–30 of a–z, 0–9, "_" and "."; stored lowercase, a leading "@" dropped; unique) and `bio` (up to 100 characters; blank or null clears it). Switching from PRIVATE to PUBLIC accepts every pending follow request.',
     requestBody: {
       required: true,
       content: {
@@ -23,6 +16,8 @@ defineRouteMeta({
             properties: {
               ptRoutineInWorkout: { type: 'boolean', example: true },
               profileVisibility: { type: 'string', enum: ['PUBLIC', 'PRIVATE'] },
+              username: { type: 'string', example: 'saulg' },
+              bio: { type: 'string', nullable: true, example: 'Lifting since 2010' },
             },
           },
         },
@@ -30,9 +25,10 @@ defineRouteMeta({
     },
     responses: {
       200: { description: 'Updated user profile' },
-      400: { description: 'Missing or invalid fields' },
+      400: { description: 'Missing or invalid fields, or a reserved username' },
       401: { description: 'Unauthorized' },
       404: { description: 'User not found' },
+      409: { description: 'Username taken' },
       500: { description: 'Internal server error' },
     },
   },
@@ -46,10 +42,10 @@ export default defineEventHandler(async (event) => {
     if (typeof rawBody !== 'object' || rawBody === null || Array.isArray(rawBody)) {
       throw createError({ statusCode: 400, statusMessage: 'Invalid request body' })
     }
-    const body = rawBody as { ptRoutineInWorkout?: unknown; profileVisibility?: unknown }
+    const body = rawBody as Partial<Record<(typeof FIELDS)[number], unknown>>
 
-    if (!('ptRoutineInWorkout' in body) && !('profileVisibility' in body)) {
-      throw createError({ statusCode: 400, statusMessage: 'Provide ptRoutineInWorkout and/or profileVisibility' })
+    if (!FIELDS.some((field) => field in body)) {
+      throw createError({ statusCode: 400, statusMessage: `Provide at least one of ${FIELDS.join(', ')}` })
     }
     const data: Prisma.UserUpdateInput = {}
     if ('ptRoutineInWorkout' in body) {
@@ -64,6 +60,9 @@ export default defineEventHandler(async (event) => {
       }
       data.profileVisibility = body.profileVisibility
     }
+    // Every account has a username, so it can be changed but not cleared.
+    if ('username' in body) data.username = parseUsername(body.username)
+    if ('bio' in body) data.bio = parseBio(body.bio)
 
     // One transaction that locks the user row FOR UPDATE before deciding
     // anything, so overlapping PATCHes from the same user serialize and each
@@ -91,6 +90,10 @@ export default defineEventHandler(async (event) => {
     })
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
+    // The only unique column this update can write is username.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw createError({ statusCode: 409, statusMessage: 'Username taken' })
+    }
     ;(event.context.logger ?? logger).error({ err: error, route: 'PATCH /api/auth/me' }, '[PATCH /api/auth/me] Failed to update current user')
     throw createError({ statusCode: 500, statusMessage: 'Failed to update current user' })
   }

@@ -40,7 +40,7 @@ describe('GET /api/auth/me', () => {
     expect(result).toEqual(mockUser)
     expect(mockFindUniqueUser).toHaveBeenCalledWith({
       where: { id: 'user001' },
-      select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true },
+      select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true },
     })
   })
 
