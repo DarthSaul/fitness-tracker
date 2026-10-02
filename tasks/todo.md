@@ -224,7 +224,7 @@ gets a new, simpler spec after `follows`.
 
 - [x] Spec approved (`docs/social/SPEC-reports.md`), 2026-10-01
 - [x] **P1: schema + migration + mocks** (S): `ReportReason`, `Report` (snapshot JSON,
-  cascades from both users, post `SET NULL`), partial unique indexes, CHECKs. Not applied.
+  cascades from both users, post `SET NULL`), partial unique indexes, CHECKs. Applied 2026-10-02.
 - [x] **P2: `parseReportInput`** (S): exactly one target, known reason, details ≤ 1,000.
 - [x] **P3: `POST /api/reports`** (M): visibility / block gates (404), self (400), snapshot,
   repeat → 200 with the first id (incl. P2002), rate limit, Sentry + log on 201 only.
@@ -232,6 +232,6 @@ gets a new, simpler spec after `follows`.
 
 ### Checkpoint: reports
 - [x] verify-app passes
-- [ ] PR opened
-- [ ] Migration applied before merge
+- [x] PR opened (#141)
+- [x] Migration applied before merge (2026-10-02): status up to date, no drift; 4 CHECKs, 3 FKs (cascades + post SET NULL), both partial unique indexes live; route reads probed read-only
 - [ ] Merge
