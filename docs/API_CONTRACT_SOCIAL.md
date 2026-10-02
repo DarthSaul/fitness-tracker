@@ -100,14 +100,19 @@ blocks. Show a lock screen from `profileVisibility === 'PRIVATE'` plus
   - **Reserved names**, such as `admin`, `support` and `drdumbbell`, can't be
     taken.
 - **Errors on `PATCH`:**
-  - `400`: an invalid or reserved username, `null`, or a bio over 100
-    characters.
+  - `400`: an invalid or reserved username, `null`, or a bio over 100 code
+    points.
   - `409 'Username taken'`.
 - **The availability check** normalizes its input the same way, so validate
   as the user types. Your own current username reports `available: true`.
   Debounce it; it's limited to 60 a minute.
-- **Bio:** up to **100 characters**, counted the way people see them, so an
-  emoji counts once. It's trimmed, and a blank bio is stored as no bio.
+- **Bio:** up to **100 Unicode code points**, which is what `char_length`
+  counts in the database. It's trimmed, and a blank bio is stored as no bio.
+  - **Counting:** a plain letter or a single-code-point emoji (💪) counts
+    once. A combined emoji counts as all its code points: a ZWJ family
+    (👨‍👩‍👧) is 5, a flag (🇬🇧) is 2, and a skin-tone emoji (👍🏽) is 2.
+  - **Character counter:** count code points to match the server, which is
+    `bio.unicodeScalars.count` in Swift.
   - **Where it shows:** only on the profile (`GET /api/users/:id`) and in
     `GET /api/auth/me`, not in `PublicUser`.
   - **Who sees it:** anyone who can see the profile.

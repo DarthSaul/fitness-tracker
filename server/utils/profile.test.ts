@@ -16,6 +16,15 @@ describe('parseBio', () => {
     expect(() => parseBio('💪'.repeat(BIO_MAX + 1))).toThrow(expect.objectContaining({ statusCode: 400 }))
   })
 
+  test('a combined emoji counts as all its code points, as documented in the contract', () => {
+    const family = '👨‍👩‍👧' // 5 code points: 3 people + 2 ZWJs
+    expect([...family]).toHaveLength(5)
+    expect(parseBio(family.repeat(20))).toBe(family.repeat(20)) // 100
+    expect(() => parseBio(family.repeat(20) + '!')).toThrow(expect.objectContaining({ statusCode: 400 })) // 101
+    expect([...'🇬🇧']).toHaveLength(2)
+    expect([...'👍🏽']).toHaveLength(2)
+  })
+
   test('the limit applies after trimming', () => {
     expect(parseBio(` ${'x'.repeat(BIO_MAX)} `)).toBe('x'.repeat(BIO_MAX))
   })

@@ -88,10 +88,16 @@ model StandaloneWorkoutSession {
   - `activeProgram: { name: string } | null`;
   - `completedWorkoutCount: number | null`.
 
-  When the visibility rule passes and the setting is on, they're filled with
-  **two small queries** (the active program, and two counts), run alongside
-  the existing follower and following counts. Otherwise they're `null`, and
-  no stats query runs.
+  - **The owner** (viewer is the profile's user) **always gets both values**.
+    The two settings aren't checked for the owner (decision 6).
+  - **Anyone else** gets each value only when the visibility rule passes
+    **and** that value's own setting is on. `showActiveProgram` gates
+    `activeProgram`, and `showWorkoutCount` gates `completedWorkoutCount`.
+    Otherwise that field is `null`.
+
+  Values that are shown are filled with **two small queries** (the active
+  program, and two counts), run alongside the existing follower and following
+  counts. A value that's hidden runs no query.
 - **`GET /api/auth/me`** returns `showActiveProgram` and `showWorkoutCount`.
 - **`PATCH /api/auth/me`** accepts both as booleans. Anything else is `400`.
 - **Not added** to `PublicUser`, lists, the feed or search. Stats appear on

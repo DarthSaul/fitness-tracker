@@ -71,7 +71,7 @@ bio exists.
      names exist, and usernames are public anyway.
    - **Your own name:** your current username counts as available to you.
 9. **Bio.**
-   - **Shape:** optional, trimmed, at most **100 characters**. Blank is
+   - **Shape:** optional, trimmed, at most **100 Unicode code points** (what `char_length` counts; a combined emoji counts all of its code points). Blank is
      stored as null.
    - **Setting it:** `PATCH /api/auth/me` `{ bio }`, where `null` or `""`
      clears it.

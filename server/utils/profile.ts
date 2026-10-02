@@ -18,9 +18,10 @@ export const meSelect = {
 export const BIO_MAX = 100
 
 /**
- * A profile bio: trimmed, at most BIO_MAX characters, blank or null → null.
- * Counted in code points, as the database's char_length CHECK does, so an
- * emoji counts once (JS `.length` would count it twice).
+ * A profile bio: trimmed, at most BIO_MAX Unicode code points, blank or
+ * null → null. Code points are what the database's char_length CHECK counts:
+ * 💪 is 1 (JS `.length` would say 2), while a combined emoji counts all of
+ * its code points (👨‍👩‍👧 is 5, 🇬🇧 is 2).
  * @throws {H3Error} 400
  */
 export function parseBio(raw: unknown): string | null {
