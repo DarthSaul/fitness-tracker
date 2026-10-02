@@ -237,6 +237,14 @@ by `dedupeKey`.
      or the program is deactivated (`isActive = false`). A deactivated
      program stays quiet; its scheduled workouts are kept, but nobody is
      reminded about them (decided 2026-10-02).
+   - It is also skipped if the workout was scheduled *after* that day's
+     reminder moment, e.g. scheduled at 3 pm for tonight with an 8 am
+     reminder time. The user has just scheduled it, so a late "Workout today"
+     adds nothing.
+   - Otherwise, a reminder that couldn't go out on time is sent late rather
+     than dropped. That covers the job being down or not yet scheduled at the
+     reminder time, and a user setting their time zone or reminder time later
+     that day (decided 2026-10-02).
    - The time zone and date math runs in Postgres. `User.timezone` is checked
      against `pg_timezone_names` first, so one zone Postgres doesn't recognise
      can't make `AT TIME ZONE` fail the whole query.

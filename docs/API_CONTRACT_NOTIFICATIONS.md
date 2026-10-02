@@ -35,6 +35,8 @@ What the workout types do:
   - It needs `timezone` in preferences. Without one, no reminder fires.
   - It's skipped if that program day already has a session, the program run
     has ended, or the program is **deactivated**.
+  - It's also skipped for a workout scheduled after that day's reminder time,
+    e.g. scheduled at 3 pm for tonight.
   - **Tell users this in the app.** Deactivating a program keeps its scheduled
     workouts but silences their reminders. Say so where they deactivate a
     program, or where they schedule a workout on an inactive one.

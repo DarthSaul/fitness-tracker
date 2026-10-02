@@ -87,6 +87,10 @@ function dueReminders(now: Date): Promise<DueReminder[]> {
       AND sw."scheduledDate" = (${now}::timestamptz AT TIME ZONE u."timezone")::date
       AND EXTRACT(HOUR FROM ${now}::timestamptz AT TIME ZONE u."timezone") * 60
           + EXTRACT(MINUTE FROM ${now}::timestamptz AT TIME ZONE u."timezone") >= u."workoutReminderMinute"
+      -- Scheduled before that day's reminder moment. One scheduled for today at
+      -- 3 pm needs no 8 am reminder sent late: the user has just scheduled it.
+      -- An outage still catches up, since those workouts predate the moment.
+      AND (sw."createdAt" AT TIME ZONE 'UTC') < ((sw."scheduledDate" + make_interval(mins => u."workoutReminderMinute")) AT TIME ZONE u."timezone")
       AND NOT EXISTS (
         SELECT 1 FROM "WorkoutSession" ws
         WHERE ws."userProgramId" = sw."userProgramId"

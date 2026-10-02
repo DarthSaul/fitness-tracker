@@ -98,6 +98,12 @@ describe('runNotificationSweep', () => {
       expect(strings.join('?')).toContain('pg_timezone_names')
       // A deactivated program stays quiet (decided 2026-10-02).
       expect(strings.join('?')).toContain('up."isActive" = true')
+      // Option C (decided 2026-10-02): a workout scheduled after that day's
+      // reminder time is never reminded about; the user has just scheduled it.
+      // createdAt is a UTC timestamp, compared with the local reminder moment.
+      expect(strings.join('?')).toContain(
+        `(sw."createdAt" AT TIME ZONE 'UTC') < ((sw."scheduledDate" + make_interval(mins => u."workoutReminderMinute")) AT TIME ZONE u."timezone")`,
+      )
       expect(values).toContain(NOW)
       expect(mockNotifySystem).toHaveBeenCalledWith(prisma, [{
         recipientId: 'u1',
