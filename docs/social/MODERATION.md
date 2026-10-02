@@ -18,17 +18,25 @@ The alert carries only these tags, never the reported text or the details:
 
 To get an email for each report, in Sentry:
 
-1. **Alerts → Create Alert → Issues.**
-2. **Environment:** `production`.
-3. **When:** "A new issue is created".
-4. **If:** "The event's message value equals `social.report`". This keeps the
-   rule from firing on ordinary errors.
-5. **Then:** send a notification by email to you, or to whoever moderates.
-6. Name it "Social report" and save.
+1. **Project:** `dr-dumbbell-nuxt`. Reports are raised on the server; the iOS
+   project only receives the app's own errors.
+2. **Alerts → Create Alert → Issues.**
+3. **Environment:** `production`.
+4. **When:** "A new issue is created".
+5. **If:** under **Filter by event attributes**, choose **Event attribute**:
+   `message`, **equals**, `social.report`. This keeps the rule from firing on
+   ordinary errors.
+   - **Alternative:** if that doesn't match, use **Tagged event** in the same
+     category: `report.id`, **is set**. Only report alerts carry that tag.
+   - **Not needed:** filters from the issue-attribute or frequency categories.
+6. **Then:** send a notification by email to you, or to whoever moderates.
+7. **Action interval:** "Get notified on every trigger". The interval only
+   limits repeat alerts for the same issue, and each report is a new issue, so
+   any value behaves the same.
+8. Name it "Social report" and save.
 
-The menu labels above may differ slightly between Sentry versions; the
-conditions are what matter. To test the rule, report something from a test
-account and check that the email arrives.
+To test the rule, report something from a test account and check that the
+email arrives.
 
 Each report is also logged as a `social.report` line in the Vercel logs, with
 `reportId`, `target` and `reason`.
