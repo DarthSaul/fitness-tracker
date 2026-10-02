@@ -480,7 +480,7 @@ workouts are always private to their owner.**
 - [x] Workout shares (#140): text only, program name snapshotted
 - [x] Reports (#141): post or user, snapshot kept, Sentry alert per report;
       runbook in `docs/social/MODERATION.md`
-- [x] Usernames and bios (#144): unique lowercase `@username` for every
+- [x] Usernames and bios (#144, merged): unique lowercase `@username` for every
       account (`user_` + 6 digits generated, changeable), searchable, in
       `PublicUser`; optional 100-code-point bio
 - [ ] `username` `NOT NULL` migration, once #144 is deployed: re-run the
