@@ -287,3 +287,36 @@ Behaviour the client can rely on:
   blocks in `GET /api/blocks`.
 - Blocking also removes every follow and follow request between the two
   users, in **both** directions. Unblocking never restores them.
+
+## Reporting
+
+| Action | Route | Success |
+|---|---|---|
+| Report a post | `POST /api/reports`, `{ postId, reason, details? }` | `201 { id }`; `200 { id }` if you already reported it |
+| Report a user | `POST /api/reports`, `{ userId, reason, details? }` | `201 { id }`; `200 { id }` if you already reported them |
+
+```ts
+type ReportReason =
+  | 'SPAM' | 'HARASSMENT' | 'HATE' | 'SEXUAL_CONTENT'
+  | 'VIOLENCE' | 'SELF_HARM' | 'IMPERSONATION' | 'OTHER'
+```
+
+- **Reasons:** show them in this order; the server rejects anything else.
+  `details` is optional free text, up to 1,000 characters, for any reason.
+- **Report, then offer Block.** Blocking someone hides their posts from you,
+  and a post you can't see can't be reported. So the report sheet should
+  submit the report first and then offer to block the author. A **user** you
+  have already blocked can still be reported.
+- **What gets kept:** a copy of the post's text (or the user's name and
+  avatar) at the moment you report. Editing or deleting the post afterwards
+  doesn't remove the report.
+- **Reporting twice** returns `200` with the first report's id and changes
+  nothing. Treat `200` and `201` the same: show "Thanks — we'll review this."
+- **Nothing visible changes** for the reporter or the reported user. The
+  report goes to a moderator.
+- **Errors:**
+  - `400`: not exactly one of `postId` / `userId`, an unknown `reason`,
+    `details` over 1,000 characters, or reporting yourself or your own post.
+  - `404`: a post you can't see, or a user who doesn't exist or has blocked
+    you. A report never reveals a hidden post or a block.
+  - `429` after 20 reports in an hour.

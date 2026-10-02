@@ -220,6 +220,18 @@ gets a new, simpler spec after `follows`.
 - [x] Migration applied before merge (2026-10-01): status up to date, no drift; CHECK, both SET NULL FKs and both unique indexes live; postSelect + session lookups probed read-only
 - [ ] Merge
 
-## Later PRs (spec written when reached)
+## PR 11 — `reports` (branch `feat/social-reports`; #140 merged, now on main)
 
-- [ ] `reports`
+- [x] Spec approved (`docs/social/SPEC-reports.md`), 2026-10-01
+- [x] **P1: schema + migration + mocks** (S): `ReportReason`, `Report` (snapshot JSON,
+  cascades from both users, post `SET NULL`), partial unique indexes, CHECKs. Not applied.
+- [x] **P2: `parseReportInput`** (S): exactly one target, known reason, details ≤ 1,000.
+- [x] **P3: `POST /api/reports`** (M): visibility / block gates (404), self (400), snapshot,
+  repeat → 200 with the first id (incl. P2002), rate limit, Sentry + log on 201 only.
+- [x] **P4: auth guard, contract, capability map, `MODERATION.md`, verify-app** (S).
+
+### Checkpoint: reports
+- [x] verify-app passes
+- [ ] PR opened
+- [ ] Migration applied before merge
+- [ ] Merge
