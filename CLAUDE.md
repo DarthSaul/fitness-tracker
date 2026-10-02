@@ -359,7 +359,7 @@ complete apart from Exercise skip UI and Core workouts)
 - [x] Device token registration/unregistration (`POST /api/devices/register`, `DELETE /api/devices/:id`)
 - [x] CORS config (restricted to known web origin)
 - [x] Upstash rate limiting on auth endpoints
-- [ ] Wire up push notification triggers (e.g., workout reminders)
+- [ ] Wire up push notification triggers — tracked under **Notifications — API** below
 - [x] Apple web OAuth configuration — Services ID + key. The login screen hides
       the Apple button unless **all five** `NUXT_OAUTH_APPLE_*` vars are set
       (`runtimeConfig.public.appleAuthEnabled`), and that flag is computed at
@@ -503,13 +503,58 @@ workouts are always private to their owner.**
       the same user uploads again.
 - [ ] Web client social UI
 
+### Notifications — API (in progress)
+
+One inbox per user, with an APNs push for each item. Spec:
+`docs/notifications/SPEC-notifications.md`.
+
+**Model**
+- A `Notification` row is written in the **same transaction** as the event
+  that caused it (outbox).
+- The push is sent after commit, best-effort. A failed push never fails the
+  request.
+- Every write is idempotent on `dedupeKey`.
+- Status is derived from `readAt` / `dismissedAt`: `unread` → `read` →
+  `dismissed`.
+
+**Rules**
+- No notification is created across a block in either direction, and creating
+  a block deletes the pair's notifications.
+- Nobody is notified of their own actions.
+- No notification carries another user's workout data (ADR 001).
+
+- [ ] **v1 slice 1** — schema (`Notification`, `NotificationPreference`,
+      `User.timezone` / `workoutReminderMinute`), `server/utils/notifications.ts`,
+      inbox API (`GET /api/notifications`, `…/unread-count`, `PATCH …/:id`,
+      `POST …/read-all`, `GET|PATCH …/preferences`)
+- [ ] **v1 slice 2** — social triggers:
+  - follow request
+  - new follower (public profile)
+  - request accepted, including requests auto-accepted on going public
+  - post reaction (one per post + reactor)
+  - block cleanup
+  - `FOLLOW_REQUEST` retracted on accept, decline or cancel
+- [ ] **v1 slice 3** — the sweep (`POST /api/internal/notifications/sweep`,
+      called every 5 min by Supabase `pg_cron` with a bearer secret):
+  - scheduled-workout reminders at the user's local reminder time
+  - an unfinished-workout reminder 4 h after an `IN_PROGRESS` session
+    started, program or standalone, auto-dismissed on complete
+  - push retry and retention
+
+**Backlog**
+- [ ] New post from someone you follow (fan-out on write is capped. Decide
+      between per-follower rows and a feed-style query before building it)
+- [ ] Mid-week progress (e.g. "2 of 4 workouts done this week")
+- [ ] iOS wiring: inbox screen, push permission, device registration,
+      deep links from `target`, sending `timezone`. Tracked in the app repo;
+      check this off when iOS notifications v1 ships.
+
 ### Backlog
 - [ ] `user_program_runs_reconcile` migration — once the runs deploy is live everywhere: re-run the `completedAt` backfill and the duplicate-session cleanup from `20260918120000_user_program_runs` (idempotent) — but tighten the cleanup so a session also survives if it has `notes`, a `WorkoutExerciseSwap` or a `WorkoutExerciseSkip`, not only a `CompletedSet`/`CoreWorkout` (the applied migration omitted those three; its 3 deletions were checked beforehand and had none) — force `isActive = false` on terminal rows, and add `CHECK (NOT ("isActive" AND ("completedAt" IS NOT NULL OR "archivedAt" IS NOT NULL)))`. Deliberately not in the first migration: the previous deploy's activate route re-activates completed rows and would 500 against the CHECK.
 - [ ] Show `runNumber` on History rows so repeat runs of one program are distinguishable.
 - [ ] Configure Apple OAuth (web redirect flow — needed only when web frontend is built)
 - [ ] RPE tracking (optional, user-enabled in settings)
 - [ ] Fix iPadOS desktop UA detection in `PwaInstallBanner.vue` — iPads in Safari desktop-class mode (iPadOS 13+) report `Macintosh` UA; extend `isIOS` computed to also check `navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1`
-- [ ] Push notification triggers (workout reminders, etc.)
 - [ ] Manual unlink flow — UI to disconnect a specific provider Identity from a User (covers the "I changed my Apple email" case). Account linking on sign-in is implemented; this is the inverse operation.
 - [ ] `GET /api/feedback` authorization gating — restrict results to the authenticated user's own feedback unless the caller has an admin role; only admins should see cross-user entries (flagged by CodeRabbit on PR #93).
 - [ ] `GET /api/feedback` pagination — add a hard server-side cap (e.g. `take: 100`) and cursor- or page-based pagination to prevent unbounded system-wide reads as the dataset grows (flagged by CodeRabbit on PR #93).

@@ -56,6 +56,8 @@ const mockDbUser = {
   bio: null,
   showActiveProgram: true,
   showWorkoutCount: true,
+  timezone: null,
+  workoutReminderMinute: 480,
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User

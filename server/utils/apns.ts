@@ -44,13 +44,24 @@ function getPool(environment: string): Pool {
   return sandboxPool
 }
 
-interface ApnsPayload {
+export interface ApnsPayload {
   aps: {
     alert: { title: string; body: string }
     badge?: number
     sound?: string
   }
+  /** App-specific keys delivered alongside `aps` (e.g. a notification's deep-link target). */
+  [key: string]: unknown
 }
+
+/**
+ * `sent` — at least one device accepted it. `no_device` — the user has no live
+ * device (none registered, or every one was unregistered). `failed` — worth a
+ * retry: config, network or APNs errors.
+ */
+export type PushOutcome = 'sent' | 'no_device' | 'failed'
+
+type DeviceOutcome = 'sent' | 'gone' | 'failed'
 
 async function sendPushToDevice(
   deviceToken: string,
@@ -58,7 +69,7 @@ async function sendPushToDevice(
   environment: PushEnvironment,
   payload: ApnsPayload,
   userId: string,
-): Promise<void> {
+): Promise<DeviceOutcome> {
   const jwt = await getApnsJwt()
   const pool = getPool(environment)
 
@@ -85,25 +96,27 @@ async function sendPushToDevice(
         data: { revokedAt: new Date() },
       })
       .catch((err: unknown) => logger.error({ err, route: 'APNs' }, '[APNs] Failed to revoke stale device token'))
-    return
+    return 'gone'
   }
 
   if (response.statusCode !== 200) {
     const body = await response.body.text()
     logger.error({ route: 'APNs', maskedToken, statusCode: response.statusCode, body }, '[APNs] Push failed')
-    return
+    return 'failed'
   }
 
   await response.body.text().catch(() => {})
+  return 'sent'
 }
 
-export async function sendPush(userId: string, payload: ApnsPayload): Promise<void> {
+/** Sends `payload` to every live device of `userId`. Never throws. */
+export async function sendPush(userId: string, payload: ApnsPayload): Promise<PushOutcome> {
   const config = useRuntimeConfig()
   const bundleId = config.appleBundleId as string
 
   if (!bundleId) {
     logger.warn({ route: 'APNs' }, '[APNs] Missing appleBundleId; skipping push dispatch')
-    return
+    return 'failed'
   }
 
   const tokens = await prisma.deviceToken
@@ -113,14 +126,17 @@ export async function sendPush(userId: string, payload: ApnsPayload): Promise<vo
       return null
     })
 
-  if (!tokens || tokens.length === 0) return
+  if (!tokens) return 'failed'
+  if (tokens.length === 0) return 'no_device'
 
   const results = await Promise.allSettled(
     tokens.map((t) => sendPushToDevice(t.token, bundleId, t.environment, payload, userId)),
   )
-  for (const result of results) {
-    if (result.status === 'rejected') {
-      logger.error({ err: result.reason, route: 'APNs' }, '[APNs] sendPushToDevice failed')
-    }
-  }
+  const outcomes: DeviceOutcome[] = results.map((result) => {
+    if (result.status === 'fulfilled') return result.value
+    logger.error({ err: result.reason, route: 'APNs' }, '[APNs] sendPushToDevice failed')
+    return 'failed'
+  })
+  if (outcomes.includes('sent')) return 'sent'
+  return outcomes.every((o) => o === 'gone') ? 'no_device' : 'failed'
 }

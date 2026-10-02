@@ -187,6 +187,47 @@ describe('server/utils/apns', () => {
     })
   })
 
+  describe('sendPush — outcome', () => {
+    const ok = () => ({ statusCode: 200, body: { text: vi.fn().mockResolvedValue('') } })
+    const gone = () => ({ statusCode: 410, body: { text: vi.fn().mockResolvedValue('Unregistered') } })
+    const bad = () => ({ statusCode: 500, body: { text: vi.fn().mockResolvedValue('InternalServerError') } })
+
+    test('no active tokens → no_device', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([])
+      await expect(sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } })).resolves.toBe('no_device')
+    })
+
+    test('any device accepts → sent, even if another fails', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'a' }), makeTokenRecord({ token: 'b' })])
+      mockRequest.mockResolvedValueOnce(bad()).mockResolvedValueOnce(ok())
+      await expect(sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } })).resolves.toBe('sent')
+    })
+
+    test('every device unregistered (410) → no_device', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'a' })])
+      mockRequest.mockResolvedValueOnce(gone())
+      mockDeviceTokenUpdate.mockResolvedValueOnce({})
+      await expect(sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } })).resolves.toBe('no_device')
+    })
+
+    test('a mix of unregistered and failing devices → failed (worth a retry)', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'a' }), makeTokenRecord({ token: 'b' })])
+      mockRequest.mockResolvedValueOnce(gone()).mockResolvedValueOnce(bad())
+      mockDeviceTokenUpdate.mockResolvedValueOnce({})
+      await expect(sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } })).resolves.toBe('failed')
+    })
+
+    test('custom keys and badge are sent alongside aps', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord()])
+      mockRequest.mockResolvedValueOnce(ok())
+      const payload = { aps: { alert: { title: 'T', body: 'B' }, badge: 3 }, notificationId: 'n1', type: 'POST_REACTION' }
+
+      await sendPush('user001', payload)
+
+      expect(JSON.parse(mockRequest.mock.calls[0]![0].body)).toEqual(payload)
+    })
+  })
+
   describe('APNs response handling', () => {
     test('200 response: success — no DB update and body drained', async () => {
       const bodyText = vi.fn().mockResolvedValue('')
@@ -229,10 +270,11 @@ describe('server/utils/apns', () => {
       })
       mockDeviceTokenUpdate.mockRejectedValueOnce(new Error('DB error'))
 
-      // Should not throw — the .catch() in apns.ts swallows the error
+      // Should not throw — the .catch() in apns.ts swallows the error. The device
+      // is gone either way, so there is nothing to retry.
       await expect(
         sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
-      ).resolves.toBeUndefined()
+      ).resolves.toBe('no_device')
 
       expect(logger.error).toHaveBeenCalledWith(
         { err: expect.any(Error), route: 'APNs' },
@@ -249,7 +291,7 @@ describe('server/utils/apns', () => {
 
       await expect(
         sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
-      ).resolves.toBeUndefined()
+      ).resolves.toBe('failed')
 
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({ route: 'APNs' }),
@@ -348,7 +390,7 @@ describe('server/utils/apns', () => {
 
       await expect(
         sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
-      ).resolves.toBeUndefined()
+      ).resolves.toBe('failed')
 
       expect(mockDeviceTokenFindMany).not.toHaveBeenCalled()
       expect(mockRequest).not.toHaveBeenCalled()
@@ -364,7 +406,7 @@ describe('server/utils/apns', () => {
 
       await expect(
         sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
-      ).resolves.toBeUndefined()
+      ).resolves.toBe('failed')
 
       expect(mockRequest).not.toHaveBeenCalled()
       expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'APNs' }, '[APNs] Failed to load device tokens')
@@ -388,7 +430,7 @@ describe('server/utils/apns', () => {
       // sendPush uses Promise.allSettled — individual device errors don't propagate
       await expect(
         freshSendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
-      ).resolves.toBeUndefined()
+      ).resolves.toBe('failed')
     })
   })
 })
