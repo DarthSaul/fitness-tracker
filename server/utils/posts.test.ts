@@ -48,7 +48,7 @@ describe('canViewPostsBy — the visibility rule', () => {
 })
 
 describe('toPostPayloads', () => {
-  const author = { id: 'author', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' as const }
+  const author = { id: 'author', name: 'Ada', avatarUrl: null, profileVisibility: 'PRIVATE' as const, username: 'ada' }
   const row = (id: string, photos: { id: string; storagePath: string; width: number; height: number }[] = []) => ({
     id,
     authorId: 'author',
@@ -142,7 +142,7 @@ describe('toPostPayloads', () => {
   })
 
   test('postSelect selects the author as a PublicUser only', () => {
-    expect(postSelect.author).toEqual({ select: { id: true, name: true, avatarUrl: true, profileVisibility: true } })
+    expect(postSelect.author).toEqual({ select: { id: true, name: true, avatarUrl: true, profileVisibility: true, username: true } })
   })
 
   test('postSelect reads photos in display (position) order', () => {

@@ -52,6 +52,8 @@ const mockDbUser = {
   avatarUrl: 'https://example.com/avatar.jpg',
   ptRoutineInWorkout: false,
   profileVisibility: 'PRIVATE' as const,
+  username: 'user_000001',
+  bio: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User

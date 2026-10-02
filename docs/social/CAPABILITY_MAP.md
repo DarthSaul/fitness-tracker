@@ -74,9 +74,12 @@ and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
 | `reactions` | ✅ #139 | Emoji reactions; counts + "mine" on every post; who reacted | `posts` |
 | `workout-shares` | ✅ #140 | A post may reference one of the author's `COMPLETED` sessions, rendered as text only, e.g. "Saul completed a workout from Arm Farm 2" (or "Saul completed a workout" for a standalone). Never the session's sets or data. | `posts` |
 | `reports` | ✅ #141 | Report a post or user; snapshot stored for moderation; Sentry alert ([MODERATION.md](MODERATION.md)) | `posts`, `user-discovery` |
+| `usernames` | ⏭ [spec](SPEC-usernames.md) approved | Unique username for every user (in `PublicUser`, searchable) + optional 100-char bio; backfill + `NOT NULL` follow | `user-discovery`, `follows` |
+| `profile-stats` | ⏳ [spec](SPEC-profile-stats.md) approved | Opt-out profile stats: active program name + completed workout count, under the posts rule; amends ADR 001 | `follows` |
 
 Build order: `follows` → `feed` → `friendships-removal` (own deploy) →
-`post-photos`, `reactions`, `workout-shares`, `reports`
+`post-photos`, `reactions`, `workout-shares`, `reports` →
+`usernames` (then its backfill, then `NOT NULL`), `profile-stats`
 
 Each module gets `docs/social/SPEC-<module-id>.md` and ships as its own PR.
 
@@ -84,7 +87,7 @@ Each module gets `docs/social/SPEC-<module-id>.md` and ships as its own PR.
 
 | Resource | Routes |
 |---|---|
-| Users | `GET /api/users/search?q=` · `GET /api/users/:id` · `GET /api/users/:id/posts` |
+| Users | `GET /api/users/search?q=` · `GET /api/users/:id` · `GET /api/users/:id/posts` · `GET /api/users/username-available?username=` |
 | Profile privacy | `PATCH /api/auth/me` `{ profileVisibility }` |
 | Blocks | `GET /api/blocks` · `POST /api/blocks` `{ userId }` · `DELETE /api/blocks/:userId` |
 | Following | `GET /api/following` · `POST /api/following` `{ userId }` · `DELETE /api/following/:userId` (unfollow or cancel) |

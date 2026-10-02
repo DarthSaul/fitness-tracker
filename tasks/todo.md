@@ -235,3 +235,27 @@ gets a new, simpler spec after `follows`.
 - [x] PR opened (#141)
 - [x] Migration applied before merge (2026-10-02): status up to date, no drift; 4 CHECKs, 3 FKs (cascades + post SET NULL), both partial unique indexes live; route reads probed read-only
 - [x] Merge (#141, squash bcf65ee, identical to the PR head)
+
+## PR 12 — `usernames` (branch `feat/social-usernames`, stacked on #142)
+
+- [x] Spec approved (`docs/social/SPEC-usernames.md`), 2026-10-02, incl. `user_` + 6 digits
+- [x] **N1: schema + migration 1 (columns, format/length CHECKs) + migration 2 (backfill)** (S). Applied 2026-10-02.
+- [x] **N2: username helpers** (S): `normalizeUsername`, `parseUsername` (format, reserved), `generateUsername`.
+- [x] **N3: generate at sign-up** (S): `findOrLinkUser` sets a username on create; P2002 on
+  `username` regenerates (≤ 5), separate from the identity-race path.
+- [x] **N4: `username` in `PublicUser`** (S): select + every affected fixture.
+- [x] **N5: `/api/auth/me` GET + PATCH** (M): `username` (normalize, 400, 409 incl. P2002) and `bio`.
+- [x] **N6: search matches usernames** (S): prefix match, `@` dropped, exact match first; LIKE wildcards escaped (Prisma does not — verified against Postgres; fixed for name search too).
+- [x] **N7: `GET /api/users/username-available`** (S): invalid / reserved / taken; own name available.
+- [x] **N8: contract, capability map, auth guard case, verify-app** (S).
+
+### Checkpoint: usernames
+- [x] verify-app passes
+- [x] PR opened (#144, stacked on #142)
+- [x] Migrations 1 + 2 applied before merge (2026-10-02): status up to date, no drift; both CHECKs + unique index live; all 7 users backfilled with distinct user_NNNNNN names; route queries probed read-only
+- [ ] Merge
+- [ ] Later PR: migration 3 (re-run backfill, `SET NOT NULL`) once this deploy is live
+
+## PR 13 — `profile-stats` (spec approved 2026-10-02; after `usernames`)
+
+- [ ] Plan tasks when started (`docs/social/SPEC-profile-stats.md`), incl. ADR 001 amendment + CLAUDE.md

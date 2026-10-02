@@ -95,6 +95,12 @@ model User {
   ptRoutineInWorkout Boolean           @default(false)
   /// Social privacy: who may see this user's posts (docs/social/SPEC-follows.md).
   profileVisibility  ProfileVisibility @default(PRIVATE)
+  /// Unique handle, stored lowercase (docs/social/SPEC-usernames.md). Nullable
+  /// only until the backfill is enforced; a later migration sets NOT NULL.
+  /// Raw CHECKs in the migration enforce the format.
+  username           String?           @unique
+  /// Optional profile bio, at most 100 characters (raw CHECK).
+  bio                String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 

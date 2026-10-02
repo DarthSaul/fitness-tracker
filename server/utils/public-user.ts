@@ -10,6 +10,8 @@ export const publicUserSelect = {
   avatarUrl: true,
   // Public by definition, and lets any list label its button "Follow" vs "Request".
   profileVisibility: true,
+  // The @handle every list can show (docs/social/SPEC-usernames.md); null only until the backfill.
+  username: true,
 } satisfies Prisma.UserSelect
 
 export type PublicUser = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>

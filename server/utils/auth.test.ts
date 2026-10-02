@@ -15,8 +15,16 @@ vi.mock('./prisma', () => ({
   },
 }))
 
+// The real generator by default; tests that care about collisions script it.
+vi.mock('./usernames', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./usernames')>()
+  return { ...actual, generateUsername: vi.fn(actual.generateUsername) }
+})
+
 const { findOrLinkUser, backfillNameFromMetadata } = await import('./auth')
 const { prisma } = await import('./prisma')
+const { generateUsername } = await import('./usernames')
+const mockGenerate = generateUsername as ReturnType<typeof vi.fn>
 
 const mockIdentityFindUnique = prisma.identity.findUnique as ReturnType<typeof vi.fn>
 const mockUserUpdate = prisma.user.update as ReturnType<typeof vi.fn>
@@ -114,6 +122,7 @@ describe('findOrLinkUser', () => {
         email: 'alice@example.com',
         name: 'Alice',
         avatarUrl: 'https://example.com/alice.jpg',
+        username: expect.stringMatching(/^user_\d{6}$/),
         identities: {
           create: { provider: 'google', providerId: 'google-sub-001' },
         },
@@ -246,6 +255,41 @@ describe('findOrLinkUser', () => {
       expect(result.id).toBe('cluser-raced')
     })
 
+    // A generated username can collide with an existing one; that is a
+    // different P2002 from the concurrent-first-login race above.
+    const createTx = (txUserCreate: ReturnType<typeof vi.fn>) => (fn: (tx: unknown) => unknown) =>
+      fn({ identity: { create: vi.fn() }, user: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn(), create: txUserCreate } })
+
+    test('create: a username collision (P2002 on username) regenerates and retries', async () => {
+      mockIdentityFindUnique.mockResolvedValueOnce(null)
+      mockGenerate.mockReturnValueOnce('user_111111').mockReturnValueOnce('user_222222')
+      const txUserCreate = vi.fn()
+        .mockRejectedValueOnce(p2002(['username']))
+        .mockResolvedValueOnce({ ...baseUser, id: 'cluser-new', username: 'user_222222' })
+      mockTransaction.mockImplementation(createTx(txUserCreate))
+
+      const result = await findOrLinkUser(baseProfile)
+
+      expect(txUserCreate).toHaveBeenCalledTimes(2)
+      expect(txUserCreate.mock.calls[0]![0].data.username).toBe('user_111111')
+      expect(txUserCreate.mock.calls[1]![0].data.username).toBe('user_222222')
+      // Not mistaken for the identity race: no re-resolve.
+      expect(mockIdentityFindUnique).toHaveBeenCalledTimes(1)
+      expect(result.id).toBe('cluser-new')
+      mockTransaction.mockReset()
+    })
+
+    test('create: gives up after 5 username collisions and surfaces the error', async () => {
+      mockIdentityFindUnique.mockResolvedValue(null)
+      const txUserCreate = vi.fn().mockRejectedValue(p2002(['username']))
+      mockTransaction.mockImplementation(createTx(txUserCreate))
+
+      await expect(findOrLinkUser(baseProfile)).rejects.toMatchObject({ code: 'P2002' })
+      expect(txUserCreate).toHaveBeenCalledTimes(5)
+      mockTransaction.mockReset()
+      mockIdentityFindUnique.mockReset()
+    })
+
     test('link/create transaction: P2002 but Identity still missing → original error propagates', async () => {
       mockIdentityFindUnique.mockResolvedValueOnce(null)
       mockTransaction.mockRejectedValueOnce(p2002(['email']))
@@ -271,6 +315,8 @@ describe('backfillNameFromMetadata', () => {
     avatarUrl: null,
     ptRoutineInWorkout: false,
     profileVisibility: 'PRIVATE' as const,
+    username: 'user_000001',
+    bio: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   }

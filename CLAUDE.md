@@ -467,9 +467,9 @@ workouts are always private to their owner, with no exception.**
 - [x] Workout shares (#140): text only, program name snapshotted
 - [x] Reports (#141): post or user, snapshot kept, Sentry alert per report;
       runbook in `docs/social/MODERATION.md`
-- [ ] **Sentry alert rule** for `social.report` in `dr-dumbbell-nuxt`
-      (`MODERATION.md` §1). Until it exists, reports are stored but nobody is
-      alerted.
+- [x] **Sentry alert rule** for `social.report` in `dr-dumbbell-nuxt`
+      (`MODERATION.md` §1): enabled, so each new report emails the
+      moderator.
 - [ ] **Terms-of-use acceptance** before posting. App Store Guideline 1.2
       requires it alongside report and block; this is an app and legal
       change, not API work.

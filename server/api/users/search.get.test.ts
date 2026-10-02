@@ -4,6 +4,7 @@ import handler from './search.get'
 
 const mockGetQuery = getQuery as ReturnType<typeof vi.fn>
 const mockFindMany = prisma.user.findMany as ReturnType<typeof vi.fn>
+const mockFindFirst = prisma.user.findFirst as ReturnType<typeof vi.fn>
 const mockBlockedUserIds = blockedUserIds as ReturnType<typeof vi.fn>
 const mockRateLimitByKey = rateLimitByKey as ReturnType<typeof vi.fn>
 const mockFollowStatesWith = followStatesWith as ReturnType<typeof vi.fn>
@@ -16,19 +17,22 @@ function call(q: unknown) {
   return (handler as unknown as (e: Event) => Promise<Result>)({ path: '/api/users/search', context: { userId: 'alice' } })
 }
 
-const publicSelect = { id: true, name: true, avatarUrl: true, profileVisibility: true }
+const publicSelect = { id: true, name: true, avatarUrl: true, profileVisibility: true, username: true }
 const none = { isSelf: false, outgoing: 'none', incoming: 'none', incomingRequestId: null }
 
 describe('GET /api/users/search', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFindMany.mockReset()
+    mockFindFirst.mockReset()
     mockFindMany.mockResolvedValue([])
+    mockFindFirst.mockResolvedValue(null)
     mockBlockedUserIds.mockResolvedValue([])
     mockRateLimitByKey.mockResolvedValue(undefined)
     mockFollowStatesWith.mockResolvedValue(new Map())
   })
 
-  test('matches names case-insensitively by substring, capped at 20, public fields only', async () => {
+  test('matches names by substring or usernames by prefix, case-insensitively, capped at 20, public fields only', async () => {
     const users = [{ id: 'bob', name: 'Bob Smith', avatarUrl: null }]
     mockFindMany.mockResolvedValueOnce(users)
     mockFollowStatesWith.mockResolvedValueOnce(new Map([['bob', none]]))
@@ -36,7 +40,10 @@ describe('GET /api/users/search', () => {
     const result = await call('  smi ')
 
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { name: { contains: 'smi', mode: 'insensitive' }, id: { notIn: ['alice'] } },
+      where: {
+        OR: [{ name: { contains: 'smi', mode: 'insensitive' } }, { username: { startsWith: 'smi' } }],
+        id: { notIn: ['alice'] },
+      },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       take: 20,
       select: publicSelect,
@@ -70,6 +77,84 @@ describe('GET /api/users/search', () => {
     expect(mockFindMany.mock.calls[0]![0].where).toEqual({
       email: { equals: 'Bob@Example.com', mode: 'insensitive' },
       id: { notIn: ['alice'] },
+    })
+  })
+
+  describe('usernames', () => {
+    test('a leading @ is dropped, and the username prefix is matched lowercase', async () => {
+      await call(' @SAU ')
+
+      expect(mockFindMany.mock.calls[0]![0].where).toEqual({
+        OR: [{ name: { contains: 'SAU', mode: 'insensitive' } }, { username: { startsWith: 'sau' } }],
+        id: { notIn: ['alice'] },
+      })
+    })
+
+    test('an exact username match comes first, without a duplicate, even past the 20-result cap', async () => {
+      const saul = { id: 'saul', name: 'Zed Saul', avatarUrl: null, username: 'saul' }
+      mockFindMany.mockResolvedValueOnce([{ id: 'ann', name: 'Ann Saulsbury', avatarUrl: null, username: 'ann' }, saul])
+      mockFindFirst.mockResolvedValueOnce(saul)
+
+      const result = await call('@Saul')
+
+      expect(mockFindFirst).toHaveBeenCalledWith({
+        where: { username: 'saul', id: { notIn: ['alice'] } },
+        select: publicSelect,
+      })
+      expect(result.users.map((u) => u.id)).toEqual(['saul', 'ann'])
+    })
+
+    test('the exact match respects blocks and the cap of 20', async () => {
+      mockBlockedUserIds.mockResolvedValueOnce(['mallory'])
+      const many = Array.from({ length: 20 }, (_, i) => ({ id: `u${i}`, name: `Saul ${i}`, avatarUrl: null, username: `saul${i}` }))
+      mockFindMany.mockResolvedValueOnce(many)
+      mockFindFirst.mockResolvedValueOnce({ id: 'saul', name: 'Saul', avatarUrl: null, username: 'saul' })
+
+      const result = await call('saul')
+
+      expect(mockFindFirst.mock.calls[0]![0].where.id).toEqual({ notIn: ['alice', 'mallory'] })
+      expect(result.users).toHaveLength(20)
+      expect(result.users[0]!.id).toBe('saul')
+    })
+
+    test('no exact-match lookup when the query cannot be a username', async () => {
+      await call('bob smith')
+
+      expect(mockFindFirst).not.toHaveBeenCalled()
+    })
+
+    test('"@" only at the start means a username; elsewhere it still means an exact email', async () => {
+      await call('@bob@example.com')
+
+      expect(mockFindMany.mock.calls[0]![0].where).toEqual({
+        email: { equals: 'bob@example.com', mode: 'insensitive' },
+        id: { notIn: ['alice'] },
+      })
+      expect(mockFindFirst).not.toHaveBeenCalled()
+    })
+
+    // Regression: Prisma passes contains/startsWith straight into LIKE without
+    // escaping, so "_" matched any character (user_1 found userx1…) and "%%"
+    // matched every user. Verified against Postgres before the fix.
+    test('LIKE wildcards in q are matched literally, not as patterns', async () => {
+      await call('user_1%')
+
+      expect(mockFindMany.mock.calls[0]![0].where.OR).toEqual([
+        { name: { contains: 'user\\_1\\%', mode: 'insensitive' } },
+        { username: { startsWith: 'user\\_1\\%' } },
+      ])
+      // The exact-username lookup is an equality, so it takes the raw value.
+      expect(mockFindFirst).not.toHaveBeenCalled() // "%" can't be in a username
+    })
+
+    test('a backslash in q is escaped too, so it cannot escape the next character', async () => {
+      await call('a\\_b')
+
+      expect(mockFindMany.mock.calls[0]![0].where.OR[0]).toEqual({ name: { contains: 'a\\\\\\_b', mode: 'insensitive' } })
+    })
+
+    test('400 when only one character remains after the @', async () => {
+      await expect(call('@a')).rejects.toMatchObject({ statusCode: 400 })
     })
   })
 

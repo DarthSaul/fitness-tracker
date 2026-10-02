@@ -16,7 +16,7 @@ defineRouteMeta({
   },
 })
 
-type Profile = PublicUser & Relationship & { followerCount: number; followingCount: number }
+type Profile = PublicUser & Relationship & { bio: string | null; followerCount: number; followingCount: number }
 
 export default defineEventHandler(async (event): Promise<Profile> => {
   const userId = event.context.userId as string
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event): Promise<Profile> => {
   }
 
   try {
-    const user = await prisma.user.findUnique({ where: { id }, select: publicUserSelect })
+    const user = await prisma.user.findUnique({ where: { id }, select: { ...publicUserSelect, bio: true } })
     if (!user || (await isBlockedEitherWay(userId, id))) {
       throw createError({ statusCode: 404, statusMessage: 'User not found' })
     }

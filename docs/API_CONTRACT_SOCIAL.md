@@ -36,6 +36,7 @@ interface PublicUser {
   name: string | null
   avatarUrl: string | null
   profileVisibility: 'PUBLIC' | 'PRIVATE'   // label the button "Follow" vs "Request"
+  username: string | null                   // show as "@username"; null only until every account is backfilled
 }
 
 type FollowState = 'none' | 'requested' | 'following'
@@ -79,17 +80,59 @@ blocks. Show a lock screen from `profileVisibility === 'PRIVATE'` plus
   keeps your existing followers**; remove any you no longer want with
   `DELETE /api/followers/:userId`.
 
+## Usernames and bio
+
+| Action | Route | Success |
+|---|---|---|
+| Set my username | `PATCH /api/auth/me`, `{ username }` | `200` the updated settings |
+| Set or clear my bio | `PATCH /api/auth/me`, `{ bio }` (`null` or `""` clears) | `200` the updated settings |
+| Check a username | `GET /api/users/username-available?username=` | `200 { available: true }` or `{ available: false, reason: 'invalid' \| 'reserved' \| 'taken' }` |
+
+- **Every account has a username.**
+  - New accounts get a generated one, `user_` plus 6 digits (`user_482193`),
+    which the user can change at any time.
+  - Existing accounts were backfilled the same way.
+  - A username can be changed, but not removed.
+- **Format:** 3–30 of `a–z`, `0–9`, `_` and `.`, with no leading, trailing or
+  consecutive `.`.
+  - **Normalized on save:** the input is trimmed, a leading `@` is dropped and
+    it's lowercased, so `@SaulG` is saved as `saulg`.
+  - **Reserved names**, such as `admin`, `support` and `drdumbbell`, can't be
+    taken.
+- **Errors on `PATCH`:**
+  - `400`: an invalid or reserved username, `null`, or a bio over 100 code
+    points.
+  - `409 'Username taken'`.
+- **The availability check** normalizes its input the same way, so validate
+  as the user types. Your own current username reports `available: true`.
+  Debounce it; it's limited to 60 a minute.
+- **Bio:** up to **100 Unicode code points**, which is what `char_length`
+  counts in the database. It's trimmed, and a blank bio is stored as no bio.
+  - **Counting:** a plain letter or a single-code-point emoji (💪) counts
+    once. A combined emoji counts as all its code points: a ZWJ family
+    (👨‍👩‍👧) is 5, a flag (🇬🇧) is 2, and a skin-tone emoji (👍🏽) is 2.
+  - **Character counter:** count code points to match the server, which is
+    `bio.unicodeScalars.count` in Swift.
+  - **Where it shows:** only on the profile (`GET /api/users/:id`) and in
+    `GET /api/auth/me`, not in `PublicUser`.
+  - **Who sees it:** anyone who can see the profile.
+- **`GET /api/auth/me`** now also returns `username` and `bio`.
+
 ## Finding users
 
 | Action | Route | Success |
 |---|---|---|
-| Search | `GET /api/users/search?q=` | `200 { users: (PublicUser & Relationship)[] }`, at most 20, ordered by name |
-| Profile | `GET /api/users/:id` | `200 PublicUser & Relationship & { followerCount: number, followingCount: number }` |
+| Search | `GET /api/users/search?q=` | `200 { users: (PublicUser & Relationship)[] }`, at most 20; an exact username match first, then by name |
+| Profile | `GET /api/users/:id` | `200 PublicUser & Relationship & { bio: string \| null, followerCount: number, followingCount: number }` |
 
-- `q` is trimmed and must be 2–100 characters (`400` otherwise).
-- A `q` containing `@` matches an email **exactly** (case-insensitive). Type
-  the whole address; partial emails find nobody. Anything else matches any
-  part of the name, case-insensitive.
+- **Length:** `q` is trimmed, and a leading `@` (marking a username) is
+  dropped. It must then be 2–100 characters (`400` otherwise).
+- **Usernames and names:** `saul` and `@saul` both match usernames that
+  **start with** "saul" and names that **contain** it, case-insensitive. An
+  exact username match always comes first.
+- **Email:** a `q` that still contains `@` after that matches an email
+  **exactly**, case-insensitive. Type the whole address; partial emails find
+  nobody.
 - Results never include the caller or anyone blocked in either direction.
 - Search is limited to 30 requests per minute per user (`429`). Debounce
   as-you-type search on the client (~300 ms).
