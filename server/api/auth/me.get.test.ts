@@ -21,6 +21,9 @@ const mockUser = {
   profileVisibility: 'PRIVATE',
   username: 'jane_doe',
   bio: 'Lifting since 2010',
+  // Distinct values, so the result proves each setting is passed through as stored.
+  showActiveProgram: false,
+  showWorkoutCount: true,
 }
 
 describe('GET /api/auth/me', () => {
@@ -41,6 +44,7 @@ describe('GET /api/auth/me', () => {
     const result = await (handler as unknown as (e: typeof event) => Promise<typeof mockUser>)(event)
 
     expect(result).toEqual(mockUser)
+    expect(result).toMatchObject({ showActiveProgram: false, showWorkoutCount: true })
     expect(mockFindUniqueUser).toHaveBeenCalledWith({
       where: { id: 'user001' },
       select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true, showActiveProgram: true, showWorkoutCount: true },

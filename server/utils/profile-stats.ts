@@ -37,8 +37,13 @@ export async function profileStats(owner: StatsOwner, viewerId: string): Promise
 
   const completed = { userId: owner.id, status: 'COMPLETED' as const }
   const [active, programCount, standaloneCount] = await Promise.all([
+    // Terminal runs (completed or archived) are never current, even with a
+    // stale isActive flag, which no database CHECK forbids yet.
     showProgram
-      ? prisma.userProgram.findFirst({ where: { userId: owner.id, isActive: true }, select: { program: { select: { name: true } } } })
+      ? prisma.userProgram.findFirst({
+        where: { userId: owner.id, isActive: true, completedAt: null, archivedAt: null },
+        select: { program: { select: { name: true } } },
+      })
       : null,
     showCount ? prisma.workoutSession.count({ where: completed }) : 0,
     showCount ? prisma.standaloneWorkoutSession.count({ where: completed }) : 0,

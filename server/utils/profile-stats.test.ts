@@ -30,8 +30,11 @@ describe('profileStats', () => {
   test('reads only the program name and COMPLETED counts — never the run, position or sessions', async () => {
     await profileStats(owner(), 'bob')
 
+    // A terminal run (completed or archived) is never "current", even if a
+    // stale isActive flag survived (no DB CHECK forbids it yet; see the
+    // user_program_runs_reconcile backlog item). PR #145 review.
     expect(mockActive).toHaveBeenCalledWith({
-      where: { userId: 'ann', isActive: true },
+      where: { userId: 'ann', isActive: true, completedAt: null, archivedAt: null },
       select: { program: { select: { name: true } } },
     })
     expect(mockProgramCount).toHaveBeenCalledWith({ where: { userId: 'ann', status: 'COMPLETED' } })
