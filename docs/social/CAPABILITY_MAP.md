@@ -17,7 +17,11 @@ and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
   ([ADR 001](ADR-001-workouts-always-private.md)).
   - Following someone, or a public profile, never exposes their workouts.
   - The only workout-derived content another user sees is what the author
-    posts. A workout share carries just the program's name.
+    posts, where a workout share carries just the program's name, plus the
+    two opt-out **profile stats** (ADR 001 amendment).
+    - The stats are the active program's name and one completed-workout
+      count.
+    - They follow the posts rule, and the owner always sees both.
 
 - **Follows, not friends.**
   - Following is one-way.

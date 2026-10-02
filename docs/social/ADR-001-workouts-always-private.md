@@ -28,8 +28,10 @@ The amendment below names the **one** exception: two opt-out profile stats.
 
 **Sharing is an explicit act, and a post is how a user does it.** A post is
 social content by nature, and every post follows the author's profile
-visibility, follower gating and blocks. The only workout-derived content that
-can reach another user is what the author deliberately puts in a post:
+visibility, follower gating and blocks. Apart from the two profile stats in the
+amendment (the active program's name and one completed-workout count), the only
+workout-derived content that can reach another user is what the author
+deliberately puts in a post:
 - **Workout shares** (#140): a post may reference the author's own completed
   session. The server copies **only the program's name** onto the post at
   creation, rendered as "Saul completed a workout from Arm Farm 2", or "Saul

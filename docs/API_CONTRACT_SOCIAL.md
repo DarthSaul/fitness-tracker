@@ -144,7 +144,11 @@ interface ProfileStats {
   preview your profile.
 - **`null` means "don't show it".** It covers a setting that's off, a viewer
   who can't see the posts, or no active program, and the cases are
-  deliberately indistinguishable. Hide the row; don't show "0" or "None".
+  deliberately indistinguishable. Hide the row; don't render `null` as "0" or
+  "None".
+- **`0` is a real value.** `completedWorkoutCount: 0` means the count is
+  visible and the user hasn't completed a workout yet, so show "0". Hide the
+  workout-count row **only** when the field is `null`.
 - **Nothing else is exposed.** There's no week or day, progress, dates or
   breakdown: workouts stay private ([ADR 001](social/ADR-001-workouts-always-private.md)).
   `PATCH` with a non-boolean is `400`.
