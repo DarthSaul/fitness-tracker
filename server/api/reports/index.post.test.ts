@@ -90,6 +90,14 @@ describe('POST /api/reports', () => {
       expect(mockReportCreate).not.toHaveBeenCalled()
     })
 
+    test('own post with the rate limit exhausted → 429 first: the own-post check needs the post', async () => {
+      mockPostFind.mockResolvedValue({ ...post, authorId: 'me' })
+      mockRateLimitByKey.mockRejectedValueOnce(Object.assign(new Error('Too many requests'), { statusCode: 429 }))
+
+      await expect(call({ postId: 'p1', reason: 'SPAM' })).rejects.toMatchObject({ statusCode: 429 })
+      expect(mockPostFind).not.toHaveBeenCalled()
+    })
+
     test('a repeat report of the same post → 200 with the first id, no new row, no alert', async () => {
       mockReportFind.mockResolvedValue({ id: 'r0' })
       const event = makeEvent()

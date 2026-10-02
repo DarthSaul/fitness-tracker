@@ -69,7 +69,8 @@ moderator reviews and resolves reports in the database.
    - **One-time setup:** you add the Sentry alert rule; I'll write the steps.
 8. **Resolving is done in SQL for now.** `resolvedAt` and `resolution`
    (free text) are set by hand. A moderation API or UI is a later initiative.
-9. **Rate limit:** 20 reports per hour per user (`rateLimitByKey`).
+9. **Rate limit:** 20 report requests per hour per user (`rateLimitByKey`),
+   repeats included (see the route below).
 
 ## Data model
 
@@ -137,7 +138,8 @@ reads.
   - `400` for an unknown `reason`,
   - `400` for `details` over 1,000 characters (trimmed; an empty string
     becomes null),
-  - `400` for reporting yourself, including your own post.
+  - `400` for reporting yourself (a `userId` equal to yours). Your own **post**
+    needs the post to recognize, so it's checked later (see below).
 - **Rate limit:** checked next, before any read.
   - **Every request counts, including a repeat**, so a repeat past the limit
     is `429`, not `200`.
@@ -147,6 +149,9 @@ reads.
 - **Checking the target:**
   - **A post:** `requireVisiblePost`, so a post you can't see is `404`. Then
     read the snapshot fields. Reporting your own post is `400`.
+    - This comes after the rate limit, so an exhausted limit returns `429`
+      first.
+    - An allowed request for your own post gets `400`.
   - **A user:** the user must exist and must not have blocked you, or it's
     `404`. Then read `name` and `avatarUrl`.
 - **Writing:**
