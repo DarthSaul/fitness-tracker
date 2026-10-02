@@ -120,7 +120,12 @@ Body: any subset of the GET shape, with at least one recognised change.
 **iOS: send `timezone` at sign-in and whenever it changes.** Without it, no
 `WORKOUT_REMINDER` fires.
 
-Turning a type's push off still records it in the inbox.
+What `push.<type>: false` means depends on the type:
+- **Social types:** the push stops, but the notification still appears in the
+  inbox.
+- **`WORKOUT_REMINDER` and `WORKOUT_UNFINISHED`:** the notification is never
+  created, so there's no push and no inbox entry. In the app, label these as
+  turning the reminder off, not just its push.
 
 ## Push payload (APNs)
 

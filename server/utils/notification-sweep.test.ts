@@ -40,13 +40,20 @@ describe('runNotificationSweep', () => {
           // A finished or archived run is history; its leftovers aren't nagged about.
           userProgram: { completedAt: null, archivedAt: null },
           notifications: { none: { type: 'WORKOUT_UNFINISHED' } },
+          // Switched off means not created at all, not just unpushed (decided 2026-10-02).
+          user: { notificationPreferences: { none: { type: 'WORKOUT_UNFINISHED', pushEnabled: false } } },
         },
         select: { id: true, userId: true },
         orderBy: { startedAt: 'asc' },
         take: SWEEP.batch,
       })
       expect(db.standaloneWorkoutSession.findMany).toHaveBeenCalledWith({
-        where: { status: 'IN_PROGRESS', startedAt: window, notifications: { none: { type: 'WORKOUT_UNFINISHED' } } },
+        where: {
+          status: 'IN_PROGRESS',
+          startedAt: window,
+          notifications: { none: { type: 'WORKOUT_UNFINISHED' } },
+          user: { notificationPreferences: { none: { type: 'WORKOUT_UNFINISHED', pushEnabled: false } } },
+        },
         select: { id: true, userId: true },
         orderBy: { startedAt: 'asc' },
         take: SWEEP.batch,
@@ -98,6 +105,8 @@ describe('runNotificationSweep', () => {
       expect(strings.join('?')).toContain('pg_timezone_names')
       // A deactivated program stays quiet (decided 2026-10-02).
       expect(strings.join('?')).toContain('up."isActive" = true')
+      // Switched off means not created at all, not just unpushed (decided 2026-10-02).
+      expect(strings.join('?')).toContain(`np."type" = 'WORKOUT_REMINDER' AND np."pushEnabled" = false`)
       // Option C (decided 2026-10-02): a workout scheduled after that day's
       // reminder time is never reminded about; the user has just scheduled it.
       // createdAt is a UTC timestamp, compared with the local reminder moment.

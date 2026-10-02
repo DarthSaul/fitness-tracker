@@ -98,6 +98,11 @@ function dueReminders(now: Date): Promise<DueReminder[]> {
           AND ws."dayNumber" = sw."dayNumber"
       )
       AND NOT EXISTS (SELECT 1 FROM "Notification" n WHERE n."dedupeKey" = 'reminder:' || sw."id")
+      -- Switched off means not created at all, not just unpushed.
+      AND NOT EXISTS (
+        SELECT 1 FROM "NotificationPreference" np
+        WHERE np."userId" = up."userId" AND np."type" = 'WORKOUT_REMINDER' AND np."pushEnabled" = false
+      )
     ORDER BY sw."id"
     LIMIT ${SWEEP.batch}`
 }
@@ -105,15 +110,24 @@ function dueReminders(now: Date): Promise<DueReminder[]> {
 async function queueUnfinishedReminders(now: Date): Promise<string[]> {
   const startedAt = { lte: new Date(now.getTime() - SWEEP.unfinishedAfterMs), gt: new Date(now.getTime() - SWEEP.unfinishedLookbackMs) }
   const noReminderYet = { none: { type: 'WORKOUT_UNFINISHED' as const } }
+  // For workout reminders, switched off means not created at all, not just
+  // unpushed as for social types: an inbox entry would still be a reminder.
+  const notSwitchedOff = { notificationPreferences: { none: { type: 'WORKOUT_UNFINISHED' as const, pushEnabled: false } } }
   const page = { select: { id: true, userId: true }, orderBy: { startedAt: 'asc' as const }, take: SWEEP.batch }
 
   const [program, standalone] = await Promise.all([
     prisma.workoutSession.findMany({
-      where: { status: 'IN_PROGRESS', startedAt, userProgram: { completedAt: null, archivedAt: null }, notifications: noReminderYet },
+      where: {
+        status: 'IN_PROGRESS',
+        startedAt,
+        userProgram: { completedAt: null, archivedAt: null },
+        notifications: noReminderYet,
+        user: notSwitchedOff,
+      },
       ...page,
     }),
     prisma.standaloneWorkoutSession.findMany({
-      where: { status: 'IN_PROGRESS', startedAt, notifications: noReminderYet },
+      where: { status: 'IN_PROGRESS', startedAt, notifications: noReminderYet, user: notSwitchedOff },
       ...page,
     }),
   ])

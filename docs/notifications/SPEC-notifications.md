@@ -340,8 +340,12 @@ Required cases:
 3. **Preferences ship in v1, as push toggles per type.**
    - A `NotificationPreference(userId, type, pushEnabled)` row exists only
      when the user has changed the default. A missing row means push is on.
-   - The inbox row is always written; a disabled type only suppresses the
-     push.
+   - For the social types, the inbox row is always written; a disabled type
+     only suppresses the push.
+   - For `WORKOUT_REMINDER` and `WORKOUT_UNFINISHED`, a disabled type is
+     never created at all: no push and no inbox entry. An inbox copy of a
+     reminder the user switched off would still be a reminder (decided
+     2026-10-02). The sweep filters these users out when it queues.
 4. **Delivery: three stacked PRs.**
    1. Schema, `notify` / `retract` / push helpers, and the inbox and
       preferences API.
