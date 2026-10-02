@@ -223,6 +223,9 @@ top, in two stages at Tailwind's default breakpoints.
     never add a route that shows one user's workouts to another.
   - Sharing goes through **posts**. A workout share copies only the program's
     name, when the post is created.
+  - **The sole exception is the profile stats** in the ADR 001 amendment: the
+    active program's name and one completed count, computed only by
+    `server/utils/profile-stats.ts`. Don't extend them without a new ADR.
 
 ### Error Handling
 
@@ -445,11 +448,21 @@ web client has no social screens yet. Index:
 `docs/API_CONTRACT_SOCIAL.md`.
 
 **Product rule ([ADR 001](docs/social/ADR-001-workouts-always-private.md)):
-workouts are always private to their owner, with no exception.**
+workouts are always private to their owner.**
 - Following someone or a public profile never exposes another user's workouts.
 - A **post** is how a user shares, and posts follow profile visibility.
-- The only workout-derived content another user can see is what the author
-  puts in a post: a workout share carries just the program's name.
+- The only workout-derived content another user can see:
+  - what the author puts in a post. A workout share carries just the
+    program's name.
+  - **the one exception, opt-out profile stats** (ADR 001 amendment): the
+    active program's **name** and **one count** of completed workouts.
+    - **Settings:** `showActiveProgram` and `showWorkoutCount`, both on by
+      default.
+    - **Who sees them:** the same rule as posts; the owner always sees both.
+    - **Where:** `GET /api/users/:id` only, via
+      `server/utils/profile-stats.ts`.
+    - **Closed:** any other workout-derived figure needs a new ADR. That
+      includes streaks, volume, PRs, program position and per-session data.
 
 - [x] Blocking (#131): a block hides each user from the other and removes
       follows both ways
@@ -467,6 +480,13 @@ workouts are always private to their owner, with no exception.**
 - [x] Workout shares (#140): text only, program name snapshotted
 - [x] Reports (#141): post or user, snapshot kept, Sentry alert per report;
       runbook in `docs/social/MODERATION.md`
+- [x] Usernames and bios (#144): unique lowercase `@username` for every
+      account (`user_` + 6 digits generated, changeable), searchable, in
+      `PublicUser`; optional 100-code-point bio
+- [ ] `username` `NOT NULL` migration, once #144 is deployed: re-run the
+      backfill, then set the constraint
+- [ ] Profile stats (`feat/social-profile-stats`): opt-out active program
+      name + completed workout count (ADR 001 amendment)
 - [x] **Sentry alert rule** for `social.report` in `dr-dumbbell-nuxt`
       (`MODERATION.md` §1): enabled, so each new report emails the
       moderator.

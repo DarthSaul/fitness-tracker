@@ -118,12 +118,43 @@ blocks. Show a lock screen from `profileVisibility === 'PRIVATE'` plus
   - **Who sees it:** anyone who can see the profile.
 - **`GET /api/auth/me`** now also returns `username` and `bio`.
 
+## Profile stats
+
+```ts
+interface ProfileStats {
+  activeProgram: { name: string } | null  // the active program's name only
+  completedWorkoutCount: number | null    // completed program + standalone workouts
+}
+```
+
+| Action | Route | Success |
+|---|---|---|
+| See them | `GET /api/users/:id` | the two fields above, alongside the profile |
+| My settings | `GET /api/auth/me` | includes `showActiveProgram` and `showWorkoutCount` |
+| Change them | `PATCH /api/auth/me`, `{ showActiveProgram?: boolean, showWorkoutCount?: boolean }` | `200` the updated settings |
+
+- **Two opt-out settings,** both **on** by default. Each controls one field,
+  and either can be turned off at any time:
+  - `showActiveProgram` controls `activeProgram`,
+  - `showWorkoutCount` controls `completedWorkoutCount`.
+- **Who sees them:** the same people who can see the user's posts. That's
+  anyone not blocked, for a `PUBLIC` profile, and accepted followers, for a
+  `PRIVATE` one.
+- **You always see your own** values, whatever your settings, so you can
+  preview your profile.
+- **`null` means "don't show it".** It covers a setting that's off, a viewer
+  who can't see the posts, or no active program, and the cases are
+  deliberately indistinguishable. Hide the row; don't show "0" or "None".
+- **Nothing else is exposed.** There's no week or day, progress, dates or
+  breakdown: workouts stay private ([ADR 001](social/ADR-001-workouts-always-private.md)).
+  `PATCH` with a non-boolean is `400`.
+
 ## Finding users
 
 | Action | Route | Success |
 |---|---|---|
 | Search | `GET /api/users/search?q=` | `200 { users: (PublicUser & Relationship)[] }`, at most 20; an exact username match first, then by name |
-| Profile | `GET /api/users/:id` | `200 PublicUser & Relationship & { bio: string \| null, followerCount: number, followingCount: number }` |
+| Profile | `GET /api/users/:id` | `200 PublicUser & Relationship & ProfileStats & { bio: string \| null, followerCount: number, followingCount: number }` |
 
 - **Length:** `q` is trimmed, and a leading `@` (marking a username) is
   dropped. It must then be 2–100 characters (`400` otherwise).

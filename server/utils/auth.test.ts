@@ -317,6 +317,8 @@ describe('backfillNameFromMetadata', () => {
     profileVisibility: 'PRIVATE' as const,
     username: 'user_000001',
     bio: null,
+    showActiveProgram: true,
+    showWorkoutCount: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   }

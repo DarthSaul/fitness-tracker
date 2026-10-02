@@ -13,6 +13,9 @@ export const meSelect = {
   profileVisibility: true,
   username: true,
   bio: true,
+  // Profile-stats settings (docs/social/SPEC-profile-stats.md); only the owner sees them.
+  showActiveProgram: true,
+  showWorkoutCount: true,
 } satisfies Prisma.UserSelect
 
 export const BIO_MAX = 100

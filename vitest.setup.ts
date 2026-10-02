@@ -113,7 +113,7 @@ vi.stubGlobal('prisma', {
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   standaloneWorkout: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
   standaloneWorkoutSet: { findUnique: vi.fn() },
-  standaloneWorkoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
+  standaloneWorkoutSession: { findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), count: vi.fn() },
   standaloneCompletedSet: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   ptRoutine: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   ptRoutineExercise: { createMany: vi.fn(), deleteMany: vi.fn() },
@@ -161,6 +161,8 @@ vi.stubGlobal('normalizeUsername', normalizeUsername)
 vi.stubGlobal('usernameProblem', usernameProblem)
 vi.stubGlobal('meSelect', meSelect)
 vi.stubGlobal('parseBio', parseBio)
+// Profile stats: mocked in route tests (the helper has its own unit tests).
+vi.stubGlobal('profileStats', vi.fn().mockResolvedValue({ activeProgram: null, completedWorkoutCount: null }))
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))

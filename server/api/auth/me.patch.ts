@@ -1,12 +1,13 @@
 import { Prisma } from '@prisma/client'
 
-const FIELDS = ['ptRoutineInWorkout', 'profileVisibility', 'username', 'bio'] as const
+const FIELDS = ['ptRoutineInWorkout', 'profileVisibility', 'username', 'bio', 'showActiveProgram', 'showWorkoutCount'] as const
+const BOOLEAN_FIELDS = ['showActiveProgram', 'showWorkoutCount'] as const
 
 defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
     summary: 'Update current user settings',
-    description: 'Updates the authenticated user\'s profile settings. Send at least one of: `ptRoutineInWorkout` (whether PT routines are shown in the active workout view) `profileVisibility` (`PUBLIC` or `PRIVATE` — who can see the user\'s posts), `username` (3–30 of a–z, 0–9, "_" and "."; stored lowercase, a leading "@" dropped; unique) and `bio` (up to 100 characters; blank or null clears it). Switching from PRIVATE to PUBLIC accepts every pending follow request.',
+    description: 'Updates the authenticated user\'s profile settings. Send at least one of: `ptRoutineInWorkout` (whether PT routines are shown in the active workout view) `profileVisibility` (`PUBLIC` or `PRIVATE` — who can see the user\'s posts), `username` (3–30 of a–z, 0–9, "_" and "."; stored lowercase, a leading "@" dropped; unique), `bio` (up to 100 code points; blank or null clears it), and `showActiveProgram` / `showWorkoutCount` (whether people who can see the user\'s posts also see their active program\'s name and completed workout count on the profile; both default to true). Switching from PRIVATE to PUBLIC accepts every pending follow request.',
     requestBody: {
       required: true,
       content: {
@@ -18,6 +19,8 @@ defineRouteMeta({
               profileVisibility: { type: 'string', enum: ['PUBLIC', 'PRIVATE'] },
               username: { type: 'string', example: 'saulg' },
               bio: { type: 'string', nullable: true, example: 'Lifting since 2010' },
+              showActiveProgram: { type: 'boolean', example: true },
+              showWorkoutCount: { type: 'boolean', example: true },
             },
           },
         },
@@ -63,6 +66,14 @@ export default defineEventHandler(async (event) => {
     // Every account has a username, so it can be changed but not cleared.
     if ('username' in body) data.username = parseUsername(body.username)
     if ('bio' in body) data.bio = parseBio(body.bio)
+    for (const field of BOOLEAN_FIELDS) {
+      if (!(field in body)) continue
+      const value = body[field]
+      if (typeof value !== 'boolean') {
+        throw createError({ statusCode: 400, statusMessage: `${field} must be a boolean` })
+      }
+      data[field] = value
+    }
 
     // One transaction that locks the user row FOR UPDATE before deciding
     // anything, so overlapping PATCHes from the same user serialize and each

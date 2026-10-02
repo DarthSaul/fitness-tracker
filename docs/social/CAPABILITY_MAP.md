@@ -74,8 +74,8 @@ and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
 | `reactions` | ✅ #139 | Emoji reactions; counts + "mine" on every post; who reacted | `posts` |
 | `workout-shares` | ✅ #140 | A post may reference one of the author's `COMPLETED` sessions, rendered as text only, e.g. "Saul completed a workout from Arm Farm 2" (or "Saul completed a workout" for a standalone). Never the session's sets or data. | `posts` |
 | `reports` | ✅ #141 | Report a post or user; snapshot stored for moderation; Sentry alert ([MODERATION.md](MODERATION.md)) | `posts`, `user-discovery` |
-| `usernames` | ⏭ [spec](SPEC-usernames.md) approved | Unique username for every user (in `PublicUser`, searchable) + optional 100-char bio; backfill + `NOT NULL` follow | `user-discovery`, `follows` |
-| `profile-stats` | ⏳ [spec](SPEC-profile-stats.md) approved | Opt-out profile stats: active program name + completed workout count, under the posts rule; amends ADR 001 | `follows` |
+| `usernames` | ⏭ #144 (migrations applied) | Unique username for every user (in `PublicUser`, searchable) + optional 100-char bio; backfill + `NOT NULL` follow | `user-discovery`, `follows` |
+| `profile-stats` | ⏭ [spec](SPEC-profile-stats.md) approved, built | Opt-out profile stats: active program name + completed workout count, under the posts rule; amends ADR 001 | `follows` |
 
 Build order: `follows` → `feed` → `friendships-removal` (own deploy) →
 `post-photos`, `reactions`, `workout-shares`, `reports` →
