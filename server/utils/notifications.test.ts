@@ -10,6 +10,9 @@ import {
   inboxWhere,
   toNotificationPayload,
   notificationStatus,
+  notifyEach,
+  clearNotificationsBetween,
+  notificationKeys,
 } from './notifications'
 
 const db = prisma as unknown as {
@@ -93,12 +96,81 @@ describe('notify', () => {
 describe('retract', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  test('deletes by dedupeKey or by followId, in the caller\'s transaction', async () => {
+  test('deletes by dedupeKey or by followId (one or many), in the caller\'s transaction', async () => {
     const tx = { notification: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) } }
     await retract(tx as never, { followId: 'f1' })
-    await retract(tx as never, { dedupeKey: 'follow_request:f1' })
+    await retract(tx as never, { dedupeKey: 'follow_request:a:b' })
+    await retract(tx as never, { followId: { in: ['f1', 'f2'] } })
     expect(tx.notification.deleteMany).toHaveBeenNthCalledWith(1, { where: { followId: 'f1' } })
-    expect(tx.notification.deleteMany).toHaveBeenNthCalledWith(2, { where: { dedupeKey: 'follow_request:f1' } })
+    expect(tx.notification.deleteMany).toHaveBeenNthCalledWith(2, { where: { dedupeKey: 'follow_request:a:b' } })
+    expect(tx.notification.deleteMany).toHaveBeenNthCalledWith(3, { where: { followId: { in: ['f1', 'f2'] } } })
+  })
+})
+
+describe('notificationKeys', () => {
+  test('one key per logical event', () => {
+    expect(notificationKeys.followRequest('a', 'b')).toBe('follow_request:a:b')
+    expect(notificationKeys.newFollower('a', 'b')).toBe('new_follower:a:b')
+    expect(notificationKeys.followAccepted('f1')).toBe('follow_accepted:f1')
+    expect(notificationKeys.reaction('p1', 'a')).toBe('reaction:p1:a')
+  })
+})
+
+describe('notifyEach', () => {
+  const tx = {
+    userBlock: { findMany: vi.fn() },
+    notification: { createManyAndReturn: vi.fn() },
+  }
+  const input = (recipientId: string) => ({
+    recipientId,
+    type: 'FOLLOW_ACCEPTED' as const,
+    dedupeKey: `follow_accepted:${recipientId}`,
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    tx.userBlock.findMany.mockResolvedValue([])
+    tx.notification.createManyAndReturn.mockImplementation(({ data }: { data: { dedupeKey: string }[] }) =>
+      Promise.resolve(data.map(({ dedupeKey }) => ({ dedupeKey }))))
+  })
+
+  test('one block query and one insert for many recipients; returns the keys actually created', async () => {
+    const keys = await notifyEach(tx as never, 'me', [input('a'), input('b')])
+
+    expect(keys).toEqual(['follow_accepted:a', 'follow_accepted:b'])
+    expect(tx.userBlock.findMany).toHaveBeenCalledWith({
+      where: { OR: [{ blockerId: 'me', blockedId: { in: ['a', 'b'] } }, { blockedId: 'me', blockerId: { in: ['a', 'b'] } }] },
+      select: { blockerId: true, blockedId: true },
+    })
+    expect(tx.notification.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        { recipientId: 'a', actorId: 'me', type: 'FOLLOW_ACCEPTED', dedupeKey: 'follow_accepted:a', data: {} },
+        { recipientId: 'b', actorId: 'me', type: 'FOLLOW_ACCEPTED', dedupeKey: 'follow_accepted:b', data: {} },
+      ],
+      skipDuplicates: true,
+      select: { dedupeKey: true },
+    })
+  })
+
+  test('drops recipients blocked either way, and the actor themselves', async () => {
+    tx.userBlock.findMany.mockResolvedValueOnce([{ blockerId: 'a', blockedId: 'me' }])
+    await notifyEach(tx as never, 'me', [input('a'), input('me'), input('c')])
+    expect(tx.notification.createManyAndReturn.mock.calls[0]![0].data.map((d: { recipientId: string }) => d.recipientId)).toEqual(['c'])
+  })
+
+  test('nothing to write: no insert', async () => {
+    await expect(notifyEach(tx as never, 'me', [])).resolves.toEqual([])
+    expect(tx.notification.createManyAndReturn).not.toHaveBeenCalled()
+  })
+})
+
+describe('clearNotificationsBetween', () => {
+  test('deletes what each user caused for the other', async () => {
+    const tx = { notification: { deleteMany: vi.fn().mockResolvedValue({ count: 2 }) } }
+    await clearNotificationsBetween(tx as never, 'a', 'b')
+    expect(tx.notification.deleteMany).toHaveBeenCalledWith({
+      where: { OR: [{ recipientId: 'a', actorId: 'b' }, { recipientId: 'b', actorId: 'a' }] },
+    })
   })
 })
 
@@ -196,12 +268,15 @@ describe('deliverPush', () => {
     readAt: null,
     dismissedAt: null,
     pushedAt: null,
+    actorId: 'ann',
     actor: { name: 'Ann' },
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
     mockBlockedIds.mockResolvedValue([])
+    mockIsBlocked.mockResolvedValue(false)
+    db.notification.deleteMany!.mockResolvedValue({ count: 1 })
     db.notification.findUnique!.mockResolvedValue(row)
     db.notification.count!.mockResolvedValue(3)
     db.notification.update!.mockResolvedValue({})
@@ -266,6 +341,26 @@ describe('deliverPush', () => {
     expect(mockSendPush).not.toHaveBeenCalled()
   })
 
+  // Regression (slice 2 review): a reaction holds the (user, post) lock, not
+  // the user-pair lock a block takes, so one can commit just as the author
+  // blocks the reactor. The push must re-check rather than trust notify().
+  test('a block that landed after the notification was written: no push, and the row is deleted', async () => {
+    mockIsBlocked.mockResolvedValueOnce(true)
+
+    await expect(deliverPush('k')).resolves.toBe('skipped')
+
+    expect(mockIsBlocked).toHaveBeenCalledWith('ann', 'author')
+    expect(db.notification.deleteMany).toHaveBeenCalledWith({ where: { id: 'n1' } })
+    expect(mockSendPush).not.toHaveBeenCalled()
+  })
+
+  test('system notifications (no actor) skip the block re-check', async () => {
+    db.notification.findUnique!.mockResolvedValueOnce({ ...row, actorId: null, actor: null })
+    await deliverPush('k')
+    expect(mockIsBlocked).not.toHaveBeenCalled()
+    expect(mockSendPush).toHaveBeenCalled()
+  })
+
   test('never throws: a database error is logged and reported as failed', async () => {
     const err = new Error('db down')
     db.notification.findUnique!.mockRejectedValueOnce(err)
@@ -284,6 +379,12 @@ describe('pushAfterCommit', () => {
     const waitUntil = vi.fn()
     pushAfterCommit({ waitUntil } as never, 'k')
     expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise))
+  })
+
+  test('accepts several keys, skipping nulls', () => {
+    const waitUntil = vi.fn()
+    pushAfterCommit({ waitUntil } as never, ['a', null, 'b'])
+    expect(waitUntil).toHaveBeenCalledTimes(2)
   })
 
   test('does nothing when notify skipped the notification', () => {

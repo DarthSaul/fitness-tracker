@@ -64,9 +64,56 @@ export async function notify(db: Prisma.TransactionClient, input: NotifyInput): 
   return dedupeKey
 }
 
+/**
+ * Dedupe keys, one per logical event. Request and follower keys are per user
+ * pair, so a follow → unfollow → follow loop can't notify twice, and a request
+ * can be retracted by whichever side knows only the pair.
+ */
+export const notificationKeys = {
+  followRequest: (followerId: string, followeeId: string) => `follow_request:${followerId}:${followeeId}`,
+  newFollower: (followerId: string, followeeId: string) => `new_follower:${followerId}:${followeeId}`,
+  followAccepted: (followId: string) => `follow_accepted:${followId}`,
+  reaction: (postId: string, reactorId: string) => `reaction:${postId}:${reactorId}`,
+}
+
+/**
+ * `notify` for one actor and many recipients, in one block query and one
+ * insert — e.g. accepting every pending request when a profile goes public,
+ * which must stay well inside the interactive transaction's timeout. Returns
+ * the dedupeKeys actually created.
+ */
+export async function notifyEach(db: Prisma.TransactionClient, actorId: string, inputs: Omit<NotifyInput, 'actorId'>[]): Promise<string[]> {
+  const candidates = inputs.filter((i) => i.recipientId !== actorId)
+  if (candidates.length === 0) return []
+
+  const ids = candidates.map((i) => i.recipientId)
+  const blocks = await db.userBlock.findMany({
+    where: { OR: [{ blockerId: actorId, blockedId: { in: ids } }, { blockedId: actorId, blockerId: { in: ids } }] },
+    select: { blockerId: true, blockedId: true },
+  })
+  const blocked = new Set(blocks.map((b) => (b.blockerId === actorId ? b.blockedId : b.blockerId)))
+  const rows = candidates.filter((i) => !blocked.has(i.recipientId))
+  if (rows.length === 0) return []
+
+  const created = await db.notification.createManyAndReturn({
+    data: rows.map(({ recipientId, type, dedupeKey, target = {}, data = {} }) => ({ recipientId, actorId, type, dedupeKey, ...target, data })),
+    skipDuplicates: true,
+    select: { dedupeKey: true },
+  })
+  for (const { dedupeKey } of created) logger.info({ type: rows[0]!.type, dedupeKey }, 'notification.created')
+  return created.map((c) => c.dedupeKey)
+}
+
+type FollowIdFilter = string | { in: string[] }
+
 /** Deletes notifications whose source no longer stands (e.g. a cancelled follow request). */
-export async function retract(db: Prisma.TransactionClient, where: { dedupeKey: string } | { followId: string }): Promise<void> {
+export async function retract(db: Prisma.TransactionClient, where: { dedupeKey: string } | { followId: FollowIdFilter }): Promise<void> {
   await db.notification.deleteMany({ where })
+}
+
+/** Deletes everything either user caused for the other. Run in the transaction that creates a block. */
+export async function clearNotificationsBetween(db: Prisma.TransactionClient, a: string, b: string): Promise<void> {
+  await db.notification.deleteMany({ where: { OR: [{ recipientId: a, actorId: b }, { recipientId: b, actorId: a }] } })
 }
 
 export function notificationStatus(row: { readAt: Date | null; dismissedAt: Date | null }): NotificationStatus {
@@ -184,10 +231,19 @@ export async function deliverPush(dedupeKey: string): Promise<DeliveryOutcome> {
         readAt: true,
         dismissedAt: true,
         pushedAt: true,
+        actorId: true,
         actor: { select: { name: true } },
       },
     })
     if (!n || n.pushedAt || n.readAt || n.dismissedAt) return 'skipped'
+
+    // notify() checked for a block, but not every trigger holds the user-pair
+    // lock a block takes (a reaction locks on user + post), so a block can
+    // commit between the write and this push. Re-check, and drop the row.
+    if (n.actorId && (await isBlockedEitherWay(n.actorId, n.recipientId))) {
+      await prisma.notification.deleteMany({ where: { id: n.id } })
+      return 'skipped'
+    }
 
     const pref = await prisma.notificationPreference.findUnique({
       where: { userId_type: { userId: n.recipientId, type: n.type } },
@@ -220,10 +276,11 @@ export async function deliverPush(dedupeKey: string): Promise<DeliveryOutcome> {
 
 /**
  * Sends the push once the response is on its way. Call after the transaction
- * that ran `notify` has committed, with what `notify` returned.
+ * that ran `notify` has committed, with what `notify` (or `notifyEach`) returned.
  */
-export function pushAfterCommit(event: H3Event, dedupeKey: string | null): void {
-  if (!dedupeKey) return
-  // waitUntil keeps a serverless function alive until the push settles.
-  event.waitUntil(deliverPush(dedupeKey))
+export function pushAfterCommit(event: H3Event, keys: string | null | (string | null)[]): void {
+  for (const key of Array.isArray(keys) ? keys : [keys]) {
+    // waitUntil keeps a serverless function alive until the push settles.
+    if (key) event.waitUntil(deliverPush(key))
+  }
 }

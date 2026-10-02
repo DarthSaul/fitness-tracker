@@ -81,7 +81,7 @@ export default defineEventHandler(async (event) => {
     // POST /api/following, which reads this row FOR SHARE: a concurrent follow
     // either waits and sees PUBLIC (created accepted), or commits its PENDING
     // row first and is accepted by the updateMany below.
-    return await prisma.$transaction(async (tx) => {
+    const { updated, notifications } = await prisma.$transaction(async (tx) => {
       const [current] = await tx.$queryRaw<{ profileVisibility: 'PUBLIC' | 'PRIVATE' }[]>`
         SELECT "profileVisibility"::text AS "profileVisibility" FROM "User" WHERE "id" = ${userId} FOR UPDATE`
       if (!current) {
@@ -91,14 +91,30 @@ export default defineEventHandler(async (event) => {
       const updated = await tx.user.update({ where: { id: userId }, data, select: meSelect })
 
       // Going public: anyone can now follow instantly, so pending requests are accepted too.
-      if (current.profileVisibility === 'PRIVATE' && data.profileVisibility === 'PUBLIC') {
-        await tx.follow.updateMany({
-          where: { followeeId: userId, status: 'PENDING' },
-          data: { status: 'ACCEPTED', acceptedAt: new Date() },
-        })
+      if (current.profileVisibility !== 'PRIVATE' || data.profileVisibility !== 'PUBLIC') {
+        return { updated, notifications: [] }
       }
-      return updated
+      // updateManyAndReturn yields exactly the rows it accepted, so a request
+      // cancelled mid-flight is never announced as accepted.
+      const accepted = await tx.follow.updateManyAndReturn({
+        where: { followeeId: userId, status: 'PENDING' },
+        data: { status: 'ACCEPTED', acceptedAt: new Date() },
+        select: { id: true, followerId: true },
+      })
+      if (accepted.length === 0) return { updated, notifications: [] }
+
+      // Batched: one statement each, however many requests were waiting.
+      await retract(tx, { followId: { in: accepted.map((f) => f.id) } })
+      const notifications = await notifyEach(tx, userId, accepted.map((f) => ({
+        recipientId: f.followerId,
+        type: 'FOLLOW_ACCEPTED' as const,
+        dedupeKey: notificationKeys.followAccepted(f.id),
+      })))
+      return { updated, notifications }
     })
+
+    pushAfterCommit(event, notifications)
+    return updated
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     // The only unique column this update can write is username.

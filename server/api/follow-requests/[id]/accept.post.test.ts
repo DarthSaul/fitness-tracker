@@ -2,6 +2,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { Prisma } from '@prisma/client'
 
 import handler from './accept.post'
+const mockNotify = notify as ReturnType<typeof vi.fn>
+const mockPushAfterCommit = pushAfterCommit as ReturnType<typeof vi.fn>
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockFindUnique = prisma.follow.findUnique as ReturnType<typeof vi.fn>
@@ -75,5 +77,28 @@ describe('POST /api/follow-requests/:id/accept', () => {
     mockFindUnique.mockRejectedValueOnce(new Error('timeout'))
     await expect(call()).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to accept follow request' })
     expect(logger.error).toHaveBeenCalled()
+  })
+
+  describe('notifications', () => {
+    test('retracts the request notification and tells the requester, under the lock; pushes after commit', async () => {
+      const order: string[] = []
+      ;(retract as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => { order.push(inLock ? 'retract:locked' : 'retract:UNLOCKED') })
+      mockNotify.mockImplementationOnce(async () => { order.push(inLock ? 'notify:locked' : 'notify:UNLOCKED'); return 'follow_accepted:r1' })
+      mockPushAfterCommit.mockImplementationOnce(() => { order.push(inLock ? 'push:UNCOMMITTED' : 'push:after') })
+
+      await call()
+
+      expect(retract).toHaveBeenCalledWith(prisma, { followId: 'r1' })
+      expect(mockNotify).toHaveBeenCalledWith(prisma, { recipientId: 'ann', actorId: 'me', type: 'FOLLOW_ACCEPTED', dedupeKey: 'follow_accepted:r1' })
+      expect(mockPushAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/follow-requests/r1/accept' }), 'follow_accepted:r1')
+      expect(order).toEqual(['retract:locked', 'notify:locked', 'push:after'])
+    })
+
+    test('nothing is sent when the request is not found', async () => {
+      mockFindUnique.mockResolvedValueOnce(null)
+      await expect(call()).rejects.toMatchObject({ statusCode: 404 })
+      expect(mockNotify).not.toHaveBeenCalled()
+      expect(mockPushAfterCommit).not.toHaveBeenCalled()
+    })
   })
 })

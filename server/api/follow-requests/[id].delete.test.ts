@@ -16,6 +16,8 @@ describe('DELETE /api/follow-requests/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetRouterParam.mockReturnValue('r1')
+
+    ;(prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma))
   })
 
   test('declines (followee) or cancels (follower) a pending request in one guarded query → 204', async () => {
@@ -46,5 +48,20 @@ describe('DELETE /api/follow-requests/:id', () => {
     mockDeleteMany.mockRejectedValueOnce(new Error('timeout'))
     await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to remove follow request' })
     expect(logger.error).toHaveBeenCalled()
+  })
+
+  describe('notifications', () => {
+    test('retracts the request notification in the same transaction as the delete', async () => {
+      mockDeleteMany.mockResolvedValueOnce({ count: 1 })
+      await call(makeEvent())
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+      expect(retract).toHaveBeenCalledWith(prisma, { followId: 'r1' })
+    })
+
+    test('nothing deleted: nothing retracted', async () => {
+      mockDeleteMany.mockResolvedValueOnce({ count: 0 })
+      await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 404 })
+      expect(retract).not.toHaveBeenCalled()
+    })
   })
 })

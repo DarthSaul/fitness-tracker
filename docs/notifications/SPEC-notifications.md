@@ -111,6 +111,37 @@ set, else `read` if `readAt` is set, else `unread`. Two timestamps keep the
 so every write is `createMany({ skipDuplicates: true })` or an upsert on
 `dedupeKey`. That makes each event idempotent without a lock.
 
+**The keys** are built by `notificationKeys` in `server/utils/notifications.ts`.
+
+| Type | Key | Why this granularity |
+|---|---|---|
+| `FOLLOW_REQUEST` | `follow_request:{follower}:{followee}` | Keyed per user pair, so `DELETE /api/following/:userId` can retract it without knowing the follow's id. Once retracted, a new request notifies again. |
+| `NEW_FOLLOWER` | `new_follower:{follower}:{followee}` | Keyed per pair and never retracted, so a follow → unfollow → follow loop notifies only once. |
+| `FOLLOW_ACCEPTED` | `follow_accepted:{followId}` | Keyed per follow. Each acceptance takes a deliberate action by the followee. |
+| `POST_REACTION` | `reaction:{postId}:{reactor}` | See below. |
+
+**Going public accepts in bulk.** It runs in one transaction:
+1. `updateManyAndReturn` accepts the pending requests and returns exactly the
+   rows it changed, so a request cancelled mid-flight is never announced as
+   accepted.
+2. One `retract` removes the request notifications.
+3. `notifyEach` writes the new ones, using one block query and one
+   `createManyAndReturn`.
+
+That is a fixed number of statements however many requests are pending, so it
+stays inside the interactive transaction's timeout.
+
+The known limit is the number of bind parameters. Each pending request binds
+one or more, against Postgres's 32k cap, so the batch would fail at roughly
+6,000+ pending requests. Chunk the batch if a private account ever gets
+anywhere near that.
+
+**The push re-checks blocks.** A reaction takes the (user, post) lock, not the
+user-pair lock that a block takes, so a block can commit between `notify` and
+the push. Before sending, `deliverPush` checks for a block between actor and
+recipient. If one exists, it deletes the row and sends nothing. The re-check
+also covers the sweep's retries.
+
 **Reactions are one notification per (post, reactor), ever.** The dedupe key
 is `reaction:{postId}:{actorId}`, and the first emoji wins.
 - If the same person adds three emoji, you get one notification.

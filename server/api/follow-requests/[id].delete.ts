@@ -22,8 +22,12 @@ export default defineEventHandler(async (event) => {
   try {
     // One guarded delete: either party, only while PENDING. An accepted follow is
     // removed via DELETE /api/following/:userId or /api/followers/:userId.
-    const { count } = await prisma.follow.deleteMany({
-      where: { id, status: 'PENDING', OR: [{ followerId: userId }, { followeeId: userId }] },
+    const count = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.follow.deleteMany({
+        where: { id, status: 'PENDING', OR: [{ followerId: userId }, { followeeId: userId }] },
+      })
+      if (count > 0) await retract(tx, { followId: id })
+      return count
     })
     if (count === 0) {
       throw createError({ statusCode: 404, statusMessage: 'Follow request not found' })

@@ -33,12 +33,25 @@ export default defineEventHandler(async (event): Promise<{ follower: PublicUser 
     // Under the pair lock so it serializes with a block. Still guarded on
     // PENDING: it may have been cancelled between the read and the lock, which
     // fails with P2025 → 404 rather than reviving it.
-    const accepted = await withPairLock(request.followerId, userId, (tx) => tx.follow.update({
-      where: { id, status: 'PENDING' },
-      data: { status: 'ACCEPTED', acceptedAt: new Date() },
-      select: { acceptedAt: true },
-    }))
+    const { accepted, notification } = await withPairLock(request.followerId, userId, async (tx) => {
+      const accepted = await tx.follow.update({
+        where: { id, status: 'PENDING' },
+        data: { status: 'ACCEPTED', acceptedAt: new Date() },
+        select: { acceptedAt: true },
+      })
+      // The request notification would now 404 if actioned; replace it with
+      // one telling the requester.
+      await retract(tx, { followId: id })
+      const notification = await notify(tx, {
+        recipientId: request.followerId,
+        actorId: userId,
+        type: 'FOLLOW_ACCEPTED',
+        dedupeKey: notificationKeys.followAccepted(id),
+      })
+      return { accepted, notification }
+    })
 
+    pushAfterCommit(event, notification)
     return { follower: { ...request.follower, since: accepted.acceptedAt! } }
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') throw notFound()

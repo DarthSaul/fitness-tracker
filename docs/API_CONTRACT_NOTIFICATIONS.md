@@ -19,9 +19,19 @@ notifications.
 Clients must ignore unknown `type` values, because new types will be added
 without a version bump.
 
-> Rollout: the inbox API ships first. The social and workout types above start
-> appearing as their triggers land (see the Notifications section of the
-> CLAUDE.md roadmap).
+> Rollout: the four social types are live. `WORKOUT_REMINDER` and
+> `WORKOUT_UNFINISHED` arrive with the scheduled sweep (see the Notifications
+> section of the CLAUDE.md roadmap).
+
+What the social types do:
+- **`FOLLOW_REQUEST` disappears from the list** once the request is accepted,
+  declined or cancelled. Treat a `404` from accepting it as "already handled".
+- **`NEW_FOLLOWER` and `POST_REACTION` fire once per person.** One per
+  follower; one per reactor per post, however many emoji they add.
+- **Making your profile public** sends `FOLLOW_ACCEPTED` to everyone whose
+  request was pending.
+- **Blocking someone** removes every notification between the two of you, in
+  both inboxes.
 
 ## Item
 
