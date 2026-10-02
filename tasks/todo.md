@@ -254,7 +254,7 @@ gets a new, simpler spec after `follows`.
 - [x] PR opened (#144, stacked on #142)
 - [x] Migrations 1 + 2 applied before merge (2026-10-02): status up to date, no drift; both CHECKs + unique index live; all 7 users backfilled with distinct user_NNNNNN names; route queries probed read-only
 - [x] Merge (#144, squash 9346958, identical to the PR head)
-- [ ] Later PR: migration 3 (re-run backfill, `SET NOT NULL`) once this deploy is live
+- [x] Migration 3 (re-run backfill, `SET NOT NULL`): `20261002160000_require_username` (#148), after #144 was confirmed live in production (dpl 9346958)
 
 ## PR 13 — `profile-stats` (branch `feat/social-profile-stats`; #144 merged, now on main)
 
