@@ -16,7 +16,7 @@ import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, par
 import { parseReportInput } from './server/utils/reports'
 import { parseUsername, normalizeUsername, usernameProblem } from './server/utils/usernames'
 import { meSelect, parseBio } from './server/utils/profile'
-import { notificationSelect, toNotificationPayload, inboxWhere } from './server/utils/notifications'
+import { notificationSelect, toNotificationPayload, inboxWhere, notificationKeys } from './server/utils/notifications'
 import { NOTIFICATION_TYPES, formatReminderTime, parseReminderTime, isValidTimeZone, loadNotificationPreferences } from './server/utils/notification-preferences'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
@@ -109,10 +109,10 @@ vi.stubGlobal('prisma', {
   postReaction: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn(), count: vi.fn() },
   postPhoto: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   post: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
-  follow: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
+  follow: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), updateManyAndReturn: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   userBlock: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   report: { findFirst: vi.fn(), create: vi.fn() },
-  notification: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), createMany: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
+  notification: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), createMany: vi.fn(), createManyAndReturn: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   notificationPreference: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn() },
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   standaloneWorkout: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
@@ -174,6 +174,9 @@ vi.stubGlobal('toNotificationPayload', toNotificationPayload)
 vi.stubGlobal('inboxWhere', inboxWhere)
 vi.stubGlobal('notify', vi.fn().mockResolvedValue(null))
 vi.stubGlobal('retract', vi.fn().mockResolvedValue(undefined))
+vi.stubGlobal('notifyEach', vi.fn().mockResolvedValue([]))
+vi.stubGlobal('clearNotificationsBetween', vi.fn().mockResolvedValue(undefined))
+vi.stubGlobal('notificationKeys', notificationKeys)
 vi.stubGlobal('pushAfterCommit', vi.fn())
 vi.stubGlobal('deliverPush', vi.fn().mockResolvedValue('skipped'))
 vi.stubGlobal('unreadCount', vi.fn().mockResolvedValue(0))

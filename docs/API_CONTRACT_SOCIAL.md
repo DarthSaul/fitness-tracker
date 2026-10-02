@@ -399,3 +399,10 @@ type ReportReason =
     you. A report never reveals a hidden post or a block.
   - `429` after 20 report requests in an hour, repeats included. A repeat past
     the limit gets `429` rather than `200`, so show "try again later".
+
+## Notifications
+
+Following, follow requests and reactions create inbox notifications and APNs
+pushes. Blocking someone removes every notification between the two users. For
+the types, the payloads and the inbox routes, see
+[`API_CONTRACT_NOTIFICATIONS.md`](API_CONTRACT_NOTIFICATIONS.md).

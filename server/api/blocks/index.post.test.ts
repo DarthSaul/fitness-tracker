@@ -133,4 +133,23 @@ describe('POST /api/blocks', () => {
     await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to block user' })
     expect(logger.error).toHaveBeenCalled()
   })
+
+  describe('notifications', () => {
+    test('a new block deletes the pair\'s notifications under the lock', async () => {
+      mockCreateBlock.mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
+      const calls: string[] = []
+      ;(clearNotificationsBetween as ReturnType<typeof vi.fn>).mockImplementationOnce(async () => underLock('clear', calls)())
+
+      await call(makeEvent())
+
+      expect(clearNotificationsBetween).toHaveBeenCalledWith(prisma, 'alice', 'bob')
+      expect(calls).toEqual(['clear:locked'])
+    })
+
+    test('an existing block leaves notifications alone (there are none to clear)', async () => {
+      mockFindBlock.mockResolvedValueOnce({ blockedId: 'bob', createdAt: blockedAt })
+      await call(makeEvent())
+      expect(clearNotificationsBetween).not.toHaveBeenCalled()
+    })
+  })
 })

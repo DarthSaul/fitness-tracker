@@ -41,7 +41,7 @@ export default defineEventHandler(async (event): Promise<FollowResponse> => {
 
     // The pair lock serializes this with POST /api/blocks, so a block can't land
     // between the check and the write.
-    return await withPairLock(userId, targetId, async (tx) => {
+    const { response, notification } = await withPairLock(userId, targetId, async (tx) => {
       // FOR SHARE serializes with PATCH /api/auth/me, which locks this row FOR
       // UPDATE before deciding to go public: either we wait and see PUBLIC, or
       // our PENDING row commits first and going public accepts it.
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event): Promise<FollowResponse> => {
         where: { followerId_followeeId: { followerId: userId, followeeId: targetId } },
         select: followSelect,
       })
-      if (existing) return toResponse(existing)
+      if (existing) return { response: toResponse(existing), notification: null }
 
       const isPublic = target.profileVisibility === 'PUBLIC'
       const created = await tx.follow.create({
@@ -67,8 +67,21 @@ export default defineEventHandler(async (event): Promise<FollowResponse> => {
         select: followSelect,
       })
       event.node.res.statusCode = 201
-      return toResponse(created)
+
+      const notification = await notify(tx, isPublic
+        ? { recipientId: targetId, actorId: userId, type: 'NEW_FOLLOWER', dedupeKey: notificationKeys.newFollower(userId, targetId) }
+        : {
+            recipientId: targetId,
+            actorId: userId,
+            type: 'FOLLOW_REQUEST',
+            dedupeKey: notificationKeys.followRequest(userId, targetId),
+            target: { followId: created.id },
+          })
+      return { response: toResponse(created), notification }
     })
+
+    pushAfterCommit(event, notification)
+    return response
   } catch (error) {
     if ((error as { statusCode?: number }).statusCode) throw error
     ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/following' }, '[POST /api/following] Failed to follow user')

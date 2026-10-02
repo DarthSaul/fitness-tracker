@@ -22,7 +22,7 @@ const mockUpdateUser = (prisma as typeof prisma).user.update as ReturnType<typeo
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
-const mockUpdateManyFollows = (prisma as typeof prisma).follow.updateMany as ReturnType<typeof vi.fn>
+const mockAcceptPending = (prisma as typeof prisma).follow.updateManyAndReturn as ReturnType<typeof vi.fn>
 
 const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true, showActiveProgram: true, showWorkoutCount: true }
 
@@ -56,7 +56,7 @@ describe('PATCH /api/auth/me', () => {
     })
     mockLockUser.mockResolvedValue([{ profileVisibility: 'PRIVATE' }])
     mockTransaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma))
-    mockUpdateManyFollows.mockResolvedValue({ count: 0 })
+    mockAcceptPending.mockResolvedValue([])
   })
 
   test('updates ptRoutineInWorkout and returns the profile', async () => {
@@ -113,23 +113,53 @@ describe('PATCH /api/auth/me', () => {
       select: meSelect,
     })
     // Going private keeps existing followers.
-    expect(mockUpdateManyFollows).not.toHaveBeenCalled()
+    expect(mockAcceptPending).not.toHaveBeenCalled()
   })
 
   test('going PRIVATE → PUBLIC accepts every pending request, in the same transaction as the update', async () => {
     mockUpdateUser.mockResolvedValueOnce({ ...mockUpdatedUser, profileVisibility: 'PUBLIC' })
-    mockUpdateManyFollows.mockResolvedValueOnce({ count: 3 })
+    mockAcceptPending.mockResolvedValueOnce([{ id: 'f1', followerId: 'a' }])
 
     const event = makeEvent({ profileVisibility: 'PUBLIC' })
     const result = await (handler as unknown as (e: typeof event) => Promise<{ profileVisibility: string }>)(event)
 
     expect(mockTransaction).toHaveBeenCalledTimes(1)
-    expect(mockUpdateManyFollows).toHaveBeenCalledWith({
+    // One statement accepts the pending rows and returns exactly those it
+    // changed, so a request cancelled concurrently can't be notified as accepted.
+    expect(mockAcceptPending).toHaveBeenCalledWith({
       where: { followeeId: 'user001', status: 'PENDING' },
       data: { status: 'ACCEPTED', acceptedAt: expect.any(Date) },
+      select: { id: true, followerId: true },
     })
-    expect(mockUpdateUser.mock.invocationCallOrder[0]!).toBeLessThan(mockUpdateManyFollows.mock.invocationCallOrder[0]!)
+    expect(mockUpdateUser.mock.invocationCallOrder[0]!).toBeLessThan(mockAcceptPending.mock.invocationCallOrder[0]!)
     expect(result.profileVisibility).toBe('PUBLIC')
+  })
+
+  test('going public: each accepted requester is told, the request notifications are retracted, pushes after commit', async () => {
+    mockUpdateUser.mockResolvedValueOnce({ ...mockUpdatedUser, profileVisibility: 'PUBLIC' })
+    mockAcceptPending.mockResolvedValueOnce([{ id: 'f1', followerId: 'ann' }, { id: 'f2', followerId: 'bob' }])
+    ;(notifyEach as ReturnType<typeof vi.fn>).mockResolvedValueOnce(['follow_accepted:f1', 'follow_accepted:f2'])
+
+    const event = makeEvent({ profileVisibility: 'PUBLIC' })
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(retract).toHaveBeenCalledWith(prisma, { followId: { in: ['f1', 'f2'] } })
+    expect(notifyEach).toHaveBeenCalledWith(prisma, 'user001', [
+      { recipientId: 'ann', type: 'FOLLOW_ACCEPTED', dedupeKey: 'follow_accepted:f1' },
+      { recipientId: 'bob', type: 'FOLLOW_ACCEPTED', dedupeKey: 'follow_accepted:f2' },
+    ])
+    expect(pushAfterCommit).toHaveBeenCalledWith(event, ['follow_accepted:f1', 'follow_accepted:f2'])
+  })
+
+  test('going public with no pending requests: no notifications', async () => {
+    mockUpdateUser.mockResolvedValueOnce({ ...mockUpdatedUser, profileVisibility: 'PUBLIC' })
+    mockAcceptPending.mockResolvedValueOnce([])
+
+    const event = makeEvent({ profileVisibility: 'PUBLIC' })
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(retract).not.toHaveBeenCalled()
+    expect(notifyEach).not.toHaveBeenCalled()
   })
 
   test('staying PUBLIC does not touch follow requests', async () => {
@@ -139,7 +169,7 @@ describe('PATCH /api/auth/me', () => {
     const event = makeEvent({ profileVisibility: 'PUBLIC' })
     await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
-    expect(mockUpdateManyFollows).not.toHaveBeenCalled()
+    expect(mockAcceptPending).not.toHaveBeenCalled()
   })
 
   // Regression (PR #135 review): goingPublic used to be decided from a read

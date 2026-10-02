@@ -58,6 +58,8 @@ export default defineEventHandler(async (event): Promise<BlockResponse> => {
           ],
         },
       })
+      // Neither inbox may keep anything that reveals the other user.
+      await clearNotificationsBetween(tx, userId, targetId)
       return { block, created: true }
     })
 

@@ -21,7 +21,12 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    await prisma.follow.deleteMany({ where: { followerId: userId, followeeId } })
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.follow.deleteMany({ where: { followerId: userId, followeeId } })
+      // Cancelling a pending request withdraws its notification. After an
+      // accepted follow there is none left (accepting retracted it).
+      if (count > 0) await retract(tx, { dedupeKey: notificationKeys.followRequest(userId, followeeId) })
+    })
     event.node.res.statusCode = 204
     return null
   } catch (error) {

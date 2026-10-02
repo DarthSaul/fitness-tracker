@@ -1,6 +1,8 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
 import handler from './index.post'
+const mockNotify = notify as ReturnType<typeof vi.fn>
+const mockPushAfterCommit = pushAfterCommit as ReturnType<typeof vi.fn>
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockQueryRaw = prisma.$queryRaw as ReturnType<typeof vi.fn>
@@ -152,5 +154,43 @@ describe('POST /api/following', () => {
     await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to follow user' })
     expect(logger.error).toHaveBeenCalled()
   })
-})
 
+  describe('notifications', () => {
+    test('a PUBLIC follow notifies the followee of a new follower, under the lock, and pushes after commit', async () => {
+      targetIs('PUBLIC')
+      mockCreateFollow.mockResolvedValueOnce({ id: 'f1', status: 'ACCEPTED' })
+      const order: string[] = []
+      mockNotify.mockImplementationOnce(async () => { order.push(inLock ? 'notify:locked' : 'notify:UNLOCKED'); return 'new_follower:ca:cz' })
+      mockPushAfterCommit.mockImplementationOnce(() => { order.push(inLock ? 'push:UNCOMMITTED' : 'push:after') })
+      const event = makeEvent()
+
+      await call(event)
+
+      expect(mockNotify).toHaveBeenCalledWith(prisma, { recipientId: THEM, actorId: ME, type: 'NEW_FOLLOWER', dedupeKey: 'new_follower:ca:cz' })
+      expect(mockPushAfterCommit).toHaveBeenCalledWith(event, 'new_follower:ca:cz')
+      expect(order).toEqual(['notify:locked', 'push:after'])
+    })
+
+    test('a PRIVATE follow sends a follow request that deep-links to the request', async () => {
+      targetIs('PRIVATE')
+      mockCreateFollow.mockResolvedValueOnce({ id: 'f1', status: 'PENDING' })
+
+      await call(makeEvent())
+
+      expect(mockNotify).toHaveBeenCalledWith(prisma, {
+        recipientId: THEM, actorId: ME, type: 'FOLLOW_REQUEST', dedupeKey: 'follow_request:ca:cz', target: { followId: 'f1' },
+      })
+    })
+
+    test('an existing follow or request notifies nobody', async () => {
+      targetIs('PRIVATE')
+      mockFindFollow.mockResolvedValueOnce({ id: 'f1', status: 'PENDING' })
+      const event = makeEvent()
+
+      await call(event)
+
+      expect(mockNotify).not.toHaveBeenCalled()
+      expect(mockPushAfterCommit).toHaveBeenCalledWith(event, null)
+    })
+  })
+})

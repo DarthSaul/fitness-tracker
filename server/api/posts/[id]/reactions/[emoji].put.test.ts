@@ -2,6 +2,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { Prisma } from '@prisma/client'
 
 import handler from './[emoji].put'
+const mockNotify = notify as ReturnType<typeof vi.fn>
+const mockPushAfterCommit = pushAfterCommit as ReturnType<typeof vi.fn>
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
 const mockRequireVisible = requireVisiblePost as ReturnType<typeof vi.fn>
@@ -153,5 +155,30 @@ describe('PUT /api/posts/:id/reactions/:emoji', () => {
     mockCreate.mockRejectedValueOnce(new Error('timeout'))
     await expect(call(makeEvent())).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to add reaction' })
     expect(logger.error).toHaveBeenCalled()
+  })
+
+  describe('notifications', () => {
+    test('a new reaction notifies the author once per reactor, under the lock; push after commit', async () => {
+      const order: string[] = []
+      mockNotify.mockImplementationOnce(async () => { order.push(inLock ? 'notify:locked' : 'notify:UNLOCKED'); return 'reaction:p1:me' })
+      mockPushAfterCommit.mockImplementationOnce(() => { order.push(inLock ? 'push:UNCOMMITTED' : 'push:after') })
+      const event = makeEvent()
+
+      await call(event)
+
+      expect(mockNotify).toHaveBeenCalledWith(prisma, {
+        recipientId: 'author', actorId: 'me', type: 'POST_REACTION', dedupeKey: 'reaction:p1:me', target: { postId: 'p1' }, data: { emoji: '👍' },
+      })
+      expect(mockPushAfterCommit).toHaveBeenCalledWith(event, 'reaction:p1:me')
+      expect(order).toEqual(['notify:locked', 'push:after'])
+    })
+
+    test('an existing reaction notifies nobody', async () => {
+      mockFindUnique.mockResolvedValueOnce({ id: 'r1' })
+      const event = makeEvent()
+      await call(event)
+      expect(mockNotify).not.toHaveBeenCalled()
+      expect(mockPushAfterCommit).toHaveBeenCalledWith(event, null)
+    })
   })
 })
