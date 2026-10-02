@@ -319,4 +319,5 @@ type ReportReason =
     `details` over 1,000 characters, or reporting yourself or your own post.
   - `404`: a post you can't see, or a user who doesn't exist or has blocked
     you. A report never reveals a hidden post or a block.
-  - `429` after 20 reports in an hour.
+  - `429` after 20 report requests in an hour, repeats included. A repeat past
+    the limit gets `429` rather than `200`, so show "try again later".

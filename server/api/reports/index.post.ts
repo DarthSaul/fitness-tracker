@@ -10,7 +10,7 @@ defineRouteMeta({
       + '`reason` is one of SPAM, HARASSMENT, HATE, SEXUAL_CONTENT, VIOLENCE, SELF_HARM, IMPERSONATION, OTHER; '
       + '`details` is optional, up to 1000 characters. What was reported is snapshotted, so editing or deleting it '
       + 'does not erase the report. Reporting the same target again is a no-op that returns the first report. '
-      + 'Rate-limited to 20 reports per hour per user.',
+      + 'Rate-limited to 20 requests per hour per user, repeats included.',
     responses: {
       201: { description: 'Report created — `{ id }`' },
       200: { description: 'Already reported by the caller — `{ id }` of the first report' },
@@ -77,6 +77,8 @@ export default defineEventHandler(async (event): Promise<{ id: string }> => {
   const { target, reason, details } = parseReportInput(await readBody(event), userId)
 
   try {
+    // Every request counts, repeats included: checking first keeps a flood of
+    // repeats from costing free reads. A repeat past the limit is 429, not 200.
     await rateLimitByKey(`report:${userId}`, 20, '1 h')
 
     const { row, existing } = target.kind === 'post'
@@ -96,6 +98,9 @@ export default defineEventHandler(async (event): Promise<{ id: string }> => {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const winner = await findExisting()
         if (winner) return winner
+        // The winner vanished before the re-read: its post was deleted (postId
+        // nulled) or the reported account was (cascade). The target is gone.
+        throw createError({ statusCode: 404, statusMessage: target.kind === 'post' ? 'Post not found' : 'User not found' })
       }
       throw err
     }

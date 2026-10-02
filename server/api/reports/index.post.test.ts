@@ -159,6 +159,30 @@ describe('POST /api/reports', () => {
     expect(mockCapture).not.toHaveBeenCalled()
   })
 
+  // Regression (PR #141 review): when the concurrent winner vanished before
+  // the re-read — its post deleted (postId nulled), or the reported account
+  // deleted (cascade) — the P2002 was rethrown as a 500.
+  test.each([
+    ['post', { postId: 'p1', reason: 'SPAM' }, 'Post not found'],
+    ['user', { userId: 'ann', reason: 'SPAM' }, 'User not found'],
+  ])('P2002 whose winner is gone → the %s\'s 404, not a 500', async (_kind, body, statusMessage) => {
+    mockReportFind.mockResolvedValue(null)
+    mockReportCreate.mockRejectedValue(p2002())
+
+    await expect(call(body)).rejects.toMatchObject({ statusCode: 404, statusMessage })
+    expect(logger.error).not.toHaveBeenCalled()
+    expect(mockCapture).not.toHaveBeenCalled()
+  })
+
+  test('a repeat report still counts toward the rate limit — every request does', async () => {
+    mockReportFind.mockResolvedValue({ id: 'r0' })
+
+    await call({ postId: 'p1', reason: 'SPAM' })
+
+    expect(mockRateLimitByKey).toHaveBeenCalledWith('report:me', 20, '1 h')
+    expect(mockRateLimitByKey.mock.invocationCallOrder[0]).toBeLessThan(mockReportFind.mock.invocationCallOrder[0]!)
+  })
+
   test('a new report alerts the moderator once, with ids and reason only — never text or details', async () => {
     await call({ postId: 'p1', reason: 'SPAM', details: 'secret details' })
 

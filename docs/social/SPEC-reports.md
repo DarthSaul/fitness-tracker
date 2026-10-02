@@ -138,7 +138,12 @@ reads.
   - `400` for `details` over 1,000 characters (trimmed; an empty string
     becomes null),
   - `400` for reporting yourself, including your own post.
-- **Rate limit:** checked next.
+- **Rate limit:** checked next, before any read.
+  - **Every request counts, including a repeat**, so a repeat past the limit
+    is `429`, not `200`.
+  - Checking the limit first stops a flood of repeats from costing
+    unthrottled visibility and duplicate lookups.
+  - Clients treat `429` as "try later" in any case.
 - **Checking the target:**
   - **A post:** `requireVisiblePost`, so a post you can't see is `404`. Then
     read the snapshot fields. Reporting your own post is `400`.
@@ -149,6 +154,9 @@ reads.
   - A report from you on that target already exists → **`200 { id }`** of the
     existing one. A duplicate created concurrently (P2002) is handled the same
     way.
+  - If that concurrent winner is gone by the time it's re-read → the target's
+    **`404`**. That happens when the post was deleted (its reports' `postId`
+    becomes null) or the reported account was deleted (cascade).
 - **Alert:** after commit, on `201` only, send the Sentry message and log
   line. A failure to alert is logged and never fails the request, because the
   report is already stored.
