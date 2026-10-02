@@ -31,8 +31,14 @@ describe('reminder time', () => {
 })
 
 describe('isValidTimeZone', () => {
-  test.each(['America/Chicago', 'Europe/London', 'UTC', 'Asia/Kolkata'])('accepts %s', (tz) => {
+  test.each(['America/Chicago', 'Europe/London', 'UTC', 'Asia/Kolkata', 'Etc/GMT+5'])('accepts %s', (tz) => {
     expect(isValidTimeZone(tz)).toBe(true)
+  })
+
+  // Intl (Node 24) accepts fixed UTC offsets as time zones, but an offset has no
+  // DST rules: a "-06:00" user's 08:00 reminder would drift an hour each spring.
+  test.each(['+05:30', '-08:00', '+0530', '+05'])('rejects the fixed offset %s', (tz) => {
+    expect(isValidTimeZone(tz)).toBe(false)
   })
 
   test.each(['Mars/Olympus', '', 'not a zone', 42, null])('rejects %j', (tz) => {

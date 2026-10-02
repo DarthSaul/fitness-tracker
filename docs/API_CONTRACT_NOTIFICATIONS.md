@@ -29,7 +29,7 @@ without a version bump.
 {
   "id": "clx…",
   "type": "POST_REACTION",
-  "status": "unread",              // "unread" | "read" (dismissed items are never listed)
+  "status": "unread",              // "unread" | "read" | "dismissed"
   "createdAt": "2026-10-02T12:00:00.000Z",
   "readAt": null,
   "actor": { "id": "…", "name": "Ann", "username": "ann", "avatarUrl": null, "profileVisibility": "PUBLIC" },
@@ -37,6 +37,9 @@ without a version bump.
   "data": { "emoji": "🔥" }
 }
 ```
+
+`GET /api/notifications` never lists a dismissed notification, but
+`PATCH /api/notifications/:id` returns one with `status: "dismissed"`.
 
 Build the display text from `type` and `data`. `target` holds only ids; fetch
 the resource itself. If that returns 404, the resource is gone: show the
@@ -75,14 +78,16 @@ screen. Defaults to now.
 Every type is listed. Push defaults to `true`, the reminder time to `"08:00"`.
 
 ### `PATCH /api/notifications/preferences`
-Body: any subset of the GET shape.
+Body: any subset of the GET shape, with at least one recognised change.
 
 → `200`, with the full GET shape. `400` on:
 - an unknown type
 - a value that isn't a boolean
-- a timezone that isn't an IANA zone (send `TimeZone.current.identifier`)
+- a timezone that isn't an IANA zone (send `TimeZone.current.identifier`).
+  Fixed offsets such as `+05:30` are rejected: they have no daylight saving
+  rules
 - a time that isn't `HH:MM` in 24-hour form
-- an empty body
+- no recognised change, e.g. `{}`, `{ "push": {} }`, or only unknown fields
 
 **iOS: send `timezone` at sign-in and whenever it changes.** Without it, no
 `WORKOUT_REMINDER` fires.

@@ -17,9 +17,14 @@ export function parseReminderTime(raw: unknown): number | null {
   return match ? Number(match[1]) * 60 + Number(match[2]) : null
 }
 
-/** True for an IANA zone this runtime knows, e.g. `America/Chicago`. */
+/**
+ * True for an IANA zone this runtime knows, e.g. `America/Chicago`. Fixed UTC
+ * offsets (`+05:30`, `-08:00`) are rejected even though Intl accepts them:
+ * they carry no DST rules, so local reminder times would drift twice a year.
+ */
 export function isValidTimeZone(raw: unknown): raw is string {
   if (typeof raw !== 'string' || raw === '') return false
+  if (raw.startsWith('+') || raw.startsWith('-')) return false
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: raw })
     return true
