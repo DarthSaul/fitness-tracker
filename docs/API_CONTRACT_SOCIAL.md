@@ -36,7 +36,7 @@ interface PublicUser {
   name: string | null
   avatarUrl: string | null
   profileVisibility: 'PUBLIC' | 'PRIVATE'   // label the button "Follow" vs "Request"
-  username: string | null                   // show as "@username"; null only until every account is backfilled
+  username: string                          // show as "@username"; every account has one
 }
 
 type FollowState = 'none' | 'requested' | 'following'
