@@ -233,7 +233,10 @@ by `dedupeKey`.
    `dedupeKey = reminder:{scheduledWorkoutId}`.
    - A reminder is skipped if a session for that `(userProgramId, week, day)`
      has already started or completed.
-   - It is also skipped if the run is terminal (`completedAt` / `archivedAt`).
+   - It is also skipped if the run is terminal (`completedAt` / `archivedAt`)
+     or the program is deactivated (`isActive = false`). A deactivated
+     program stays quiet; its scheduled workouts are kept, but nobody is
+     reminded about them (decided 2026-10-02).
    - The time zone and date math runs in Postgres. `User.timezone` is checked
      against `pg_timezone_names` first, so one zone Postgres doesn't recognise
      can't make `AT TIME ZONE` fail the whole query.

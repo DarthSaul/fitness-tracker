@@ -33,8 +33,11 @@ What the workout types do:
 - **`WORKOUT_REMINDER` fires once per scheduled workout,** on its scheduled
   date, once the user's local `workoutReminderTime` has passed.
   - It needs `timezone` in preferences. Without one, no reminder fires.
-  - It's skipped if that program day already has a session, or the program run
-    has ended.
+  - It's skipped if that program day already has a session, the program run
+    has ended, or the program is **deactivated**.
+  - **Tell users this in the app.** Deactivating a program keeps its scheduled
+    workouts but silences their reminders. Say so where they deactivate a
+    program, or where they schedule a workout on an inactive one.
 
 What the social types do:
 - **`FOLLOW_REQUEST` disappears from the list** once the request is accepted,

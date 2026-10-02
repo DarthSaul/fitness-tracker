@@ -560,6 +560,10 @@ One inbox per user, with an APNs push for each item. Spec:
 - [ ] iOS wiring: inbox screen, push permission, device registration,
       deep links from `target`, sending `timezone`. Tracked in the app repo;
       check this off when iOS notifications v1 ships.
+- [ ] iOS copy: tell users that deactivating a program silences reminders for
+      its scheduled workouts. The sweep only reminds about the active program
+      (`UserProgram.isActive`); the workouts stay scheduled. Show it in the
+      deactivate confirmation, and when scheduling on an inactive program.
 
 ### Backlog
 - [ ] `user_program_runs_reconcile` migration — once the runs deploy is live everywhere: re-run the `completedAt` backfill and the duplicate-session cleanup from `20260918120000_user_program_runs` (idempotent) — but tighten the cleanup so a session also survives if it has `notes`, a `WorkoutExerciseSwap` or a `WorkoutExerciseSkip`, not only a `CompletedSet`/`CoreWorkout` (the applied migration omitted those three; its 3 deletions were checked beforehand and had none) — force `isActive = false` on terminal rows, and add `CHECK (NOT ("isActive" AND ("completedAt" IS NOT NULL OR "archivedAt" IS NOT NULL)))`. Deliberately not in the first migration: the previous deploy's activate route re-activates completed rows and would 500 against the CHECK.

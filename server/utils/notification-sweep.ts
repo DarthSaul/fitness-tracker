@@ -61,8 +61,9 @@ interface DueReminder {
 
 /**
  * Scheduled workouts due now: dated today in the owner's time zone, once
- * their reminder time has passed, on an open run, with no session started for
- * that day and no reminder yet.
+ * their reminder time has passed, on the user's active, open run (a
+ * deactivated program stays quiet), with no session started for that day and
+ * no reminder yet.
  *
  * Zones are filtered through pg_timezone_names first (MATERIALIZED, so the
  * planner can't reorder it): `AT TIME ZONE` raises on a name Postgres doesn't
@@ -80,7 +81,8 @@ function dueReminders(now: Date): Promise<DueReminder[]> {
     JOIN "UserProgram" up ON up."id" = sw."userProgramId"
     JOIN "Program" p ON p."id" = up."programId"
     JOIN tz_users u ON u."id" = up."userId"
-    WHERE up."completedAt" IS NULL
+    WHERE up."isActive" = true
+      AND up."completedAt" IS NULL
       AND up."archivedAt" IS NULL
       AND sw."scheduledDate" = (${now}::timestamptz AT TIME ZONE u."timezone")::date
       AND EXTRACT(HOUR FROM ${now}::timestamptz AT TIME ZONE u."timezone") * 60

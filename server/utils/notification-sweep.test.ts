@@ -96,6 +96,8 @@ describe('runNotificationSweep', () => {
       // The SQL is tagged-template: `now` is bound as a parameter, never interpolated.
       const [strings, ...values] = db.$queryRaw.mock.calls[0]!
       expect(strings.join('?')).toContain('pg_timezone_names')
+      // A deactivated program stays quiet (decided 2026-10-02).
+      expect(strings.join('?')).toContain('up."isActive" = true')
       expect(values).toContain(NOW)
       expect(mockNotifySystem).toHaveBeenCalledWith(prisma, [{
         recipientId: 'u1',
