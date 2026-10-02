@@ -5,8 +5,8 @@ defineRouteMeta({
     description:
       'Returns the authenticated user\'s own profile and settings (`meSelect`, server/utils/profile.ts): `id`, `email`, '
       + '`name`, `avatarUrl`, `ptRoutineInWorkout`, `profileVisibility` (`PUBLIC` | `PRIVATE`), `username`, `bio` '
-      + '(string or null), `showActiveProgram` and `showWorkoutCount`. The only response that includes the caller\'s email; '
-      + 'the two `show…` settings are visible only to the owner.',
+      + '(string or null), `showActiveProgram` and `showWorkoutCount`. The email and the two `show…` settings appear only in '
+      + 'the caller\'s own /api/auth/me responses (this and PATCH), never in any response about another user.',
     responses: {
       200: { description: 'Current user profile' },
       401: { description: 'Unauthorized' },
