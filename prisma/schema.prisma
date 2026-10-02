@@ -60,6 +60,18 @@ enum ProfileVisibility {
   PRIVATE
 }
 
+// Why a post or user was reported (docs/social/SPEC-reports.md).
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE
+  SEXUAL_CONTENT
+  VIOLENCE
+  SELF_HARM
+  IMPERSONATION
+  OTHER
+}
+
 // What a post shares (docs/social/SPEC-workout-shares.md).
 enum WorkoutShareKind {
   PROGRAM
@@ -102,6 +114,8 @@ model User {
   posts                     Post[]
   postPhotos                PostPhoto[]
   postReactions             PostReaction[]
+  reportsMade               Report[]                   @relation("ReportsMade")
+  reportsReceived           Report[]                   @relation("ReportsReceived")
 }
 
 model Identity {
@@ -615,6 +629,7 @@ model Post {
   author            User                      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   photos            PostPhoto[]
   reactions         PostReaction[]
+  reports           Report[]
   workoutSession    WorkoutSession?           @relation(fields: [workoutSessionId], references: [id], onDelete: SetNull)
   standaloneSession StandaloneWorkoutSession? @relation(fields: [standaloneSessionId], references: [id], onDelete: SetNull)
 
@@ -684,4 +699,38 @@ model PostReaction {
 
   @@unique([postId, userId, emoji])
   @@index([postId, emoji, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+// A report of a post or a user, kept for moderation (docs/social/SPEC-reports.md).
+// There is no moderation API: a moderator resolves rows in SQL
+// (docs/social/MODERATION.md). Raw SQL in the migration:
+//   - partial unique indexes: one report per reporter per post, and per
+//     reporter per user (user reports only), so a repeat is a no-op
+//   - CHECK ("reporterId" <> "reportedUserId")
+//   - CHECK octet_length limits on details and resolution
+model Report {
+  id             String       @id @default(cuid())
+  reporterId     String
+  /// The user reported, or the reported post's author. Always set.
+  reportedUserId String
+  /// Set for a post report; nulled if the post is deleted (the snapshot stays).
+  postId         String?
+  /// True for a post report, so it stays one after postId is nulled.
+  isPostReport   Boolean
+  reason         ReportReason
+  details        String?
+  /// What was reported, captured at report time: a post's { body, photoCount,
+  /// sharedWorkout } or a user's { name, avatarUrl }.
+  snapshot       Json
+  createdAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+  resolution     String?
+
+  reporter     User  @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User  @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  post         Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  // The moderation queue: unresolved first, oldest first.
+  @@index([resolvedAt, createdAt])
+  @@index([reportedUserId])
 }

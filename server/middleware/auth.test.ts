@@ -188,6 +188,7 @@ describe('server/middleware/auth', () => {
       '/api/feed', '/api/feed?limit=5',
       '/api/post-photos',
       '/api/posts/clpost001/reactions/%F0%9F%91%8D',
+      '/api/reports',
     ])(
       '401 for unauthenticated %s',
       async (path) => {

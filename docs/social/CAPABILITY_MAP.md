@@ -66,8 +66,8 @@ and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
 | `friendships-removal` | ✅ #137 (applied) | Drop `Friendship`, `FriendshipStatus`, `Post.visibility`, `PostVisibility` | `follows` deployed |
 | `post-photos` | ✅ #138 | ≤4 photos per post; EXIF strip; private bucket + signed URLs | `posts` |
 | `reactions` | ✅ #139 | Emoji reactions; counts + "mine" on every post; who reacted | `posts` |
-| `workout-shares` | ⏭ [spec](SPEC-workout-shares.md) approved | A post may reference one of the author's `COMPLETED` sessions, rendered as text only, e.g. "Saul completed a workout from Arm Farm 2" (or "Saul completed a workout" for a standalone). Never the session's sets or data. | `posts` |
-| `reports` | ⏳ | Report a post or user; stored for moderation | `posts`, `user-discovery` |
+| `workout-shares` | ✅ #140 | A post may reference one of the author's `COMPLETED` sessions, rendered as text only, e.g. "Saul completed a workout from Arm Farm 2" (or "Saul completed a workout" for a standalone). Never the session's sets or data. | `posts` |
+| `reports` | ⏭ [spec](SPEC-reports.md) approved | Report a post or user; snapshot stored for moderation; Sentry alert ([MODERATION.md](MODERATION.md)) | `posts`, `user-discovery` |
 
 Build order: `follows` → `feed` → `friendships-removal` (own deploy) →
 `post-photos`, `reactions`, `workout-shares`, `reports`
@@ -87,7 +87,7 @@ Each module gets `docs/social/SPEC-<module-id>.md` and ships as its own PR.
 | Posts | `POST /api/posts` (optionally sharing a workout) · `GET\|PATCH\|DELETE /api/posts/:id` |
 | Feed | `GET /api/feed?limit=&before=&beforeId=` (same pagination as `GET /api/history`) |
 | Reactions | `PUT\|GET\|DELETE /api/posts/:id/reactions/:emoji` (URL-encoded) |
-| Reports | `POST /api/reports` `{ postId? , userId?, reason, details? }` |
+| Reports | `POST /api/reports` `{ postId \| userId, reason, details? }` |
 
 ## Shared conventions (apply to every module spec)
 

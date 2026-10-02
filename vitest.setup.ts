@@ -13,6 +13,7 @@ import { followSelect } from './server/utils/follows'
 import { postPhotoPath, POST_PHOTOS_BUCKET } from './server/utils/post-photo-storage'
 import { parseReactionEmoji, REACTION_CAP } from './server/utils/reactions'
 import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, parsePostBody, parsePostContent } from './server/utils/posts'
+import { parseReportInput } from './server/utils/reports'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
@@ -21,6 +22,7 @@ vi.mock('@sentry/nuxt', () => ({
   setUser: vi.fn(),
   setTag: vi.fn(),
   captureException: vi.fn(),
+  captureMessage: vi.fn(),
 }))
 
 // ── Nitro compile-time macros ────────────────────────────────────────────────
@@ -105,6 +107,7 @@ vi.stubGlobal('prisma', {
   post: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   follow: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   userBlock: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
+  report: { findFirst: vi.fn(), create: vi.fn() },
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   standaloneWorkout: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
   standaloneWorkoutSet: { findUnique: vi.fn() },
@@ -148,6 +151,8 @@ vi.stubGlobal('parseReactionEmoji', parseReactionEmoji)
 vi.stubGlobal('REACTION_CAP', REACTION_CAP)
 vi.stubGlobal('reactionSummaries', vi.fn().mockResolvedValue(new Map()))
 vi.stubGlobal('requireVisiblePost', vi.fn())
+// Reports: the real input parser (it has its own unit tests).
+vi.stubGlobal('parseReportInput', parseReportInput)
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))
