@@ -260,7 +260,7 @@ gets a new, simpler spec after `follows`.
 
 - [x] Spec approved (`docs/social/SPEC-profile-stats.md`), 2026-10-02; owner bypass clarified in #144 review
 - [x] **S1: schema + migration** (S): `showActiveProgram` / `showWorkoutCount` (default true),
-  `(userId, status)` indexes on both session tables. Not applied.
+  `(userId, status)` indexes on both session tables. Applied 2026-10-02.
 - [x] **S2: `profileStats(owner, viewerId)`** (S): owner always; others need `canViewPostsBy`
   **and** the setting; only the program's name + one count; hidden runs no query.
 - [x] **S3: `GET /api/users/:id`** (S): `activeProgram` + `completedWorkoutCount`; the settings
@@ -270,6 +270,6 @@ gets a new, simpler spec after `follows`.
 
 ### Checkpoint: profile-stats
 - [x] verify-app passes
-- [ ] PR opened
-- [ ] Migration applied before merge
+- [x] PR opened (#145, stacked on #144)
+- [x] Migration applied before merge (2026-10-02): status up to date, no drift; both (userId, status) indexes live; all 7 users default to showing both stats; route read probed
 - [ ] Merge
