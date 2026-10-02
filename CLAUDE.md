@@ -536,7 +536,10 @@ One inbox per user, with an APNs push for each item. Spec:
   - `FOLLOW_REQUEST` retracted on accept, decline or cancel
 - [ ] **v1 slice 3** — the sweep (`POST /api/internal/notifications/sweep`,
       called every 5 min by Supabase `pg_cron` with a bearer secret):
-  - scheduled-workout reminders at the user's local reminder time
+  - scheduled-workout reminders at the user's local reminder time, on the
+    workout's date or the day before (`User.workoutReminderDay`, migration
+    `20261002180000_workout_reminder_day`, to apply before deploy). One
+    setting per user, not per workout.
   - an unfinished-workout reminder 4 h after an `IN_PROGRESS` session
     started, program or standalone, auto-dismissed on complete
   - push retry and retention

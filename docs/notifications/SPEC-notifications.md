@@ -164,7 +164,7 @@ returns `404`.
 | `GET /api/notifications/unread-count` | `{ count }` for the badge. |
 | `PATCH /api/notifications/:id` `{ status: 'read' \| 'unread' \| 'dismissed' }` | Changes one notification's status. `read` keeps the first `readAt` and un-dismisses. `dismissed` also marks it read. |
 | `POST /api/notifications/read-all` `{ before? }` | Marks everything up to `before` as read. The cursor stops a notification that arrives mid-tap from being silently read. |
-| `GET\|PATCH /api/notifications/preferences` | `{ push: { [type]: boolean }, timezone, workoutReminderTime: "HH:MM" }`. GET lists every type with its default filled in. PATCH accepts any subset. |
+| `GET\|PATCH /api/notifications/preferences` | `{ push: { [type]: boolean }, timezone, workoutReminderTime: "HH:MM", workoutReminderDay: "sameDay" \| "dayBefore" }`. GET lists every type with its default filled in. PATCH accepts any subset. |
 | `POST /api/internal/notifications/sweep` | **Not user-facing.** Runs scheduled work; needs `Authorization: Bearer $NUXT_NOTIFICATIONS_CRON_SECRET`, compared in constant time. Allow-listed in the auth middleware by its exact path. |
 
 Item shape:
@@ -228,9 +228,16 @@ by `dedupeKey`.
    - The 48 h ceiling stops the first deploy from pinging every abandoned
      session in the database.
    - Because of the dedupe key, a session reminds at most once.
-2. **`WORKOUT_REMINDER`.** Finds `ScheduledWorkout` rows due today in the
-   user's timezone, once the user's reminder time has passed. Each gets
+2. **`WORKOUT_REMINDER`.** Finds `ScheduledWorkout` rows whose reminder
+   moment has passed and whose date hasn't. Each gets
    `dedupeKey = reminder:{scheduledWorkoutId}`.
+   - **The reminder moment:** `workoutReminderMinute` on the workout's date,
+     or on the day before when `workoutReminderDay = DAY_BEFORE`, in the
+     user's timezone. One setting per user applies to all their workouts. For
+     example, 07:00 same day, or 21:00 the night before.
+   - `data.day` is `today` or `tomorrow`, worked out when the reminder is
+     queued. A day-before reminder held up overnight and sent the next morning
+     correctly says "today".
    - A reminder is skipped if a session for that `(userProgramId, week, day)`
      has already started or completed.
    - It is also skipped if the run is terminal (`completedAt` / `archivedAt`)
@@ -334,7 +341,12 @@ Required cases:
    - `User.timezone` is an IANA zone sent by the client.
    - `User.workoutReminderMinute` is the local time in minutes after midnight,
      default 480 (08:00).
-   - A reminder fires on `scheduledDate` once that local time has passed.
+   - `User.workoutReminderDay` (`SAME_DAY` | `DAY_BEFORE`, default `SAME_DAY`)
+     says which day that time falls on (added 2026-10-02).
+   - Each setting has one meaning, so there's no signed offset to decode.
+   - The API mirrors the two columns: `workoutReminderTime: "HH:MM"` and
+     `workoutReminderDay: "sameDay" | "dayBefore"`.
+   - A reminder fires once that moment has passed (§6).
    - A user with no timezone gets no `WORKOUT_REMINDER`. We don't guess, and
      the iOS wiring sends the timezone.
 3. **Preferences ship in v1, as push toggles per type.**

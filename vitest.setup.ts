@@ -17,7 +17,7 @@ import { parseReportInput } from './server/utils/reports'
 import { parseUsername, normalizeUsername, usernameProblem } from './server/utils/usernames'
 import { meSelect, parseBio } from './server/utils/profile'
 import { notificationSelect, toNotificationPayload, inboxWhere, notificationKeys } from './server/utils/notifications'
-import { NOTIFICATION_TYPES, formatReminderTime, parseReminderTime, isValidTimeZone, loadNotificationPreferences } from './server/utils/notification-preferences'
+import { NOTIFICATION_TYPES, formatReminderTime, parseReminderTime, isValidTimeZone, loadNotificationPreferences, parseReminderDay, formatReminderDay } from './server/utils/notification-preferences'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
@@ -189,6 +189,8 @@ vi.stubGlobal('formatReminderTime', formatReminderTime)
 vi.stubGlobal('parseReminderTime', parseReminderTime)
 vi.stubGlobal('isValidTimeZone', isValidTimeZone)
 vi.stubGlobal('loadNotificationPreferences', loadNotificationPreferences)
+vi.stubGlobal('parseReminderDay', parseReminderDay)
+vi.stubGlobal('formatReminderDay', formatReminderDay)
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))

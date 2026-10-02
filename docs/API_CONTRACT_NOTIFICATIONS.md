@@ -13,7 +13,7 @@ notifications.
 | `NEW_FOLLOWER` | follower | — | `{}` |
 | `FOLLOW_ACCEPTED` | the user you asked | — | `{}` |
 | `POST_REACTION` | reactor | `postId` | `{ emoji }` |
-| `WORKOUT_REMINDER` | `null` | `scheduledWorkoutId` | `{ programName, weekNumber, dayNumber }` |
+| `WORKOUT_REMINDER` | `null` | `scheduledWorkoutId` | `{ programName, weekNumber, dayNumber, day: "today" \| "tomorrow" }` |
 | `WORKOUT_UNFINISHED` | `null` | `workoutSessionId` or `standaloneSessionId` | `{}` |
 
 Clients must ignore unknown `type` values, because new types will be added
@@ -30,8 +30,13 @@ What the workout types do:
   - Completing the workout dismisses it.
   - Deep-link to the session through `target`, so the user can finish it and
     correct its date.
-- **`WORKOUT_REMINDER` fires once per scheduled workout,** on its scheduled
-  date, once the user's local `workoutReminderTime` has passed.
+- **`WORKOUT_REMINDER` fires once per scheduled workout,** at the user's
+  `workoutReminderTime`. It falls on the workout's date (`sameDay`) or the
+  day before (`dayBefore`), in the user's timezone.
+  - One setting applies to all of a user's scheduled workouts. For example,
+    07:00 on the day, or 21:00 the night before.
+  - `data.day` says whether the workout is `today` or `tomorrow`. Use it in
+    the display text.
   - It needs `timezone` in preferences. Without one, no reminder fires.
   - It's skipped if that program day already has a session, the program run
     has ended, or the program is **deactivated**.
@@ -101,9 +106,10 @@ screen. Defaults to now.
 → `200 { count }`.
 
 ### `GET /api/notifications/preferences`
-→ `200 { push: { [type]: boolean }, timezone: string | null, workoutReminderTime: "HH:MM" }`
+→ `200 { push: { [type]: boolean }, timezone: string | null, workoutReminderTime: "HH:MM", workoutReminderDay: "sameDay" | "dayBefore" }`
 
-Every type is listed. Push defaults to `true`, the reminder time to `"08:00"`.
+Every type is listed. Push defaults to `true`, the reminder time to `"08:00"`,
+and the reminder day to `"sameDay"`.
 
 ### `PATCH /api/notifications/preferences`
 Body: any subset of the GET shape, with at least one recognised change.
@@ -115,6 +121,7 @@ Body: any subset of the GET shape, with at least one recognised change.
   Raw offset strings such as `+05:30` or `-08:00` are rejected. Named IANA
   zones are accepted, including `Etc/GMT±N` (which has no daylight saving)
 - a time that isn't `HH:MM` in 24-hour form
+- a `workoutReminderDay` that isn't `"sameDay"` or `"dayBefore"`
 - no recognised change, e.g. `{}`, `{ "push": {} }`, or only unknown fields
 
 **iOS: send `timezone` at sign-in and whenever it changes.** Without it, no

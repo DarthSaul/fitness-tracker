@@ -321,6 +321,7 @@ describe('backfillNameFromMetadata', () => {
     showWorkoutCount: true,
     timezone: null,
     workoutReminderMinute: 480,
+    workoutReminderDay: 'SAME_DAY' as const,
     createdAt: new Date(),
     updatedAt: new Date(),
   }

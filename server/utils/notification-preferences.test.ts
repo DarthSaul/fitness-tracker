@@ -6,6 +6,8 @@ import {
   parseReminderTime,
   isValidTimeZone,
   loadNotificationPreferences,
+  parseReminderDay,
+  formatReminderDay,
 } from './notification-preferences'
 
 const mockUserFind = prisma.user.findUnique as ReturnType<typeof vi.fn>
@@ -30,6 +32,17 @@ describe('reminder time', () => {
   })
 })
 
+describe('reminder day', () => {
+  test.each([['sameDay', 'SAME_DAY'], ['dayBefore', 'DAY_BEFORE']] as const)('%s ⇄ %s', (api, stored) => {
+    expect(parseReminderDay(api)).toBe(stored)
+    expect(formatReminderDay(stored)).toBe(api)
+  })
+
+  test.each(['SAME_DAY', 'tomorrow', '', null, 1])('rejects %j', (raw) => {
+    expect(parseReminderDay(raw)).toBeNull()
+  })
+})
+
 describe('isValidTimeZone', () => {
   test.each(['America/Chicago', 'Europe/London', 'UTC', 'Asia/Kolkata', 'Etc/GMT+5'])('accepts %s', (tz) => {
     expect(isValidTimeZone(tz)).toBe(true)
@@ -50,7 +63,7 @@ describe('loadNotificationPreferences', () => {
   beforeEach(() => vi.clearAllMocks())
 
   test('every type is listed; a missing row means push is on', async () => {
-    mockUserFind.mockResolvedValueOnce({ timezone: 'America/Chicago', workoutReminderMinute: 450 })
+    mockUserFind.mockResolvedValueOnce({ timezone: 'America/Chicago', workoutReminderMinute: 450, workoutReminderDay: 'DAY_BEFORE' })
     mockPrefFind.mockResolvedValueOnce([{ type: 'POST_REACTION', pushEnabled: false }])
 
     await expect(loadNotificationPreferences('me')).resolves.toEqual({
@@ -64,8 +77,12 @@ describe('loadNotificationPreferences', () => {
       },
       timezone: 'America/Chicago',
       workoutReminderTime: '07:30',
+      workoutReminderDay: 'dayBefore',
     })
-    expect(mockUserFind).toHaveBeenCalledWith({ where: { id: 'me' }, select: { timezone: true, workoutReminderMinute: true } })
+    expect(mockUserFind).toHaveBeenCalledWith({
+      where: { id: 'me' },
+      select: { timezone: true, workoutReminderMinute: true, workoutReminderDay: true },
+    })
     expect(mockPrefFind).toHaveBeenCalledWith({ where: { userId: 'me' }, select: { type: true, pushEnabled: true } })
   })
 })

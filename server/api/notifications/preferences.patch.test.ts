@@ -23,7 +23,7 @@ describe('PATCH /api/notifications/preferences', () => {
     mockTransaction.mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops))
     mockUpsert.mockResolvedValue({})
     mockUserUpdate.mockResolvedValue({})
-    mockUserFind.mockResolvedValue({ timezone: 'Europe/London', workoutReminderMinute: 1110 })
+    mockUserFind.mockResolvedValue({ timezone: 'Europe/London', workoutReminderMinute: 1110, workoutReminderDay: 'SAME_DAY' })
     mockPrefFind.mockResolvedValue([{ type: 'POST_REACTION', pushEnabled: false }])
   })
 
@@ -42,6 +42,17 @@ describe('PATCH /api/notifications/preferences', () => {
     })
     expect(mockTransaction).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ timezone: 'Europe/London', workoutReminderTime: '18:30', push: { POST_REACTION: false, NEW_FOLLOWER: true } })
+  })
+
+  test('moves the reminder to the night before', async () => {
+    mockUserFind.mockResolvedValue({ timezone: 'Europe/London', workoutReminderMinute: 1260, workoutReminderDay: 'DAY_BEFORE' })
+
+    const result = await call({ workoutReminderDay: 'dayBefore', workoutReminderTime: '21:00' })
+
+    expect(mockUserUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: { workoutReminderDay: 'DAY_BEFORE', workoutReminderMinute: 1260 },
+    }))
+    expect(result).toMatchObject({ workoutReminderDay: 'dayBefore', workoutReminderTime: '21:00' })
   })
 
   test('a partial body touches only what it names', async () => {
@@ -68,6 +79,8 @@ describe('PATCH /api/notifications/preferences', () => {
     [{ push: { POST_REACTION: 'no' } }, 'push.POST_REACTION must be a boolean'],
     [{ timezone: 'Mars/Olympus' }, 'timezone must be an IANA time zone or null'],
     [{ workoutReminderTime: '25:00' }, 'workoutReminderTime must be HH:MM (24-hour)'],
+    [{ workoutReminderDay: 'DAY_BEFORE' }, 'workoutReminderDay must be sameDay or dayBefore'],
+    [{ workoutReminderDay: 'twoDaysBefore' }, 'workoutReminderDay must be sameDay or dayBefore'],
   ])('400 on %j', async (body, message) => {
     await expect(call(body)).rejects.toMatchObject({ statusCode: 400, statusMessage: message })
     expect(mockTransaction).not.toHaveBeenCalled()

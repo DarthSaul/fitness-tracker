@@ -93,34 +93,62 @@ describe('runNotificationSweep', () => {
   })
 
   describe('scheduled-workout reminders', () => {
-    test('queues a reminder per due workout, with the program snapshot', async () => {
+    async function sqlOf() {
+      await runNotificationSweep(NOW)
+      const [strings, ...values] = db.$queryRaw.mock.calls[0]!
+      return { sql: (strings as string[]).join('?'), values }
+    }
+
+    test('the query: guards, decisions and parameter binding', async () => {
+      const { sql, values } = await sqlOf()
+
+      expect(sql).toContain('pg_timezone_names')
+      // A deactivated program stays quiet (decided 2026-10-02).
+      expect(sql).toContain('up."isActive" = true')
+      // Switched off means not created at all, not just unpushed (decided 2026-10-02).
+      expect(sql).toContain(`np."type" = 'WORKOUT_REMINDER' AND np."pushEnabled" = false`)
+      // `now` is bound as a parameter, never interpolated.
+      expect(values).toContain(NOW)
+    })
+
+    test('the reminder moment: the time on the workout\'s date, or the day before', async () => {
+      const { sql } = await sqlOf()
+
+      expect(sql).toContain(`CASE u."workoutReminderDay" WHEN 'DAY_BEFORE' THEN 1 ELSE 0 END`)
+      expect(sql).toContain(
+        `((sw."scheduledDate" - u."daysBefore") + make_interval(mins => u."workoutReminderMinute")) AT TIME ZONE u."timezone" AS "remindAt"`,
+      )
+      // Due once the moment has passed, never for a date already gone…
+      expect(sql).toContain('d."remindAt" <= ')
+      expect(sql).toContain('d."scheduledDate" >= d."localToday"')
+      // …and, option C, never for a workout scheduled after its moment.
+      expect(sql).toContain(`(d."createdAt" AT TIME ZONE 'UTC') < d."remindAt"`)
+    })
+
+    test('queues a reminder per due workout, saying today or tomorrow', async () => {
       db.$queryRaw.mockResolvedValueOnce([
-        { id: 'sw1', userId: 'u1', weekNumber: 2, dayNumber: 3, programName: 'Arm Farm' },
+        { id: 'sw1', userId: 'u1', weekNumber: 2, dayNumber: 3, programName: 'Arm Farm', isToday: false },
+        { id: 'sw2', userId: 'u2', weekNumber: 1, dayNumber: 1, programName: 'Brick House', isToday: true },
       ])
 
       await runNotificationSweep(NOW)
 
-      // The SQL is tagged-template: `now` is bound as a parameter, never interpolated.
-      const [strings, ...values] = db.$queryRaw.mock.calls[0]!
-      expect(strings.join('?')).toContain('pg_timezone_names')
-      // A deactivated program stays quiet (decided 2026-10-02).
-      expect(strings.join('?')).toContain('up."isActive" = true')
-      // Switched off means not created at all, not just unpushed (decided 2026-10-02).
-      expect(strings.join('?')).toContain(`np."type" = 'WORKOUT_REMINDER' AND np."pushEnabled" = false`)
-      // Option C (decided 2026-10-02): a workout scheduled after that day's
-      // reminder time is never reminded about; the user has just scheduled it.
-      // createdAt is a UTC timestamp, compared with the local reminder moment.
-      expect(strings.join('?')).toContain(
-        `(sw."createdAt" AT TIME ZONE 'UTC') < ((sw."scheduledDate" + make_interval(mins => u."workoutReminderMinute")) AT TIME ZONE u."timezone")`,
-      )
-      expect(values).toContain(NOW)
-      expect(mockNotifySystem).toHaveBeenCalledWith(prisma, [{
-        recipientId: 'u1',
-        type: 'WORKOUT_REMINDER',
-        dedupeKey: 'reminder:sw1',
-        target: { scheduledWorkoutId: 'sw1' },
-        data: { programName: 'Arm Farm', weekNumber: 2, dayNumber: 3 },
-      }])
+      expect(mockNotifySystem).toHaveBeenCalledWith(prisma, [
+        {
+          recipientId: 'u1',
+          type: 'WORKOUT_REMINDER',
+          dedupeKey: 'reminder:sw1',
+          target: { scheduledWorkoutId: 'sw1' },
+          data: { programName: 'Arm Farm', weekNumber: 2, dayNumber: 3, day: 'tomorrow' },
+        },
+        {
+          recipientId: 'u2',
+          type: 'WORKOUT_REMINDER',
+          dedupeKey: 'reminder:sw2',
+          target: { scheduledWorkoutId: 'sw2' },
+          data: { programName: 'Brick House', weekNumber: 1, dayNumber: 1, day: 'today' },
+        },
+      ])
     })
   })
 

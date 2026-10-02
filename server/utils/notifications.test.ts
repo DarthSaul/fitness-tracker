@@ -252,9 +252,18 @@ describe('pushAlert', () => {
     ['POST_REACTION', 'Ann', { emoji: '🔥' }, 'Ann reacted 🔥 to your post'],
     ['POST_REACTION', null, { emoji: '🔥' }, 'Someone reacted 🔥 to your post'],
     ['WORKOUT_REMINDER', null, { programName: 'Arm Farm', weekNumber: 2, dayNumber: 3 }, 'Arm Farm · Week 2, Day 3 is scheduled for today.'],
+    ['WORKOUT_REMINDER', null, { programName: 'Arm Farm', weekNumber: 2, dayNumber: 3, day: 'today' }, 'Arm Farm · Week 2, Day 3 is scheduled for today.'],
+    ['WORKOUT_REMINDER', null, { programName: 'Arm Farm', weekNumber: 2, dayNumber: 3, day: 'tomorrow' }, 'Arm Farm · Week 2, Day 3 is scheduled for tomorrow.'],
     ['WORKOUT_UNFINISHED', null, {}, 'You started a workout over 4 hours ago. Tap to finish it.'],
   ] as const)('%s', (type, name, data, body) => {
     expect(pushAlert(type, name, data).body).toBe(body)
+  })
+})
+
+describe('pushAlert titles', () => {
+  test('a day-before reminder says tomorrow in its title too', () => {
+    expect(pushAlert('WORKOUT_REMINDER', null, { day: 'tomorrow' }).title).toBe('Workout tomorrow')
+    expect(pushAlert('WORKOUT_REMINDER', null, { day: 'today' }).title).toBe('Workout today')
   })
 })
 

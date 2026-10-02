@@ -230,8 +230,11 @@ export function pushAlert(type: NotificationType, actorName: string | null, data
       return { title: 'Request accepted', body: `${who} accepted your follow request` }
     case 'POST_REACTION':
       return { title: 'New reaction', body: `${who} reacted ${d.emoji ?? ''} to your post` }
-    case 'WORKOUT_REMINDER':
-      return { title: 'Workout today', body: `${d.programName} · Week ${d.weekNumber}, Day ${d.dayNumber} is scheduled for today.` }
+    case 'WORKOUT_REMINDER': {
+      // `day` is set when the reminder is queued: a day-before reminder says tomorrow.
+      const when = d.day === 'tomorrow' ? 'tomorrow' : 'today'
+      return { title: `Workout ${when}`, body: `${d.programName} · Week ${d.weekNumber}, Day ${d.dayNumber} is scheduled for ${when}.` }
+    }
     case 'WORKOUT_UNFINISHED':
       return { title: 'Still working out?', body: 'You started a workout over 4 hours ago. Tap to finish it.' }
   }

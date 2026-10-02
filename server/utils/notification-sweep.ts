@@ -57,13 +57,20 @@ interface DueReminder {
   weekNumber: number
   dayNumber: number
   programName: string
+  /** The workout is today in the user's zone (else tomorrow, for a day-before reminder). */
+  isToday: boolean
 }
 
 /**
- * Scheduled workouts due now: dated today in the owner's time zone, once
- * their reminder time has passed, on the user's active, open run (a
- * deactivated program stays quiet), with no session started for that day and
- * no reminder yet.
+ * Scheduled workouts whose reminder is due now. One setting per user decides
+ * the reminder moment for all their workouts: `workoutReminderMinute` on the
+ * workout's date (SAME_DAY), or on the day before (DAY_BEFORE), in their zone.
+ *
+ * A workout is due once that moment has passed and its date hasn't, on the
+ * user's active, open run, with no session started for that day, no reminder
+ * yet, and reminders not switched off. A reminder missed (job down, zone set
+ * late) is sent late rather than dropped, except for a workout scheduled after
+ * its own moment: the user has just scheduled it (decided 2026-10-02).
  *
  * Zones are filtered through pg_timezone_names first (MATERIALIZED, so the
  * planner can't reorder it): `AT TIME ZONE` raises on a name Postgres doesn't
@@ -72,38 +79,45 @@ interface DueReminder {
 function dueReminders(now: Date): Promise<DueReminder[]> {
   return prisma.$queryRaw<DueReminder[]>`
     WITH tz_users AS MATERIALIZED (
-      SELECT u."id", u."timezone", u."workoutReminderMinute"
+      SELECT u."id", u."timezone", u."workoutReminderMinute",
+             CASE u."workoutReminderDay" WHEN 'DAY_BEFORE' THEN 1 ELSE 0 END AS "daysBefore"
       FROM "User" u
       WHERE u."timezone" IN (SELECT "name" FROM pg_timezone_names)
+    ),
+    d AS (
+      SELECT sw."id", sw."userProgramId", sw."weekNumber", sw."dayNumber", sw."scheduledDate", sw."createdAt",
+             up."userId", p."name" AS "programName",
+             -- date - int is a date; + interval is a local timestamp; AT TIME ZONE makes it an instant.
+             ((sw."scheduledDate" - u."daysBefore") + make_interval(mins => u."workoutReminderMinute")) AT TIME ZONE u."timezone" AS "remindAt",
+             (${now}::timestamptz AT TIME ZONE u."timezone")::date AS "localToday"
+      FROM "ScheduledWorkout" sw
+      JOIN "UserProgram" up ON up."id" = sw."userProgramId"
+      JOIN "Program" p ON p."id" = up."programId"
+      JOIN tz_users u ON u."id" = up."userId"
+      WHERE up."isActive" = true
+        AND up."completedAt" IS NULL
+        AND up."archivedAt" IS NULL
     )
-    SELECT sw."id", up."userId", sw."weekNumber", sw."dayNumber", p."name" AS "programName"
-    FROM "ScheduledWorkout" sw
-    JOIN "UserProgram" up ON up."id" = sw."userProgramId"
-    JOIN "Program" p ON p."id" = up."programId"
-    JOIN tz_users u ON u."id" = up."userId"
-    WHERE up."isActive" = true
-      AND up."completedAt" IS NULL
-      AND up."archivedAt" IS NULL
-      AND sw."scheduledDate" = (${now}::timestamptz AT TIME ZONE u."timezone")::date
-      AND EXTRACT(HOUR FROM ${now}::timestamptz AT TIME ZONE u."timezone") * 60
-          + EXTRACT(MINUTE FROM ${now}::timestamptz AT TIME ZONE u."timezone") >= u."workoutReminderMinute"
-      -- Scheduled before that day's reminder moment. One scheduled for today at
-      -- 3 pm needs no 8 am reminder sent late: the user has just scheduled it.
-      -- An outage still catches up, since those workouts predate the moment.
-      AND (sw."createdAt" AT TIME ZONE 'UTC') < ((sw."scheduledDate" + make_interval(mins => u."workoutReminderMinute")) AT TIME ZONE u."timezone")
+    SELECT d."id", d."userId", d."weekNumber", d."dayNumber", d."programName",
+           (d."scheduledDate" = d."localToday") AS "isToday"
+    FROM d
+    WHERE d."remindAt" <= ${now}::timestamptz
+      AND d."scheduledDate" >= d."localToday"
+      -- createdAt is a UTC timestamp without zone; compare it as an instant.
+      AND (d."createdAt" AT TIME ZONE 'UTC') < d."remindAt"
       AND NOT EXISTS (
         SELECT 1 FROM "WorkoutSession" ws
-        WHERE ws."userProgramId" = sw."userProgramId"
-          AND ws."weekNumber" = sw."weekNumber"
-          AND ws."dayNumber" = sw."dayNumber"
+        WHERE ws."userProgramId" = d."userProgramId"
+          AND ws."weekNumber" = d."weekNumber"
+          AND ws."dayNumber" = d."dayNumber"
       )
-      AND NOT EXISTS (SELECT 1 FROM "Notification" n WHERE n."dedupeKey" = 'reminder:' || sw."id")
+      AND NOT EXISTS (SELECT 1 FROM "Notification" n WHERE n."dedupeKey" = 'reminder:' || d."id")
       -- Switched off means not created at all, not just unpushed.
       AND NOT EXISTS (
         SELECT 1 FROM "NotificationPreference" np
-        WHERE np."userId" = up."userId" AND np."type" = 'WORKOUT_REMINDER' AND np."pushEnabled" = false
+        WHERE np."userId" = d."userId" AND np."type" = 'WORKOUT_REMINDER' AND np."pushEnabled" = false
       )
-    ORDER BY sw."id"
+    ORDER BY d."id"
     LIMIT ${SWEEP.batch}`
 }
 
@@ -155,7 +169,7 @@ async function queueScheduledReminders(now: Date): Promise<string[]> {
     type: 'WORKOUT_REMINDER' as const,
     dedupeKey: notificationKeys.reminder(r.id),
     target: { scheduledWorkoutId: r.id },
-    data: { programName: r.programName, weekNumber: r.weekNumber, dayNumber: r.dayNumber },
+    data: { programName: r.programName, weekNumber: r.weekNumber, dayNumber: r.dayNumber, day: r.isToday ? 'today' : 'tomorrow' },
   })))
 }
 
