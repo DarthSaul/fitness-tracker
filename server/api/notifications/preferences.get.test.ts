@@ -12,13 +12,14 @@ describe('GET /api/notifications/preferences', () => {
   beforeEach(() => vi.clearAllMocks())
 
   test('returns every type with defaults filled in', async () => {
-    mockUserFind.mockResolvedValueOnce({ timezone: null, workoutReminderMinute: 480 })
+    mockUserFind.mockResolvedValueOnce({ timezone: null, workoutReminderMinute: 480, workoutReminderDay: 'SAME_DAY' })
     mockPrefFind.mockResolvedValueOnce([{ type: 'NEW_FOLLOWER', pushEnabled: false }])
 
-    const result = await call() as { push: Record<string, boolean>; timezone: string | null; workoutReminderTime: string }
+    const result = await call() as { push: Record<string, boolean>; timezone: string | null; workoutReminderTime: string; workoutReminderDay: string }
 
     expect(result.timezone).toBeNull()
     expect(result.workoutReminderTime).toBe('08:00')
+    expect(result.workoutReminderDay).toBe('sameDay')
     expect(result.push.NEW_FOLLOWER).toBe(false)
     expect(result.push.FOLLOW_REQUEST).toBe(true)
     expect(Object.keys(result.push)).toHaveLength(6)

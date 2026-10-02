@@ -271,4 +271,41 @@ describe('PATCH /api/standalone-workout-sessions/:id/complete', () => {
       expect.objectContaining({ statusCode: 500 }),
     )
   })
+
+  describe('unfinished-workout reminder', () => {
+    const mockDismiss = dismissUnfinishedReminder as ReturnType<typeof vi.fn>
+
+    test('dismissed for the caller once the session completes', async () => {
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 })
+      mockFindUnique.mockResolvedValueOnce(mockUpdatedSession)
+
+      const event = makeEvent()
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+      expect(mockDismiss).toHaveBeenCalledWith('user001', 'sws001')
+    })
+
+    test('not touched when nothing was completed', async () => {
+      mockUpdateMany.mockResolvedValueOnce({ count: 0 })
+      mockFindUnique.mockResolvedValueOnce(null)
+
+      const event = makeEvent()
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 404 })
+      expect(mockDismiss).not.toHaveBeenCalled()
+    })
+
+    test('best-effort: a failed dismiss is logged and the completion still succeeds (the sweep catches it)', async () => {
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 })
+      mockFindUnique.mockResolvedValueOnce(mockUpdatedSession)
+      const err = new Error('db blip')
+      mockDismiss.mockReturnValueOnce(Promise.reject(err))
+
+      const event = makeEvent()
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).resolves.toEqual({ session: mockUpdatedSession })
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ err, route: 'PATCH /api/standalone-workout-sessions/:id/complete' }),
+        expect.any(String),
+      )
+    })
+  })
 })

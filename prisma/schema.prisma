@@ -101,34 +101,43 @@ enum FollowStatus {
   ACCEPTED
 }
 
+// Which day a scheduled-workout reminder fires on, relative to the workout
+// (docs/notifications/SPEC-notifications.md). The time is workoutReminderMinute.
+enum WorkoutReminderDay {
+  SAME_DAY
+  DAY_BEFORE
+}
+
 // ---------------------------------------------------------------------------
 // Auth / User
 // ---------------------------------------------------------------------------
 
 model User {
-  id                    String            @id @default(cuid())
-  email                 String            @unique
+  id                    String             @id @default(cuid())
+  email                 String             @unique
   name                  String?
   avatarUrl             String?
-  ptRoutineInWorkout    Boolean           @default(false)
+  ptRoutineInWorkout    Boolean            @default(false)
   /// Social privacy: who may see this user's posts (docs/social/SPEC-follows.md).
-  profileVisibility     ProfileVisibility @default(PRIVATE)
+  profileVisibility     ProfileVisibility  @default(PRIVATE)
   /// Unique handle, stored lowercase (docs/social/SPEC-usernames.md). Every
   /// account has one: generated at sign-up (user_ + 6 digits), changeable,
   /// never cleared. Raw CHECKs in the migration enforce the format.
-  username              String            @unique
+  username              String             @unique
   /// Optional profile bio, at most 100 characters (raw CHECK).
   bio                   String?
   /// Profile stats (docs/social/SPEC-profile-stats.md, ADR 001 amendment):
   /// shown to whoever can see the user's posts; the owner always sees both.
-  showActiveProgram     Boolean           @default(true)
-  showWorkoutCount      Boolean           @default(true)
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  showActiveProgram     Boolean            @default(true)
+  showWorkoutCount      Boolean            @default(true)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
   /// IANA zone, e.g. "America/Chicago", sent by the client; used for workout reminders.
   timezone              String?
   /// Local minutes after midnight at which scheduled-workout reminders fire; 480 = 08:00.
-  workoutReminderMinute Int               @default(480)
+  workoutReminderMinute Int                @default(480)
+  /// The day that time falls on: the workout's own date, or the day before.
+  workoutReminderDay    WorkoutReminderDay @default(SAME_DAY)
 
   identities                Identity[]
   userPrograms              UserProgram[]

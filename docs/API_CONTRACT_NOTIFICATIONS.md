@@ -13,15 +13,38 @@ notifications.
 | `NEW_FOLLOWER` | follower | — | `{}` |
 | `FOLLOW_ACCEPTED` | the user you asked | — | `{}` |
 | `POST_REACTION` | reactor | `postId` | `{ emoji }` |
-| `WORKOUT_REMINDER` | `null` | `scheduledWorkoutId` | `{ programName, weekNumber, dayNumber }` |
+| `WORKOUT_REMINDER` | `null` | `scheduledWorkoutId` | `{ programName, weekNumber, dayNumber, day: "today" \| "tomorrow" }` |
 | `WORKOUT_UNFINISHED` | `null` | `workoutSessionId` or `standaloneSessionId` | `{}` |
 
 Clients must ignore unknown `type` values, because new types will be added
 without a version bump.
 
 > Rollout: the four social types are live. `WORKOUT_REMINDER` and
-> `WORKOUT_UNFINISHED` arrive with the scheduled sweep (see the Notifications
-> section of the CLAUDE.md roadmap).
+> `WORKOUT_UNFINISHED` come from a scheduled job that runs every 5 minutes, so
+> they can arrive up to 5 minutes after they fall due.
+
+What the workout types do:
+- **`WORKOUT_UNFINISHED` fires once per session,** 4 hours after a workout
+  started if it's still in progress.
+  - It covers program workouts and Strength on the Go.
+  - Completing the workout dismisses it.
+  - Deep-link to the session through `target`, so the user can finish it and
+    correct its date.
+- **`WORKOUT_REMINDER` fires once per scheduled workout,** at the user's
+  `workoutReminderTime`. It falls on the workout's date (`sameDay`) or the
+  day before (`dayBefore`), in the user's timezone.
+  - One setting applies to all of a user's scheduled workouts. For example,
+    07:00 on the day, or 21:00 the night before.
+  - `data.day` says whether the workout is `today` or `tomorrow`. Use it in
+    the display text.
+  - It needs `timezone` in preferences. Without one, no reminder fires.
+  - It's skipped if that program day already has a session, the program run
+    has ended, or the program is **deactivated**.
+  - It's also skipped for a workout scheduled after that day's reminder time,
+    e.g. scheduled at 3 pm for tonight.
+  - **Tell users this in the app.** Deactivating a program keeps its scheduled
+    workouts but silences their reminders. Say so where they deactivate a
+    program, or where they schedule a workout on an inactive one.
 
 What the social types do:
 - **`FOLLOW_REQUEST` disappears from the list** once the request is accepted,
@@ -83,9 +106,10 @@ screen. Defaults to now.
 → `200 { count }`.
 
 ### `GET /api/notifications/preferences`
-→ `200 { push: { [type]: boolean }, timezone: string | null, workoutReminderTime: "HH:MM" }`
+→ `200 { push: { [type]: boolean }, timezone: string | null, workoutReminderTime: "HH:MM", workoutReminderDay: "sameDay" | "dayBefore" }`
 
-Every type is listed. Push defaults to `true`, the reminder time to `"08:00"`.
+Every type is listed. Push defaults to `true`, the reminder time to `"08:00"`,
+and the reminder day to `"sameDay"`.
 
 ### `PATCH /api/notifications/preferences`
 Body: any subset of the GET shape, with at least one recognised change.
@@ -97,12 +121,18 @@ Body: any subset of the GET shape, with at least one recognised change.
   Raw offset strings such as `+05:30` or `-08:00` are rejected. Named IANA
   zones are accepted, including `Etc/GMT±N` (which has no daylight saving)
 - a time that isn't `HH:MM` in 24-hour form
+- a `workoutReminderDay` that isn't `"sameDay"` or `"dayBefore"`
 - no recognised change, e.g. `{}`, `{ "push": {} }`, or only unknown fields
 
 **iOS: send `timezone` at sign-in and whenever it changes.** Without it, no
 `WORKOUT_REMINDER` fires.
 
-Turning a type's push off still records it in the inbox.
+What `push.<type>: false` means depends on the type:
+- **Social types:** the push stops, but the notification still appears in the
+  inbox.
+- **`WORKOUT_REMINDER` and `WORKOUT_UNFINISHED`:** the notification is never
+  created, so there's no push and no inbox entry. In the app, label these as
+  turning the reminder off, not just its push.
 
 ## Push payload (APNs)
 

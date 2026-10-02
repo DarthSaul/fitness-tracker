@@ -406,4 +406,52 @@ describe('PATCH /api/workouts/:id/complete', () => {
 
     expect(mockTransaction).toHaveBeenCalledOnce()
   })
+
+  describe('unfinished-workout reminder', () => {
+    const mockDismiss = dismissUnfinishedReminder as ReturnType<typeof vi.fn>
+
+    function completeAtCurrentPosition() {
+      const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
+      mockFindUniqueSession.mockResolvedValueOnce(session)
+      mockUpdateSession.mockResolvedValueOnce({ ...session, status: 'COMPLETED' })
+      mockUpdateUserProgram.mockResolvedValueOnce({ id: 'up001', currentWeek: 1, currentDay: 2 })
+      return makeEvent()
+    }
+
+    test('dismissed for the caller after the completion commits, outside its transaction', async () => {
+      const event = completeAtCurrentPosition()
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+      expect(mockDismiss).toHaveBeenCalledWith('user001', 'ws001')
+      expect(mockTransaction.mock.invocationCallOrder[0]!).toBeLessThan(mockDismiss.mock.invocationCallOrder[0]!)
+    })
+
+    test('dismissed for an off-position session too', async () => {
+      const session = makeSession(1, 1, [{ weekNumber: 1, dayNumbers: [1, 2, 3] }])
+      session.userProgram.currentDay = 3
+      mockFindUniqueSession.mockResolvedValueOnce(session)
+      mockUpdateSession.mockResolvedValueOnce({ ...session, status: 'COMPLETED' })
+
+      const event = makeEvent()
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+      expect(mockDismiss).toHaveBeenCalledWith('user001', 'ws001')
+    })
+
+    // Regression (slice 3 review): inside the transaction, a failed cosmetic
+    // dismiss rolled back and 500'd the user's workout completion.
+    test('best-effort: a failed dismiss is logged and the completion still succeeds (the sweep catches it)', async () => {
+      const err = new Error('db blip')
+      mockDismiss.mockReturnValueOnce(Promise.reject(err))
+      const event = completeAtCurrentPosition()
+
+      const result = await (handler as unknown as (e: typeof event) => Promise<{ userProgram: unknown }>)(event)
+
+      expect(result.userProgram).toEqual({ id: 'up001', currentWeek: 1, currentDay: 2 })
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ err, route: 'PATCH /api/workouts/:id/complete' }),
+        expect.any(String),
+      )
+    })
+  })
 })

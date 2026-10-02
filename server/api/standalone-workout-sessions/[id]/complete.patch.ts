@@ -77,6 +77,13 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 409, statusMessage: 'Session already completed' })
     }
 
+    // A finished workout no longer needs the "finish your workout" nudge.
+    // Best-effort: the completion has committed, and the sweep dismisses any
+    // reminder this misses.
+    await dismissUnfinishedReminder(userId, id).catch((err: unknown) => {
+      ;(event.context.logger ?? logger).warn({ err, route: 'PATCH /api/standalone-workout-sessions/:id/complete' }, '[PATCH /api/standalone-workout-sessions/:id/complete] Failed to dismiss unfinished-workout reminder')
+    })
+
     // updateMany returns only a count; read the completed row for the response.
     const updatedSession = await prisma.standaloneWorkoutSession.findUnique({
       where: { id },

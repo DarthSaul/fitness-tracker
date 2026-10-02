@@ -523,11 +523,11 @@ One inbox per user, with an APNs push for each item. Spec:
 - Nobody is notified of their own actions.
 - No notification carries another user's workout data (ADR 001).
 
-- [ ] **v1 slice 1** — schema (`Notification`, `NotificationPreference`,
+- [x] **v1 slice 1** (#146) — schema (`Notification`, `NotificationPreference`,
       `User.timezone` / `workoutReminderMinute`), `server/utils/notifications.ts`,
       inbox API (`GET /api/notifications`, `…/unread-count`, `PATCH …/:id`,
       `POST …/read-all`, `GET|PATCH …/preferences`)
-- [ ] **v1 slice 2** — social triggers:
+- [x] **v1 slice 2** (#147) — social triggers:
   - follow request
   - new follower (public profile)
   - request accepted, including requests auto-accepted on going public
@@ -536,18 +536,37 @@ One inbox per user, with an APNs push for each item. Spec:
   - `FOLLOW_REQUEST` retracted on accept, decline or cancel
 - [ ] **v1 slice 3** — the sweep (`POST /api/internal/notifications/sweep`,
       called every 5 min by Supabase `pg_cron` with a bearer secret):
-  - scheduled-workout reminders at the user's local reminder time
+  - scheduled-workout reminders at the user's local reminder time, on the
+    workout's date or the day before (`User.workoutReminderDay`, migration
+    `20261002180000_workout_reminder_day`, to apply before deploy). One
+    setting per user, not per workout.
   - an unfinished-workout reminder 4 h after an `IN_PROGRESS` session
     started, program or standalone, auto-dismissed on complete
   - push retry and retention
+- [ ] **Schedule the `pg_cron` job** once slice 3 is live in production:
+      `docs/notifications/OPERATIONS.md` steps 1–2. The secrets are already
+      set: Vault `notifications_cron_secret` / `notifications_sweep_url`, and
+      Vercel `NUXT_NOTIFICATIONS_CRON_SECRET`, production only.
 
 **Backlog**
 - [ ] New post from someone you follow (fan-out on write is capped. Decide
       between per-follower rows and a feed-style query before building it)
 - [ ] Mid-week progress (e.g. "2 of 4 workouts done this week")
+- [ ] Staleness alert for the sweep: page if no `notifications.sweep` log line
+      appears for 30 min. Sentry only sees sweeps that fail, not ones that never
+      run.
+- [ ] Indexes for the sweep's scans once `Notification` grows. Today's queries
+      have no leading index: retry (`pushedAt IS NULL`, `createdAt`), stale
+      dismissal (`type`, `dismissedAt IS NULL`) and retention (`dismissedAt`,
+      `createdAt`). Partial indexes such as `(createdAt) WHERE "pushedAt" IS NULL`
+      would cover them. Fine while the table is small.
 - [ ] iOS wiring: inbox screen, push permission, device registration,
       deep links from `target`, sending `timezone`. Tracked in the app repo;
       check this off when iOS notifications v1 ships.
+- [ ] iOS copy: tell users that deactivating a program silences reminders for
+      its scheduled workouts. The sweep only reminds about the active program
+      (`UserProgram.isActive`); the workouts stay scheduled. Show it in the
+      deactivate confirmation, and when scheduling on an inactive program.
 
 ### Backlog
 - [ ] `user_program_runs_reconcile` migration — once the runs deploy is live everywhere: re-run the `completedAt` backfill and the duplicate-session cleanup from `20260918120000_user_program_runs` (idempotent) — but tighten the cleanup so a session also survives if it has `notes`, a `WorkoutExerciseSwap` or a `WorkoutExerciseSkip`, not only a `CompletedSet`/`CoreWorkout` (the applied migration omitted those three; its 3 deletions were checked beforehand and had none) — force `isActive = false` on terminal rows, and add `CHECK (NOT ("isActive" AND ("completedAt" IS NOT NULL OR "archivedAt" IS NOT NULL)))`. Deliberately not in the first migration: the previous deploy's activate route re-activates completed rows and would 500 against the CHECK.

@@ -5,7 +5,9 @@ defineRouteMeta({
     tags: ['Notifications'],
     summary: 'Update my notification preferences',
     description:
-      'Any subset of `{ push: { [type]: boolean }, timezone: string | null, workoutReminderTime: "HH:MM" }`. '
+      'Any subset of `{ push: { [type]: boolean }, timezone: string | null, workoutReminderTime: "HH:MM", '
+      + 'workoutReminderDay: "sameDay" | "dayBefore" }`. One setting applies to every scheduled workout: '
+      + '`dayBefore` + `"21:00"` reminds at 9 pm the night before. '
       + 'Returns the full settings, as `GET` does. iOS should send `timezone` (`TimeZone.current.identifier`) '
       + 'whenever it changes.',
     requestBody: {
@@ -17,13 +19,14 @@ defineRouteMeta({
               push: { type: 'object', additionalProperties: { type: 'boolean' } },
               timezone: { type: 'string', nullable: true, example: 'America/Chicago' },
               workoutReminderTime: { type: 'string', example: '08:00' },
+              workoutReminderDay: { type: 'string', enum: ['sameDay', 'dayBefore'] },
             },
           },
         },
       },
     },
     responses: {
-      200: { description: '`{ push, timezone, workoutReminderTime }`' },
+      200: { description: '`{ push, timezone, workoutReminderTime, workoutReminderDay }`' },
       400: { description: 'Invalid field' },
       500: { description: 'Internal server error' },
     },
@@ -58,6 +61,11 @@ export default defineEventHandler(async (event): Promise<NotificationPreferences
     const minute = parseReminderTime(body.workoutReminderTime)
     if (minute === null) throw bad('workoutReminderTime must be HH:MM (24-hour)')
     userData.workoutReminderMinute = minute
+  }
+  if (body.workoutReminderDay !== undefined) {
+    const day = parseReminderDay(body.workoutReminderDay)
+    if (day === null) throw bad('workoutReminderDay must be sameDay or dayBefore')
+    userData.workoutReminderDay = day
   }
 
   if (toggles.length === 0 && Object.keys(userData).length === 0) throw bad('Nothing to update')

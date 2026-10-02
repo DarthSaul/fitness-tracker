@@ -1,4 +1,4 @@
-import { NotificationType } from '@prisma/client'
+import { NotificationType, type WorkoutReminderDay } from '@prisma/client'
 
 /** Every notification type, in enum order — the keys of the preferences `push` map. */
 export const NOTIFICATION_TYPES = Object.values(NotificationType) as NotificationType[]
@@ -15,6 +15,20 @@ export function parseReminderTime(raw: unknown): number | null {
   if (typeof raw !== 'string') return null
   const match = HH_MM.exec(raw)
   return match ? Number(match[1]) * 60 + Number(match[2]) : null
+}
+
+export type ReminderDay = 'sameDay' | 'dayBefore'
+
+const REMINDER_DAYS: Record<ReminderDay, WorkoutReminderDay> = { sameDay: 'SAME_DAY', dayBefore: 'DAY_BEFORE' }
+
+/** API `"sameDay" | "dayBefore"` → the stored enum, or null if it's neither. */
+export function parseReminderDay(raw: unknown): WorkoutReminderDay | null {
+  return typeof raw === 'string' && Object.hasOwn(REMINDER_DAYS, raw) ? REMINDER_DAYS[raw as ReminderDay] : null
+}
+
+/** The stored enum → API `"sameDay" | "dayBefore"`. */
+export function formatReminderDay(day: WorkoutReminderDay): ReminderDay {
+  return day === 'DAY_BEFORE' ? 'dayBefore' : 'sameDay'
 }
 
 /**
@@ -38,12 +52,17 @@ export interface NotificationPreferences {
   push: Record<NotificationType, boolean>
   timezone: string | null
   workoutReminderTime: string
+  /** Whether workoutReminderTime falls on the workout's date or the day before. */
+  workoutReminderDay: ReminderDay
 }
 
 /** The caller's settings with defaults filled in: a type with no row has push on. */
 export async function loadNotificationPreferences(userId: string): Promise<NotificationPreferences> {
   const [user, rows] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { timezone: true, workoutReminderMinute: true } }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true, workoutReminderMinute: true, workoutReminderDay: true },
+    }),
     prisma.notificationPreference.findMany({ where: { userId }, select: { type: true, pushEnabled: true } }),
   ])
   const push = Object.fromEntries(NOTIFICATION_TYPES.map((t) => [t, true])) as Record<NotificationType, boolean>
@@ -52,5 +71,6 @@ export async function loadNotificationPreferences(userId: string): Promise<Notif
     push,
     timezone: user?.timezone ?? null,
     workoutReminderTime: formatReminderTime(user?.workoutReminderMinute ?? 480),
+    workoutReminderDay: formatReminderDay(user?.workoutReminderDay ?? 'SAME_DAY'),
   }
 }

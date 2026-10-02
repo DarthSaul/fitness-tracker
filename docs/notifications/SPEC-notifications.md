@@ -164,8 +164,8 @@ returns `404`.
 | `GET /api/notifications/unread-count` | `{ count }` for the badge. |
 | `PATCH /api/notifications/:id` `{ status: 'read' \| 'unread' \| 'dismissed' }` | Changes one notification's status. `read` keeps the first `readAt` and un-dismisses. `dismissed` also marks it read. |
 | `POST /api/notifications/read-all` `{ before? }` | Marks everything up to `before` as read. The cursor stops a notification that arrives mid-tap from being silently read. |
-| `GET\|PATCH /api/notifications/preferences` | `{ push: { [type]: boolean }, timezone, workoutReminderTime: "HH:MM" }`. GET lists every type with its default filled in. PATCH accepts any subset. |
-| `POST /api/internal/notifications/sweep` | **Not user-facing.** Runs scheduled work; needs `Authorization: Bearer $NOTIFICATIONS_CRON_SECRET`, compared in constant time. Kept under `/api/internal/` and allow-listed in the auth middleware. |
+| `GET\|PATCH /api/notifications/preferences` | `{ push: { [type]: boolean }, timezone, workoutReminderTime: "HH:MM", workoutReminderDay: "sameDay" \| "dayBefore" }`. GET lists every type with its default filled in. PATCH accepts any subset. |
+| `POST /api/internal/notifications/sweep` | **Not user-facing.** Runs scheduled work; needs `Authorization: Bearer $NUXT_NOTIFICATIONS_CRON_SECRET`, compared in constant time. Allow-listed in the auth middleware by its exact path. |
 
 Item shape:
 
@@ -228,17 +228,78 @@ by `dedupeKey`.
    - The 48 h ceiling stops the first deploy from pinging every abandoned
      session in the database.
    - Because of the dedupe key, a session reminds at most once.
-2. **`WORKOUT_REMINDER`.** Finds `ScheduledWorkout` rows due today in the
-   user's timezone, once the user's reminder time has passed. Each gets
+2. **`WORKOUT_REMINDER`.** Finds `ScheduledWorkout` rows whose reminder
+   moment has passed and whose date hasn't. Each gets
    `dedupeKey = reminder:{scheduledWorkoutId}`.
+   - **The reminder moment:** `workoutReminderMinute` on the workout's date,
+     or on the day before when `workoutReminderDay = DAY_BEFORE`, in the
+     user's timezone. One setting per user applies to all their workouts. For
+     example, 07:00 same day, or 21:00 the night before.
+   - `data.day` is `today` or `tomorrow`, worked out when the reminder is
+     queued. A day-before reminder held up overnight and sent the next morning
+     correctly says "today".
    - A reminder is skipped if a session for that `(userProgramId, week, day)`
      has already started or completed.
-   - It is also skipped if the run is terminal (`completedAt` / `archivedAt`).
-3. **Push retry** of the outbox (§5).
-4. **Retention.** Dismissed notifications are deleted after 30 days, and all
+   - It is also skipped if the run is terminal (`completedAt` / `archivedAt`)
+     or the program is deactivated (`isActive = false`). A deactivated
+     program stays quiet; its scheduled workouts are kept, but nobody is
+     reminded about them (decided 2026-10-02).
+   - It is also skipped if the workout was scheduled *after* that day's
+     reminder moment, e.g. scheduled at 3 pm for tonight with an 8 am
+     reminder time. The user has just scheduled it, so a late "Workout today"
+     adds nothing.
+   - Otherwise, a reminder that couldn't go out on time is sent late rather
+     than dropped. That covers the job being down or not yet scheduled at the
+     reminder time, and a user setting their time zone or reminder time later
+     that day (decided 2026-10-02).
+   - The time zone and date math runs in Postgres. `User.timezone` is checked
+     against `pg_timezone_names` first, so one zone Postgres doesn't recognise
+     can't make `AT TIME ZONE` fail the whole query.
+3. **Stale dismissal.** A `WORKOUT_UNFINISHED` notification whose session is no
+   longer `IN_PROGRESS` is dismissed.
+   - Both complete routes already dismiss it, best-effort, after the
+     completion commits. A failed dismiss never fails the user's completion.
+   - This step is the backstop for anything they miss.
+   - A session can finish between the sweep reading it and writing the
+     reminder. `deliverPush` therefore re-checks the session first: if it's no
+     longer `IN_PROGRESS`, the reminder is dismissed rather than pushed.
+4. **Push retry** of the outbox (§5).
+   - It picks rows aged 2 minutes to 1 hour that are unpushed, unread and
+     undismissed, with fewer than 3 attempts.
+   - Rows under 2 minutes old are left to the triggering request's own
+     `waitUntil` push.
+   - It sends at most 10 pushes at a time, and starts none after 40 s.
+     pg_net gives up at 60 s. Anything not started stays unpushed, so the next
+     retry step picks it up; the summary reports it as `deferred`.
+   - **Each push is claimed before it's sent.** `deliverPush` increments
+     `pushAttempts` with a compare-and-set, and only the caller that wins
+     sends. That way overlapping sweeps, or a sweep racing the request's own
+     push, can't double-send. Counting the attempt up front also caps re-sends
+     after a crash at `maxPushAttempts`.
+5. **Retention.** Dismissed notifications are deleted after 30 days, and all
    notifications after 90 days.
 
+Each run handles at most 200 sessions and 200 scheduled workouts; anything
+beyond that waits for the next run.
+
+**Failure isolation.** Each step catches and logs its own error, and the other
+steps still run. If any step failed, the route answers `500` naming the failed
+steps, which sends it to Sentry.
+
 Each run logs a single `notifications.sweep` line with counts per step.
+
+The route is `POST /api/internal/notifications/sweep`.
+- The auth middleware lists the route as an exact public path. Without that,
+  it would try to verify the cron secret as a user JWT and return 401.
+- It is listed exactly, not as an `/api/internal/` prefix, so any future
+  internal route stays protected by default.
+- The route rate-limits by IP first.
+- It then checks `Authorization: Bearer` against
+  `NUXT_NOTIFICATIONS_CRON_SECRET`, comparing SHA-256 digests in constant time.
+- With no secret configured, it returns the same 401 as a wrong secret, so a
+  caller can't tell whether one is set. It logs an error so an operator can.
+
+Scheduling and secrets are covered in [OPERATIONS.md](OPERATIONS.md).
 
 ## 7. Observability
 
@@ -280,14 +341,23 @@ Required cases:
    - `User.timezone` is an IANA zone sent by the client.
    - `User.workoutReminderMinute` is the local time in minutes after midnight,
      default 480 (08:00).
-   - A reminder fires on `scheduledDate` once that local time has passed.
+   - `User.workoutReminderDay` (`SAME_DAY` | `DAY_BEFORE`, default `SAME_DAY`)
+     says which day that time falls on (added 2026-10-02).
+   - Each setting has one meaning, so there's no signed offset to decode.
+   - The API mirrors the two columns: `workoutReminderTime: "HH:MM"` and
+     `workoutReminderDay: "sameDay" | "dayBefore"`.
+   - A reminder fires once that moment has passed (§6).
    - A user with no timezone gets no `WORKOUT_REMINDER`. We don't guess, and
      the iOS wiring sends the timezone.
 3. **Preferences ship in v1, as push toggles per type.**
    - A `NotificationPreference(userId, type, pushEnabled)` row exists only
      when the user has changed the default. A missing row means push is on.
-   - The inbox row is always written; a disabled type only suppresses the
-     push.
+   - For the social types, the inbox row is always written; a disabled type
+     only suppresses the push.
+   - For `WORKOUT_REMINDER` and `WORKOUT_UNFINISHED`, a disabled type is
+     never created at all: no push and no inbox entry. An inbox copy of a
+     reminder the user switched off would still be a reminder (decided
+     2026-10-02). The sweep filters these users out when it queues.
 4. **Delivery: three stacked PRs.**
    1. Schema, `notify` / `retract` / push helpers, and the inbox and
       preferences API.
