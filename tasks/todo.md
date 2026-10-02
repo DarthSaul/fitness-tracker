@@ -218,7 +218,7 @@ gets a new, simpler spec after `follows`.
 - [x] verify-app passes
 - [x] PR opened (#140)
 - [x] Migration applied before merge (2026-10-01): status up to date, no drift; CHECK, both SET NULL FKs and both unique indexes live; postSelect + session lookups probed read-only
-- [ ] Merge
+- [x] Merge (#140, squash 81991c4, identical to the PR head)
 
 ## PR 11 — `reports` (branch `feat/social-reports`; #140 merged, now on main)
 
@@ -234,4 +234,4 @@ gets a new, simpler spec after `follows`.
 - [x] verify-app passes
 - [x] PR opened (#141)
 - [x] Migration applied before merge (2026-10-02): status up to date, no drift; 4 CHECKs, 3 FKs (cascades + post SET NULL), both partial unique indexes live; route reads probed read-only
-- [ ] Merge
+- [x] Merge (#141, squash bcf65ee, identical to the PR head)

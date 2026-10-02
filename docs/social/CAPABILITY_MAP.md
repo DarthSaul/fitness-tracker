@@ -13,6 +13,12 @@ and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
 
 ## Decisions
 
+- **Workouts are always private; posts are what users share**
+  ([ADR 001](ADR-001-workouts-always-private.md)).
+  - Following someone, or a public profile, never exposes their workouts.
+  - The only workout-derived content another user sees is what the author
+    posts. A workout share carries just the program's name.
+
 - **Follows, not friends.**
   - Following is one-way.
   - Following a `PUBLIC` profile is accepted instantly.
@@ -67,7 +73,7 @@ and [`SPEC-friendships.md`](SPEC-friendships.md) for the historical design.
 | `post-photos` | ✅ #138 | ≤4 photos per post; EXIF strip; private bucket + signed URLs | `posts` |
 | `reactions` | ✅ #139 | Emoji reactions; counts + "mine" on every post; who reacted | `posts` |
 | `workout-shares` | ✅ #140 | A post may reference one of the author's `COMPLETED` sessions, rendered as text only, e.g. "Saul completed a workout from Arm Farm 2" (or "Saul completed a workout" for a standalone). Never the session's sets or data. | `posts` |
-| `reports` | ⏭ [spec](SPEC-reports.md) approved | Report a post or user; snapshot stored for moderation; Sentry alert ([MODERATION.md](MODERATION.md)) | `posts`, `user-discovery` |
+| `reports` | ✅ #141 | Report a post or user; snapshot stored for moderation; Sentry alert ([MODERATION.md](MODERATION.md)) | `posts`, `user-discovery` |
 
 Build order: `follows` → `feed` → `friendships-removal` (own deploy) →
 `post-photos`, `reactions`, `workout-shares`, `reports`
