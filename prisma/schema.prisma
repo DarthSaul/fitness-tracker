@@ -20,6 +20,14 @@
 // Note on WorkoutSession in-progress uniqueness (also raw SQL):
 //   CREATE UNIQUE INDEX "WorkoutSession_userProgramId_in_progress_partial_idx"
 //   ON "WorkoutSession" ("userProgramId") WHERE "status" = 'IN_PROGRESS';
+//
+// Note on Notification and User constraints (also raw SQL; see docs/notifications/SPEC-notifications.md):
+//   CREATE INDEX "Notification_unread_idx" ON "Notification" ("recipientId")
+//   WHERE "readAt" IS NULL AND "dismissedAt" IS NULL;
+//   ALTER TABLE "Notification" ADD CONSTRAINT "Notification_actor_not_recipient"
+//   CHECK ("actorId" IS NULL OR "actorId" <> "recipientId");
+//   ALTER TABLE "User" ADD CONSTRAINT "User_workoutReminderMinute_range"
+//   CHECK ("workoutReminderMinute" BETWEEN 0 AND 1439);
 
 generator client {
   provider = "prisma-client-js"
@@ -78,6 +86,16 @@ enum WorkoutShareKind {
   STANDALONE
 }
 
+// What an inbox notification is about (docs/notifications/SPEC-notifications.md).
+enum NotificationType {
+  FOLLOW_REQUEST
+  NEW_FOLLOWER
+  FOLLOW_ACCEPTED
+  POST_REACTION
+  WORKOUT_REMINDER
+  WORKOUT_UNFINISHED
+}
+
 enum FollowStatus {
   PENDING
   ACCEPTED
@@ -88,25 +106,29 @@ enum FollowStatus {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                 String            @id @default(cuid())
-  email              String            @unique
-  name               String?
-  avatarUrl          String?
-  ptRoutineInWorkout Boolean           @default(false)
+  id                    String            @id @default(cuid())
+  email                 String            @unique
+  name                  String?
+  avatarUrl             String?
+  ptRoutineInWorkout    Boolean           @default(false)
   /// Social privacy: who may see this user's posts (docs/social/SPEC-follows.md).
-  profileVisibility  ProfileVisibility @default(PRIVATE)
+  profileVisibility     ProfileVisibility @default(PRIVATE)
   /// Unique handle, stored lowercase (docs/social/SPEC-usernames.md). Every
   /// account has one: generated at sign-up (user_ + 6 digits), changeable,
   /// never cleared. Raw CHECKs in the migration enforce the format.
-  username           String            @unique
+  username              String            @unique
   /// Optional profile bio, at most 100 characters (raw CHECK).
-  bio                String?
+  bio                   String?
   /// Profile stats (docs/social/SPEC-profile-stats.md, ADR 001 amendment):
   /// shown to whoever can see the user's posts; the owner always sees both.
-  showActiveProgram  Boolean           @default(true)
-  showWorkoutCount   Boolean           @default(true)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  showActiveProgram     Boolean           @default(true)
+  showWorkoutCount      Boolean           @default(true)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  /// IANA zone, e.g. "America/Chicago", sent by the client; used for workout reminders.
+  timezone              String?
+  /// Local minutes after midnight at which scheduled-workout reminders fire; 480 = 08:00.
+  workoutReminderMinute Int               @default(480)
 
   identities                Identity[]
   userPrograms              UserProgram[]
@@ -126,6 +148,9 @@ model User {
   postReactions             PostReaction[]
   reportsMade               Report[]                   @relation("ReportsMade")
   reportsReceived           Report[]                   @relation("ReportsReceived")
+  notificationsReceived     Notification[]             @relation("NotificationsReceived")
+  notificationsCaused       Notification[]             @relation("NotificationsCaused")
+  notificationPreferences   NotificationPreference[]
 }
 
 model Identity {
@@ -333,6 +358,7 @@ model WorkoutSession {
   workoutExerciseSkips WorkoutExerciseSkip[]
   coreWorkout          CoreWorkout?
   sharedInPost         Post?
+  notifications        Notification[]
 
   // Serves the profile's completed-workout count (docs/social/SPEC-profile-stats.md).
   @@index([userId, status])
@@ -432,7 +458,8 @@ model ScheduledWorkout {
   scheduledDate DateTime @db.Date
   createdAt     DateTime @default(now())
 
-  userProgram UserProgram @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
+  userProgram   UserProgram    @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
+  notifications Notification[]
 
   @@unique([userProgramId, weekNumber, dayNumber])
   @@unique([userProgramId, scheduledDate])
@@ -543,6 +570,7 @@ model StandaloneWorkoutSession {
   standaloneWorkout StandaloneWorkout        @relation(fields: [standaloneWorkoutId], references: [id], onDelete: Cascade)
   completedSets     StandaloneCompletedSet[]
   sharedInPost      Post?
+  notifications     Notification[]
 
   @@index([userId])
   @@index([standaloneWorkoutId])
@@ -645,6 +673,7 @@ model Post {
   photos            PostPhoto[]
   reactions         PostReaction[]
   reports           Report[]
+  notifications     Notification[]
   workoutSession    WorkoutSession?           @relation(fields: [workoutSessionId], references: [id], onDelete: SetNull)
   standaloneSession StandaloneWorkoutSession? @relation(fields: [standaloneSessionId], references: [id], onDelete: SetNull)
 
@@ -748,4 +777,51 @@ model Report {
   // The moderation queue: unresolved first, oldest first.
   @@index([resolvedAt, createdAt])
   @@index([reportedUserId])
+}
+
+// An inbox item for one recipient, with push delivery state. followId has no FK:
+// Follow rows are hard-deleted and retraction is done explicitly in code.
+// See docs/notifications/SPEC-notifications.md.
+model Notification {
+  id                  String           @id @default(cuid())
+  recipientId         String
+  type                NotificationType
+  actorId             String?
+  postId              String?
+  followId            String?
+  workoutSessionId    String?
+  standaloneSessionId String?
+  scheduledWorkoutId  String?
+  data                Json             @default("{}")
+  dedupeKey           String           @unique
+  createdAt           DateTime         @default(now())
+  readAt              DateTime?
+  dismissedAt         DateTime?
+  pushedAt            DateTime?
+  pushAttempts        Int              @default(0)
+
+  recipient         User                      @relation("NotificationsReceived", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor             User?                     @relation("NotificationsCaused", fields: [actorId], references: [id], onDelete: Cascade)
+  post              Post?                     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  workoutSession    WorkoutSession?           @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  standaloneSession StandaloneWorkoutSession? @relation(fields: [standaloneSessionId], references: [id], onDelete: Cascade)
+  scheduledWorkout  ScheduledWorkout?         @relation(fields: [scheduledWorkoutId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, dismissedAt, createdAt(sort: Desc), id(sort: Desc)])
+  // Supports the block cleanup (deleteMany by actor/recipient pair).
+  @@index([actorId])
+  @@index([followId])
+}
+
+// One row per (user, type) the user changed; a missing row means push is enabled.
+// See docs/notifications/SPEC-notifications.md.
+model NotificationPreference {
+  userId      String
+  type        NotificationType
+  pushEnabled Boolean
+  updatedAt   DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, type])
 }

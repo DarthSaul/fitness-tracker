@@ -16,6 +16,8 @@ import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, par
 import { parseReportInput } from './server/utils/reports'
 import { parseUsername, normalizeUsername, usernameProblem } from './server/utils/usernames'
 import { meSelect, parseBio } from './server/utils/profile'
+import { notificationSelect, toNotificationPayload, inboxWhere } from './server/utils/notifications'
+import { NOTIFICATION_TYPES, formatReminderTime, parseReminderTime, isValidTimeZone, loadNotificationPreferences } from './server/utils/notification-preferences'
 
 // ── Sentry SDK (imported by server/middleware/auth.ts) ───────────────────────
 // Mock at module level so `import * as Sentry from '@sentry/nuxt'` in source
@@ -110,6 +112,8 @@ vi.stubGlobal('prisma', {
   follow: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
   userBlock: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   report: { findFirst: vi.fn(), create: vi.fn() },
+  notification: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn(), createMany: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
+  notificationPreference: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn() },
   feedback: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   standaloneWorkout: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
   standaloneWorkoutSet: { findUnique: vi.fn() },
@@ -163,6 +167,21 @@ vi.stubGlobal('meSelect', meSelect)
 vi.stubGlobal('parseBio', parseBio)
 // Profile stats: mocked in route tests (the helper has its own unit tests).
 vi.stubGlobal('profileStats', vi.fn().mockResolvedValue({ activeProgram: null, completedWorkoutCount: null }))
+// Notifications: real pure helpers; writes, delivery and the badge count are
+// mocked in route tests (server/utils/notifications.test.ts covers them).
+vi.stubGlobal('notificationSelect', notificationSelect)
+vi.stubGlobal('toNotificationPayload', toNotificationPayload)
+vi.stubGlobal('inboxWhere', inboxWhere)
+vi.stubGlobal('notify', vi.fn().mockResolvedValue(null))
+vi.stubGlobal('retract', vi.fn().mockResolvedValue(undefined))
+vi.stubGlobal('pushAfterCommit', vi.fn())
+vi.stubGlobal('deliverPush', vi.fn().mockResolvedValue('skipped'))
+vi.stubGlobal('unreadCount', vi.fn().mockResolvedValue(0))
+vi.stubGlobal('NOTIFICATION_TYPES', NOTIFICATION_TYPES)
+vi.stubGlobal('formatReminderTime', formatReminderTime)
+vi.stubGlobal('parseReminderTime', parseReminderTime)
+vi.stubGlobal('isValidTimeZone', isValidTimeZone)
+vi.stubGlobal('loadNotificationPreferences', loadNotificationPreferences)
 // Runs the callback immediately with the prisma mock as the transaction client;
 // tests that care about lock scope override this per-test.
 vi.stubGlobal('withPairLock', vi.fn((_a: string, _b: string, fn: (tx: unknown) => unknown) => fn(globalThis.prisma)))
