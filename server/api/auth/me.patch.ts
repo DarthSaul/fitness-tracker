@@ -27,7 +27,7 @@ defineRouteMeta({
       },
     },
     responses: {
-      200: { description: 'Updated user profile' },
+      200: { description: 'The updated profile: the same fields as GET /api/auth/me (id, email, name, avatarUrl, ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount)' },
       400: { description: 'Missing or invalid fields, or a reserved username' },
       401: { description: 'Unauthorized' },
       404: { description: 'User not found' },

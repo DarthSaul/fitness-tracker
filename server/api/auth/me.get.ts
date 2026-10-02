@@ -2,7 +2,11 @@ defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
     summary: 'Current user profile',
-    description: 'Returns the authenticated user\'s id, email, name, avatarUrl, and ptRoutineInWorkout setting.',
+    description:
+      'Returns the authenticated user\'s own profile and settings (`meSelect`, server/utils/profile.ts): `id`, `email`, '
+      + '`name`, `avatarUrl`, `ptRoutineInWorkout`, `profileVisibility` (`PUBLIC` | `PRIVATE`), `username`, `bio` '
+      + '(string or null), `showActiveProgram` and `showWorkoutCount`. The only response that includes the caller\'s email; '
+      + 'the two `show…` settings are visible only to the owner.',
     responses: {
       200: { description: 'Current user profile' },
       401: { description: 'Unauthorized' },
