@@ -5,7 +5,7 @@ defineRouteMeta({
     tags: ['Social'],
     summary: 'Edit a post',
     description:
-      'Edits the body of the caller\'s own post (photos are fixed once posted; a photo post\'s text may be emptied). '
+      'Edits the body of the caller\'s own post (photos and a shared workout are fixed once posted; the text of a post with either may be emptied). '
       + 'Sets `editedAt` only when the body actually changes; a no-op edit returns the post unchanged. Anyone else\'s post is 404.',
     responses: {
       200: { description: 'Post' },
@@ -23,10 +23,11 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
     throw createError({ statusCode: 400, statusMessage: 'Missing post id' })
   }
 
-  // Only `body` is editable: `visibility` (privacy is per profile) and
-  // `photoIds` (photos are fixed once posted) keys are ignored.
+  // Only `body` is editable: `visibility` (privacy is per profile), `photoIds`
+  // and the session id keys (photos and a shared workout are fixed once posted)
+  // are ignored.
   const raw = (await readBody(event))?.body
-  // Shape and length now; whether empty is allowed depends on the post's photos.
+  // Shape and length now; whether empty is allowed depends on the post's photos and share.
   parsePostBody(raw, { allowEmpty: true })
 
   const notFound = () => createError({ statusCode: 404, statusMessage: 'Post not found' })
@@ -35,8 +36,8 @@ export default defineEventHandler(async (event): Promise<PostPayload> => {
     const post = await prisma.post.findUnique({ where: { id }, select: postSelect })
     if (!post || post.authorId !== userId) throw notFound()
 
-    // A photo post may have no text; a text-only post must keep some.
-    const body = parsePostBody(raw, { allowEmpty: post.photos.length > 0 })
+    // A photo post or a workout share may have no text; a text-only post must keep some.
+    const body = parsePostBody(raw, { allowEmpty: post.photos.length > 0 || post.sharedWorkoutKind !== null })
     if (body === post.body) return (await toPostPayloads([post], userId))[0]!
 
     const updated = await prisma.post.update({

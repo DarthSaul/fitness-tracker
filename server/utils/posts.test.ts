@@ -57,6 +57,8 @@ describe('toPostPayloads', () => {
     editedAt: null,
     author,
     photos,
+    sharedWorkoutKind: null as 'PROGRAM' | 'STANDALONE' | null,
+    sharedProgramName: null as string | null,
   })
   const expiresAt = '2026-09-30T12:15:00.000Z'
 
@@ -80,8 +82,19 @@ describe('toPostPayloads', () => {
       photos: [],
       photosExpireAt: null,
       reactions: [],
+      workout: null,
     })
     expect(theirs!.isMine).toBe(false)
+  })
+
+  test('a shared workout becomes text-only data: the program name, or null for a standalone', async () => {
+    const posts = await toPostPayloads([
+      { ...row('p1'), sharedWorkoutKind: 'PROGRAM', sharedProgramName: 'Arm Farm 2' },
+      { ...row('p2'), sharedWorkoutKind: 'STANDALONE', sharedProgramName: null },
+    ], 'viewer')
+
+    expect(posts[0]!.workout).toEqual({ programName: 'Arm Farm 2' })
+    expect(posts[1]!.workout).toEqual({ programName: null })
   })
 
   test('signs every photo on the page in ONE storage call, keeping each post\'s position order', async () => {
@@ -142,20 +155,47 @@ describe('toPostPayloads', () => {
   test('postSelect has no per-post visibility — privacy is per profile', () => {
     expect(postSelect).not.toHaveProperty('visibility')
   })
+
+  test('postSelect reads only the share snapshot, never the session (no extra queries, no session data)', () => {
+    expect(postSelect).toMatchObject({ sharedWorkoutKind: true, sharedProgramName: true })
+    for (const key of ['workoutSession', 'standaloneSession', 'workoutSessionId', 'standaloneSessionId']) {
+      expect(postSelect).not.toHaveProperty(key)
+    }
+  })
 })
 
 describe('parsePostContent', () => {
   test('text only: the body rule applies, no photos', () => {
-    expect(parsePostContent({ body: '  hi ' })).toEqual({ body: 'hi', photoIds: [] })
+    expect(parsePostContent({ body: '  hi ' })).toEqual({ body: 'hi', photoIds: [], share: null })
   })
 
   test('photos may come with no text at all', () => {
-    expect(parsePostContent({ photoIds: ['a', 'b'] })).toEqual({ body: '', photoIds: ['a', 'b'] })
-    expect(parsePostContent({ body: '   ', photoIds: ['a'] })).toEqual({ body: '', photoIds: ['a'] })
+    expect(parsePostContent({ photoIds: ['a', 'b'] })).toEqual({ body: '', photoIds: ['a', 'b'], share: null })
+    expect(parsePostContent({ body: '   ', photoIds: ['a'] })).toEqual({ body: '', photoIds: ['a'], share: null })
   })
 
   test('text and photos together, photo order preserved', () => {
-    expect(parsePostContent({ body: 'Leg day', photoIds: ['c', 'a', 'b', 'd'] })).toEqual({ body: 'Leg day', photoIds: ['c', 'a', 'b', 'd'] })
+    expect(parsePostContent({ body: 'Leg day', photoIds: ['c', 'a', 'b', 'd'] })).toEqual({ body: 'Leg day', photoIds: ['c', 'a', 'b', 'd'], share: null })
+  })
+
+  test('a shared workout may come with no text, and the id is trimmed', () => {
+    expect(parsePostContent({ workoutSessionId: ' s1 ' })).toEqual({ body: '', photoIds: [], share: { kind: 'PROGRAM', sessionId: 's1' } })
+    expect(parsePostContent({ body: '  ', standaloneSessionId: 'x1' })).toEqual({ body: '', photoIds: [], share: { kind: 'STANDALONE', sessionId: 'x1' } })
+  })
+
+  test('a share can carry text and photos', () => {
+    expect(parsePostContent({ body: 'PR!', photoIds: ['a'], workoutSessionId: 's1' }))
+      .toEqual({ body: 'PR!', photoIds: ['a'], share: { kind: 'PROGRAM', sessionId: 's1' } })
+  })
+
+  test.each([
+    ['both session ids', { workoutSessionId: 's1', standaloneSessionId: 'x1' }],
+    ['a blank workoutSessionId', { workoutSessionId: '  ' }],
+    ['a non-string standaloneSessionId', { standaloneSessionId: 7 }],
+    ['a null workoutSessionId', { body: 'hi', workoutSessionId: null }],
+    ['text over 2000 characters, even with a share', { body: 'x'.repeat(2001), workoutSessionId: 's1' }],
+  ])('400 for %s', (_label, input) => {
+    expect(() => parsePostContent(input)).toThrow(expect.objectContaining({ statusCode: 400 }))
   })
 
   test.each([

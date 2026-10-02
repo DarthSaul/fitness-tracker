@@ -29,7 +29,7 @@ describe('GET /api/posts/:id', () => {
     expect(mockFindUnique).toHaveBeenCalledWith({ where: { id: 'p1' }, select: expect.objectContaining({ authorId: true, author: expect.anything() }) })
     expect(mockCanView).toHaveBeenCalledWith('ca', row.author)
     expect(result).toEqual({
-      id: 'p1', author: row.author, body: 'Leg day', createdAt, editedAt: null, isMine: false, photos: [], photosExpireAt: null, reactions: [],
+      id: 'p1', author: row.author, body: 'Leg day', createdAt, editedAt: null, isMine: false, photos: [], photosExpireAt: null, reactions: [], workout: null,
     })
   })
 

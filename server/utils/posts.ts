@@ -1,4 +1,4 @@
-import type { Prisma, ProfileVisibility } from '@prisma/client'
+import type { Prisma, ProfileVisibility, WorkoutShareKind } from '@prisma/client'
 
 // Explicit (not auto-imported): postSelect reads it at module load.
 import { publicUserSelect, type PublicUser } from './public-user'
@@ -20,6 +20,9 @@ export const postSelect = {
   editedAt: true,
   author: { select: publicUserSelect },
   photos: { select: { id: true, storagePath: true, width: true, height: true }, orderBy: { position: 'asc' } },
+  // The share snapshot only: never the session itself (SPEC-workout-shares.md).
+  sharedWorkoutKind: true,
+  sharedProgramName: true,
 } satisfies Prisma.PostSelect
 
 export type PostRow = Prisma.PostGetPayload<{ select: typeof postSelect }>
@@ -44,6 +47,11 @@ export interface PostPayload {
   photosExpireAt: string | null
   /** Per-emoji totals (blocked users excluded) and whether the caller reacted. */
   reactions: ReactionSummary[]
+  /**
+   * A shared workout, as text-only data: null when the post shares none;
+   * programName null for a standalone workout.
+   */
+  workout: { programName: string | null } | null
 }
 
 /**
@@ -68,6 +76,7 @@ export async function toPostPayloads(rows: PostRow[], viewerId: string): Promise
     photos: row.photos.map((p) => ({ id: p.id, url: signed.urls.get(p.storagePath)!, width: p.width, height: p.height })),
     photosExpireAt: row.photos.length > 0 ? signed.expiresAt : null,
     reactions: reactions.get(row.id) ?? [],
+    workout: row.sharedWorkoutKind ? { programName: row.sharedProgramName } : null,
   }))
 }
 
@@ -116,14 +125,42 @@ export function parsePostBody(raw: unknown, { allowEmpty = false }: { allowEmpty
   return body
 }
 
+/** The session a new post shares; ownership and status are checked on create. */
+export interface WorkoutShareInput {
+  kind: WorkoutShareKind
+  sessionId: string
+}
+
+function parseSessionId(raw: unknown, key: string): string {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    throw createError({ statusCode: 400, statusMessage: `${key} must be a session id` })
+  }
+  return raw.trim()
+}
+
+/** At most one of `workoutSessionId` / `standaloneSessionId`. @throws {H3Error} 400 */
+function parseWorkoutShare(raw: { workoutSessionId?: unknown; standaloneSessionId?: unknown }): WorkoutShareInput | null {
+  if (raw.workoutSessionId !== undefined && raw.standaloneSessionId !== undefined) {
+    throw createError({ statusCode: 400, statusMessage: 'Share one workout: workoutSessionId or standaloneSessionId, not both' })
+  }
+  if (raw.workoutSessionId !== undefined) {
+    return { kind: 'PROGRAM', sessionId: parseSessionId(raw.workoutSessionId, 'workoutSessionId') }
+  }
+  if (raw.standaloneSessionId !== undefined) {
+    return { kind: 'STANDALONE', sessionId: parseSessionId(raw.standaloneSessionId, 'standaloneSessionId') }
+  }
+  return null
+}
+
 /**
- * A new post's `{ body?, photoIds? }`: 0–4 distinct photo ids, in display order,
- * and text that may be empty only when there is at least one photo.
- * Whether each id is the caller's own unattached upload is checked on attach.
+ * A new post's `{ body?, photoIds?, workoutSessionId? | standaloneSessionId? }`:
+ * 0–4 distinct photo ids in display order, at most one shared workout, and text
+ * that may be empty only when there is a photo or a share. Whether each id is
+ * the caller's own (unattached upload, completed session) is checked on create.
  * @throws {H3Error} 400
  */
-export function parsePostContent(input: unknown): { body: string; photoIds: string[] } {
-  const raw = (input ?? {}) as { body?: unknown; photoIds?: unknown }
+export function parsePostContent(input: unknown): { body: string; photoIds: string[]; share: WorkoutShareInput | null } {
+  const raw = (input ?? {}) as { body?: unknown; photoIds?: unknown; workoutSessionId?: unknown; standaloneSessionId?: unknown }
 
   let photoIds: string[] = []
   if (raw.photoIds !== undefined) {
@@ -135,8 +172,11 @@ export function parsePostContent(input: unknown): { body: string; photoIds: stri
     photoIds = ids as string[]
   }
 
-  if (photoIds.length > 0 && raw.body === undefined) return { body: '', photoIds }
-  return { body: parsePostBody(raw.body, { allowEmpty: photoIds.length > 0 }), photoIds }
+  const share = parseWorkoutShare(raw)
+  const allowEmpty = photoIds.length > 0 || share !== null
+
+  if (allowEmpty && raw.body === undefined) return { body: '', photoIds, share }
+  return { body: parsePostBody(raw.body, { allowEmpty }), photoIds, share }
 }
 
 const DEFAULT_LIMIT = 20

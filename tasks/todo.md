@@ -200,8 +200,26 @@ gets a new, simpler spec after `follows`.
 - [x] verify-app passes
 - [x] PR opened (#139)
 - [x] Migration applied before merge (2026-10-01): status up to date, no drift, CHECK + indexes live; counts / mine / who-reacted queries probed read-only against Postgres
-- [ ] Merge #139
+- [x] Merge #139 (squash a1e1750, identical to the PR head)
+
+## PR 10 — `workout-shares` (branch `feat/social-workout-shares`; #139 merged, now on main)
+
+- [x] Spec approved (`docs/social/SPEC-workout-shares.md`), 2026-10-01
+- [x] **W1: schema + migration** (S): `WorkoutShareKind`, snapshot columns, unique
+  session FKs `SET NULL`, half-share CHECK. Applied 2026-10-01.
+- [x] **W2: post helpers** (S): `parsePostContent` takes one session id; `postSelect` +
+  `workout` in the payload (no extra queries).
+- [x] **W3: `POST /api/posts` shares** (M): own + COMPLETED (404 / 409), snapshot
+  the program name, P2002 → 409.
+- [x] **W4: `PATCH /api/posts/:id`** (XS): a share's text may be emptied.
+- [x] **W5: contract + capability map + verify-app** (S).
+
+### Checkpoint: workout-shares
+- [x] verify-app passes
+- [x] PR opened (#140)
+- [x] Migration applied before merge (2026-10-01): status up to date, no drift; CHECK, both SET NULL FKs and both unique indexes live; postSelect + session lookups probed read-only
+- [ ] Merge
 
 ## Later PRs (spec written when reached)
 
-- [ ] `workout-shares` · [ ] `reports`
+- [ ] `reports`
