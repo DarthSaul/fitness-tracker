@@ -216,6 +216,13 @@ top, in two stages at Tailwind's default breakpoints.
 - Use `createError` from `h3` for error responses with appropriate status codes.
 - Validate request bodies with manual inline checks (no Zod) consistent with the existing pattern.
 - **Workout sessions are editable in isolation.** Routes that mutate a `WorkoutSession` or its sets gate on ownership only — never on session status, on an active program, or on the program's current week/day — so a finished workout can always be corrected. Do not reintroduce an `IN_PROGRESS` check. The two deliberate exceptions are `PATCH …/complete` and `DELETE /api/workouts/:id`, which reject a `COMPLETED` session. Client contract: `docs/API_CONTRACT_EDITING_COMPLETED_WORKOUTS.md`.
+- **Workout data is owner-only, always ([ADR 001](docs/social/ADR-001-workouts-always-private.md)).**
+  - Every route that reads a `WorkoutSession`, a `StandaloneWorkoutSession`
+    or their sets returns another user's session as `404`.
+  - Never add a follower, profile-visibility or "public" branch to them, and
+    never add a route that shows one user's workouts to another.
+  - Sharing goes through **posts**. A workout share copies only the program's
+    name, when the post is created.
 
 ### Error Handling
 
@@ -429,6 +436,52 @@ complete apart from Exercise skip UI and Core workouts)
       points at `/icons/icon-512.png` with `twitterCard: 'summary'`. Compose a
       1200×630 `public/img/og-cover.jpg` and switch to
       `summary_large_image`.
+
+### Social — API ✅ (web UI not started)
+
+Follows, posts and safety. The API is complete and consumed by iOS; the
+web client has no social screens yet. Index:
+`docs/social/CAPABILITY_MAP.md`. Client contract:
+`docs/API_CONTRACT_SOCIAL.md`.
+
+**Product rule ([ADR 001](docs/social/ADR-001-workouts-always-private.md)):
+workouts are always private to their owner, with no exception.**
+- Following someone or a public profile never exposes another user's workouts.
+- A **post** is how a user shares, and posts follow profile visibility.
+- The only workout-derived content another user can see is what the author
+  puts in a post: a workout share carries just the program's name.
+
+- [x] Blocking (#131): a block hides each user from the other and removes
+      follows both ways
+- [x] User search and public profiles (#132)
+- [x] ~~Friendships~~ (#133): replaced by follows (#135); schema dropped in #137
+- [x] Posts (#134): create, edit and delete your own; a user's posts
+- [x] Follows and profile privacy (#135): one-way follows; private profiles
+      (the default) approve requests; going public auto-accepts pending ones;
+      you can remove a follower at any time
+- [x] Following feed (#136): your posts plus accepted follows, keyset-paginated
+- [x] Post photos (#138): ≤ 4 per post, EXIF/GPS stripped with `sharp`,
+      private bucket with 15-minute signed URLs
+- [x] Emoji reactions (#139): several distinct emoji per user, capped at 10;
+      who-reacted lists; blocked users excluded from counts and lists
+- [x] Workout shares (#140): text only, program name snapshotted
+- [x] Reports (#141): post or user, snapshot kept, Sentry alert per report;
+      runbook in `docs/social/MODERATION.md`
+- [ ] **Sentry alert rule** for `social.report` in `dr-dumbbell-nuxt`
+      (`MODERATION.md` §1). Until it exists, reports are stored but nobody is
+      alerted.
+- [ ] **Terms-of-use acceptance** before posting. App Store Guideline 1.2
+      requires it alongside report and block; this is an app and legal
+      change, not API work.
+- [ ] iOS social screens (the app repo), against `API_CONTRACT_SOCIAL.md`
+- [ ] Confirm `sharp` runs on Vercel, from the first real
+      `POST /api/post-photos` log
+- [ ] Admin route to remove another user's account. Today a moderator can
+      only act in SQL, which skips the Auth and Storage cleanup that
+      `DELETE /api/auth/me` does.
+- [ ] Scheduled cleanup of unattached photos. Today they're swept only when
+      the same user uploads again.
+- [ ] Web client social UI
 
 ### Backlog
 - [ ] `user_program_runs_reconcile` migration — once the runs deploy is live everywhere: re-run the `completedAt` backfill and the duplicate-session cleanup from `20260918120000_user_program_runs` (idempotent) — but tighten the cleanup so a session also survives if it has `notes`, a `WorkoutExerciseSwap` or a `WorkoutExerciseSkip`, not only a `CompletedSet`/`CoreWorkout` (the applied migration omitted those three; its 3 deletions were checked beforehand and had none) — force `isActive = false` on terminal rows, and add `CHECK (NOT ("isActive" AND ("completedAt" IS NOT NULL OR "archivedAt" IS NOT NULL)))`. Deliberately not in the first migration: the previous deploy's activate route re-activates completed rows and would 500 against the CHECK.
