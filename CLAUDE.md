@@ -94,7 +94,7 @@ The API supports two authentication paths that share a single `server/middleware
 
 Native routes mint tokens via `issueTokenPair` (`server/utils/native-tokens.ts`). iOS password reset reuses the web `POST /api/auth/email/reset-password` (session-agnostic; the emailed link opens the web reset page). Both signup routes pass `emailRedirectTo: {appUrl}/auth/confirm` (from `runtimeConfig.public.appUrl`) so confirmation links land on the confirm page instead of the Supabase Site URL fallback — each environment's `/auth/confirm` URL must be in the Supabase redirect allowlist. reset-password likewise builds its `redirectTo` from `appUrl` — never the request origin, since native calls have no meaningful web origin — and each environment's `/auth/reset-password` URL must be allowlisted too.
 
-**Native logout:** send `X-Client-Type: native` header; optionally include `refreshToken` in the body to revoke it.
+**Native logout:** send `X-Client-Type: native` header; optionally include `refreshToken` in the body to revoke it, and `deviceToken` (on a user-initiated sign-out only, alongside the refresh token that proves ownership) to stop pushes to that phone. A forced sign-out from an expired session deliberately keeps the device registered — see `docs/API_CONTRACT_NOTIFICATIONS.md` § Device registration.
 
 ## iOS Client Notes
 
@@ -562,7 +562,11 @@ One inbox per user, with an APNs push for each item. Spec:
       would cover them. Fine while the table is small.
 - [ ] iOS wiring: inbox screen, push permission, device registration,
       deep links from `target`, sending `timezone`. Tracked in the app repo;
-      check this off when iOS notifications v1 ships.
+      check this off when iOS notifications v1 ships. Includes sign-out:
+      `SessionManager.signOut()` today calls no API at all, so a tapped Sign
+      Out must call `POST /api/auth/logout` with `{ refreshToken, deviceToken }`.
+      That also fixes the refresh token outliving sign-out. A forced sign-out
+      must not send `deviceToken`.
 - [ ] iOS copy: tell users that deactivating a program silences reminders for
       its scheduled workouts. The sweep only reminds about the active program
       (`UserProgram.isActive`); the workouts stay scheduled. Show it in the

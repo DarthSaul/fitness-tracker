@@ -3,7 +3,7 @@
  *
  * Coverage strategy:
  *  - Happy path: upserts device token and returns { id }
- *  - Validation: throws 400 when token is missing
+ *  - Validation: throws 400 when token is missing or not a hex APNs token
  *  - Validation: throws 400 when platform is invalid
  *  - Validation: throws 400 when environment is invalid
  *  - Upsert shape: called with correct userId_token key and fields
@@ -19,7 +19,11 @@ const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockUpsert = (prisma as any).deviceToken.upsert as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
-function makeEvent(body: unknown = { token: 'abc123', platform: 'IOS', environment: 'SANDBOX' }) {
+// APNs tokens are 64 hex chars today.
+const TOKEN = 'a1b2c3d4'.repeat(8)
+const OTHER_TOKEN = 'f0e1d2c3'.repeat(8)
+
+function makeEvent(body: unknown = { token: TOKEN, platform: 'IOS', environment: 'SANDBOX' }) {
   mockReadBody.mockResolvedValue(body)
   return {
     path: '/api/devices/register',
@@ -48,7 +52,7 @@ describe('POST /api/devices/register', () => {
 
   describe('happy path', () => {
     test('returns { id } on successful upsert', async () => {
-      mockUpsert.mockResolvedValueOnce({ id: 'dt001', token: 'abc123' })
+      mockUpsert.mockResolvedValueOnce({ id: 'dt001', token: TOKEN })
 
       const event = makeEvent()
       const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
@@ -59,25 +63,36 @@ describe('POST /api/devices/register', () => {
     test('calls upsert with correct userId_token key and fields', async () => {
       mockUpsert.mockResolvedValueOnce({ id: 'dt001' })
 
-      const event = makeEvent({ token: 'tok-xyz', platform: 'IOS', environment: 'PRODUCTION' })
+      const event = makeEvent({ token: OTHER_TOKEN, platform: 'IOS', environment: 'PRODUCTION' })
       await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
       expect(mockUpsert).toHaveBeenCalledWith({
-        where: { token_environment: { token: 'tok-xyz', environment: 'PRODUCTION' } },
+        where: { token_environment: { token: OTHER_TOKEN, environment: 'PRODUCTION' } },
         update: { userId: 'user001', lastSeenAt: expect.any(Date), revokedAt: null },
         create: {
           userId: 'user001',
-          token: 'tok-xyz',
+          token: OTHER_TOKEN,
           platform: 'IOS',
           environment: 'PRODUCTION',
         },
       })
     })
 
+    test('stores and looks up the token lowercased, so a case variant is the same device', async () => {
+      mockUpsert.mockResolvedValueOnce({ id: 'dt001' })
+
+      const event = makeEvent({ token: TOKEN.toUpperCase(), platform: 'IOS', environment: 'SANDBOX' })
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+      const call = mockUpsert.mock.calls[0]?.[0]
+      expect(call?.where).toEqual({ token_environment: { token: TOKEN, environment: 'SANDBOX' } })
+      expect(call?.create.token).toBe(TOKEN)
+    })
+
     test('on re-register: lastSeenAt updated, revokedAt set to null', async () => {
       mockUpsert.mockResolvedValueOnce({ id: 'dt001' })
 
-      const event = makeEvent({ token: 'existing-tok', platform: 'IOS', environment: 'SANDBOX' })
+      const event = makeEvent({ token: TOKEN, platform: 'IOS', environment: 'SANDBOX' })
       await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
       const call = mockUpsert.mock.calls[0]?.[0]
@@ -101,29 +116,42 @@ describe('POST /api/devices/register', () => {
       ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'token is required' })
     })
 
+    test.each([
+      ['non-hex characters', 'not-a-hex-token'.padEnd(64, 'x')],
+      ['a path separator', `${'a'.repeat(32)}/${'a'.repeat(31)}`],
+      ['too short', 'abc123'],
+      ['a non-string', 12345],
+    ])('throws 400 and writes nothing when token has %s', async (_label, token) => {
+      const event = makeEvent({ token, platform: 'IOS', environment: 'SANDBOX' })
+      await expect(
+        (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+      ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'token must be a hex APNs device token' })
+      expect(mockUpsert).not.toHaveBeenCalled()
+    })
+
     test('throws 400 when platform is invalid (ANDROID)', async () => {
-      const event = makeEvent({ token: 'abc123', platform: 'ANDROID', environment: 'SANDBOX' })
+      const event = makeEvent({ token: TOKEN, platform: 'ANDROID', environment: 'SANDBOX' })
       await expect(
         (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
       ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'platform must be IOS' })
     })
 
     test('throws 400 when platform is missing', async () => {
-      const event = makeEvent({ token: 'abc123', environment: 'SANDBOX' })
+      const event = makeEvent({ token: TOKEN, environment: 'SANDBOX' })
       await expect(
         (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
       ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'platform must be IOS' })
     })
 
     test('throws 400 when environment is invalid (STAGING)', async () => {
-      const event = makeEvent({ token: 'abc123', platform: 'IOS', environment: 'STAGING' })
+      const event = makeEvent({ token: TOKEN, platform: 'IOS', environment: 'STAGING' })
       await expect(
         (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
       ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'environment must be SANDBOX or PRODUCTION' })
     })
 
     test('throws 400 when environment is missing', async () => {
-      const event = makeEvent({ token: 'abc123', platform: 'IOS' })
+      const event = makeEvent({ token: TOKEN, platform: 'IOS' })
       await expect(
         (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
       ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'environment must be SANDBOX or PRODUCTION' })

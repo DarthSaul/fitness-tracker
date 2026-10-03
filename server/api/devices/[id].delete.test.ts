@@ -2,21 +2,20 @@
  * Tests for server/api/devices/[id].delete.ts
  *
  * Coverage strategy:
- *  - Happy path: soft-deletes token and returns 204
+ *  - Happy path: revokes the caller's own token and returns 204
+ *  - Idempotence: missing, already-revoked and another user's tokens all
+ *    return 204, so sign-out never fails on this call
+ *  - Ownership: the revoke is scoped to the caller, so another user's row is
+ *    never matched
  *  - Validation: throws 400 when id is empty/missing
- *  - Not found: throws 404 when device token not found
- *  - Ownership: throws 403 when device token belongs to different user
- *  - Update shape: calls update with { revokedAt: new Date() }
  *  - Error propagation: throws 500 on unexpected DB error, logs the error
- *  - H3 error pass-through: re-throws H3 errors without wrapping as 500
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import handler from './[id].delete'
 
 const mockGetRouterParam = getRouterParam as ReturnType<typeof vi.fn>
-const mockFindUnique = (prisma as any).deviceToken.findUnique as ReturnType<typeof vi.fn>
-const mockUpdate = (prisma as any).deviceToken.update as ReturnType<typeof vi.fn>
+const mockUpdateMany = (prisma as any).deviceToken.updateMany as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
 
 function makeEvent(id: string | undefined = 'dt001', userId = 'user001') {
@@ -26,17 +25,6 @@ function makeEvent(id: string | undefined = 'dt001', userId = 'user001') {
     context: { userId },
     node: { res: { statusCode: 200 } },
   }
-}
-
-const mockDeviceToken = {
-  id: 'dt001',
-  userId: 'user001',
-  token: 'tok-abc',
-  platform: 'IOS' as const,
-  environment: 'SANDBOX' as const,
-  createdAt: new Date(),
-  lastSeenAt: new Date(),
-  revokedAt: null,
 }
 
 describe('DELETE /api/devices/:id', () => {
@@ -59,8 +47,7 @@ describe('DELETE /api/devices/:id', () => {
 
   describe('happy path', () => {
     test('returns null and sets statusCode to 204', async () => {
-      mockFindUnique.mockResolvedValueOnce(mockDeviceToken)
-      mockUpdate.mockResolvedValueOnce(mockDeviceToken)
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 })
 
       const event = makeEvent()
       const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
@@ -69,23 +56,47 @@ describe('DELETE /api/devices/:id', () => {
       expect(event.node.res.statusCode).toBe(204)
     })
 
-    test('calls update with { revokedAt: new Date() }', async () => {
-      mockFindUnique.mockResolvedValueOnce(mockDeviceToken)
-      mockUpdate.mockResolvedValueOnce(mockDeviceToken)
+    test('revokes only a live token owned by the caller', async () => {
+      mockUpdateMany.mockResolvedValueOnce({ count: 1 })
 
-      const event = makeEvent()
+      const event = makeEvent('dt001', 'user001')
       await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
 
-      expect(mockUpdate).toHaveBeenCalledWith({
-        where: { id: 'dt001' },
+      expect(mockUpdateMany).toHaveBeenCalledWith({
+        where: { id: 'dt001', userId: 'user001', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       })
     })
   })
 
+  describe('idempotence — sign-out must never fail on this call', () => {
+    test.each([
+      ['the token does not exist'],
+      ['the token is already revoked'],
+      ['the token belongs to another user'],
+    ])('returns 204 when %s', async () => {
+      // All three match no row under the caller-scoped WHERE.
+      mockUpdateMany.mockResolvedValueOnce({ count: 0 })
+
+      const event = makeEvent('dt999', 'user001')
+      const result = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+      expect(result).toBeNull()
+      expect(event.node.res.statusCode).toBe(204)
+    })
+
+    test("never matches another user's token", async () => {
+      mockUpdateMany.mockResolvedValueOnce({ count: 0 })
+
+      const event = makeEvent('dt-owned-by-user002', 'user001')
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+      expect(mockUpdateMany.mock.calls[0]?.[0].where.userId).toBe('user001')
+    })
+  })
+
   describe('request validation', () => {
     test('throws 400 when id is undefined', async () => {
-      // Override getRouterParam to return undefined directly (makeEvent default would use 'dt001')
       mockGetRouterParam.mockReturnValue(undefined)
       const event = {
         path: '/api/devices/',
@@ -96,6 +107,7 @@ describe('DELETE /api/devices/:id', () => {
       await expect(
         (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
       ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'id is required' })
+      expect(mockUpdateMany).not.toHaveBeenCalled()
     })
 
     test('throws 400 when id is empty string', async () => {
@@ -107,29 +119,9 @@ describe('DELETE /api/devices/:id', () => {
     })
   })
 
-  describe('not found and ownership', () => {
-    test('throws 404 when device token not found', async () => {
-      mockFindUnique.mockResolvedValueOnce(null)
-
-      const event = makeEvent('dt999')
-      await expect(
-        (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-      ).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Device token not found' })
-    })
-
-    test('throws 403 when device token belongs to different user', async () => {
-      mockFindUnique.mockResolvedValueOnce({ ...mockDeviceToken, userId: 'other-user' })
-
-      const event = makeEvent('dt001', 'user001')
-      await expect(
-        (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
-      ).rejects.toMatchObject({ statusCode: 403, statusMessage: 'Forbidden' })
-    })
-  })
-
   describe('error handling', () => {
     test('throws 500 on unexpected DB error', async () => {
-      mockFindUnique.mockRejectedValueOnce(new Error('DB connection lost'))
+      mockUpdateMany.mockRejectedValueOnce(new Error('DB connection lost'))
 
       const event = makeEvent()
       await expect(
@@ -139,7 +131,7 @@ describe('DELETE /api/devices/:id', () => {
 
     test('logs the error on unexpected DB failure', async () => {
       const dbError = new Error('DB connection lost')
-      mockFindUnique.mockRejectedValueOnce(dbError)
+      mockUpdateMany.mockRejectedValueOnce(dbError)
 
       const event = makeEvent()
       try {
@@ -149,22 +141,6 @@ describe('DELETE /api/devices/:id', () => {
       }
 
       expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'DELETE /api/devices/:id' }, '[DELETE /api/devices/:id] Failed to unregister device token')
-    })
-
-    test('re-throws H3 errors without wrapping as 500', async () => {
-      const h3Error = new Error('Device token not found') as Error & { statusCode: number; statusMessage: string }
-      h3Error.statusCode = 404
-      h3Error.statusMessage = 'Device token not found'
-      mockFindUnique.mockRejectedValueOnce(h3Error)
-
-      const event = makeEvent()
-      const thrown = await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
-        .catch((e: unknown) => e) as { statusCode: number }
-
-      expect(thrown.statusCode).toBe(404)
-      expect(mockCreateError).not.toHaveBeenCalledWith(
-        expect.objectContaining({ statusCode: 500 }),
-      )
     })
   })
 })

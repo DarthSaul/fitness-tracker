@@ -14,6 +14,7 @@ import { postPhotoPath, POST_PHOTOS_BUCKET } from './server/utils/post-photo-sto
 import { parseReactionEmoji, REACTION_CAP } from './server/utils/reactions'
 import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, parsePostBody, parsePostContent } from './server/utils/posts'
 import { parseReportInput } from './server/utils/reports'
+import { parseApnsDeviceToken } from './server/utils/device-tokens'
 import { parseUsername, normalizeUsername, usernameProblem } from './server/utils/usernames'
 import { meSelect, parseBio } from './server/utils/profile'
 import { notificationSelect, toNotificationPayload, inboxWhere, notificationKeys } from './server/utils/notifications'
@@ -105,7 +106,7 @@ vi.stubGlobal('prisma', {
   workoutExerciseSwap: { upsert: vi.fn() },
   workoutExerciseSkip: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
   refreshToken: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn((args: unknown) => Promise.resolve({ count: 1 })) },
-  deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  deviceToken: { upsert: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   postReaction: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn(), count: vi.fn() },
   postPhoto: { findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   post: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
@@ -157,6 +158,8 @@ vi.stubGlobal('parseReactionEmoji', parseReactionEmoji)
 vi.stubGlobal('REACTION_CAP', REACTION_CAP)
 vi.stubGlobal('reactionSummaries', vi.fn().mockResolvedValue(new Map()))
 vi.stubGlobal('requireVisiblePost', vi.fn())
+// Device tokens: the real format check (it has its own unit tests).
+vi.stubGlobal('parseApnsDeviceToken', parseApnsDeviceToken)
 // Reports: the real input parser (it has its own unit tests).
 vi.stubGlobal('parseReportInput', parseReportInput)
 // Usernames and profile: the real pure helpers (each has its own unit tests).

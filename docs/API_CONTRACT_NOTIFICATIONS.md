@@ -151,3 +151,42 @@ When the user taps a push:
 
 Pushes go to every device registered through `POST /api/devices/register`. A
 notification that is read in-app before its push goes out is never pushed.
+
+## Device registration
+
+### `POST /api/devices/register`
+Body `{ token, platform: "IOS", environment: "SANDBOX" | "PRODUCTION" }`.
+Returns `{ id }`.
+- **When to call:** on every launch, once APNs hands you a token. It's
+  idempotent: re-registering refreshes `lastSeenAt` and re-activates a revoked
+  token.
+- **`token`:** the APNs token, hex-encoded: 64–200 hex characters. Anything
+  else is `400`. Case doesn't matter; it's stored lowercased.
+- **`environment`:** `SANDBOX` for development builds, `PRODUCTION` for
+  TestFlight and the App Store. A token registered under the wrong one is
+  rejected by APNs as `BadDeviceToken`, and the server revokes it. The next
+  launch's registration brings it back.
+- **Shared phones:** the token belongs to whoever registered it last. Signing
+  in as someone else and registering moves it to that user.
+
+### Signing out
+There are two kinds of sign-out, and they treat pushes differently:
+
+| Sign-out | What the app sends | Pushes afterwards |
+|---|---|---|
+| **User taps Sign Out** | `POST /api/auth/logout` with `X-Client-Type: native` and `{ refreshToken, deviceToken }` | Stop. Someone else may use the phone next. |
+| **Forced** (refresh failed: 30 days idle, token revoked) | Nothing; clear local state only | Continue. It's still the user's phone, and a reminder may bring them back. Tapping one opens sign-in. |
+
+- **`deviceToken` on logout:** send it with the `refreshToken` from the
+  Keychain. The device is revoked only when that refresh token is live and
+  belongs to the device's user; logout is public, so the refresh token is
+  what proves who is signing out. It's best-effort: logout returns
+  `{ success: true }` even if the device token is malformed, unknown, already
+  revoked or someone else's, or the refresh token is stale.
+- **`DELETE /api/devices/:id`:** also available. It returns `204` whenever
+  the request is well-formed, including when the id matches nothing of yours:
+  a missing id, an already-revoked token or another user's token, none of
+  which it touches. A blank id is `400`, and a database failure is `500`.
+  Prefer logout for sign-out: it needs no stored row id and takes one call.
+- **Account deletion:** `DELETE /api/auth/me` removes every device token.
+  Don't call logout or unregister afterwards.
