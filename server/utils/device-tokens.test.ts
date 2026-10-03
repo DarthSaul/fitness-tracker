@@ -1,16 +1,19 @@
 import { describe, test, expect } from 'vitest'
 
-import { isApnsDeviceToken } from './device-tokens'
+import { parseApnsDeviceToken } from './device-tokens'
 
 const HEX_64 = 'a1b2c3d4'.repeat(8)
 
-describe('isApnsDeviceToken', () => {
+describe('parseApnsDeviceToken', () => {
   test.each([
-    ['64 lowercase hex chars (today\'s APNs length)', HEX_64],
-    ['uppercase hex', HEX_64.toUpperCase()],
-    ['a longer token (Apple says the length may grow)', 'ab'.repeat(100)],
-  ])('accepts %s', (_label, token) => {
-    expect(isApnsDeviceToken(token)).toBe(true)
+    ['64 lowercase hex chars (today\'s APNs length)', HEX_64, HEX_64],
+    ['a longer token (Apple says the length may grow)', 'ab'.repeat(100), 'ab'.repeat(100)],
+  ])('accepts %s', (_label, token, expected) => {
+    expect(parseApnsDeviceToken(token)).toBe(expected)
+  })
+
+  test('lowercases uppercase hex, so case variants are one device', () => {
+    expect(parseApnsDeviceToken(HEX_64.toUpperCase())).toBe(HEX_64)
   })
 
   test.each([
@@ -25,6 +28,6 @@ describe('isApnsDeviceToken', () => {
     ['a query string', `${'a'.repeat(63)}?`],
     ['surrounding whitespace', ` ${HEX_64} `],
   ])('rejects %s', (_label, token) => {
-    expect(isApnsDeviceToken(token)).toBe(false)
+    expect(parseApnsDeviceToken(token)).toBeNull()
   })
 })

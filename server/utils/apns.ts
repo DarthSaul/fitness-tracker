@@ -74,6 +74,24 @@ function apnsErrorReason(body: string): string | null {
   }
 }
 
+/**
+ * Soft-revokes a token APNs has rejected for good. `failed` if the write
+ * fails: the token is still live, so it isn't `gone` — and a retried push
+ * re-attempts the revoke.
+ */
+async function revokeRejectedToken(token: string, environment: PushEnvironment): Promise<DeviceOutcome> {
+  try {
+    await prisma.deviceToken.update({
+      where: { token_environment: { token, environment } },
+      data: { revokedAt: new Date() },
+    })
+    return 'gone'
+  } catch (err) {
+    logger.error({ err, route: 'APNs' }, '[APNs] Failed to revoke stale device token')
+    return 'failed'
+  }
+}
+
 async function sendPushToDevice(
   deviceToken: string,
   bundleId: string,
@@ -101,13 +119,7 @@ async function sendPushToDevice(
   if (response.statusCode === 410) {
     // Device token is no longer active — consume body then soft-revoke
     await response.body.text().catch(() => {})
-    await prisma.deviceToken
-      .update({
-        where: { token_environment: { token: deviceToken, environment } },
-        data: { revokedAt: new Date() },
-      })
-      .catch((err: unknown) => logger.error({ err, route: 'APNs' }, '[APNs] Failed to revoke stale device token'))
-    return 'gone'
+    return revokeRejectedToken(deviceToken, environment)
   }
 
   if (response.statusCode !== 200) {
@@ -119,14 +131,11 @@ async function sendPushToDevice(
     // revokes: DeviceTokenNotForTopic also arrives when *our* bundle ID is
     // misconfigured, and revoking on it would unregister every device at once.
     if (response.statusCode === 400 && reason === 'BadDeviceToken') {
-      await prisma.deviceToken
-        .update({
-          where: { token_environment: { token: deviceToken, environment } },
-          data: { revokedAt: new Date() },
-        })
-        .catch((err: unknown) => logger.error({ err, route: 'APNs' }, '[APNs] Failed to revoke stale device token'))
-      logger.warn({ route: 'APNs', maskedToken, environment, reason, userId }, '[APNs] Revoked device token rejected by APNs')
-      return 'gone'
+      const outcome = await revokeRejectedToken(deviceToken, environment)
+      if (outcome === 'gone') {
+        logger.warn({ route: 'APNs', maskedToken, environment, reason, userId }, '[APNs] Revoked device token rejected by APNs')
+      }
+      return outcome
     }
 
     logger.error({ route: 'APNs', maskedToken, statusCode: response.statusCode, body }, '[APNs] Push failed')

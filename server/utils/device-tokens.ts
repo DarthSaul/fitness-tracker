@@ -6,6 +6,11 @@
  */
 const APNS_DEVICE_TOKEN = /^[0-9a-f]{64,200}$/i
 
-export function isApnsDeviceToken(value: unknown): value is string {
-  return typeof value === 'string' && APNS_DEVICE_TOKEN.test(value)
+/**
+ * The token lowercased, or null if it isn't one. Lowercasing makes it
+ * canonical: the column's unique index is case-sensitive, so "ABCD…" and
+ * "abcd…" would otherwise be two live rows for one device, pushed twice.
+ */
+export function parseApnsDeviceToken(value: unknown): string | null {
+  return typeof value === 'string' && APNS_DEVICE_TOKEN.test(value) ? value.toLowerCase() : null
 }

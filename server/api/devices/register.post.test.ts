@@ -78,6 +78,17 @@ describe('POST /api/devices/register', () => {
       })
     })
 
+    test('stores and looks up the token lowercased, so a case variant is the same device', async () => {
+      mockUpsert.mockResolvedValueOnce({ id: 'dt001' })
+
+      const event = makeEvent({ token: TOKEN.toUpperCase(), platform: 'IOS', environment: 'SANDBOX' })
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+      const call = mockUpsert.mock.calls[0]?.[0]
+      expect(call?.where).toEqual({ token_environment: { token: TOKEN, environment: 'SANDBOX' } })
+      expect(call?.create.token).toBe(TOKEN)
+    })
+
     test('on re-register: lastSeenAt updated, revokedAt set to null', async () => {
       mockUpsert.mockResolvedValueOnce({ id: 'dt001' })
 

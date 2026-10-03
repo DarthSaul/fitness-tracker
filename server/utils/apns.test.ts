@@ -270,11 +270,11 @@ describe('server/utils/apns', () => {
       })
       mockDeviceTokenUpdate.mockRejectedValueOnce(new Error('DB error'))
 
-      // Should not throw — the .catch() in apns.ts swallows the error. The device
-      // is gone either way, so there is nothing to retry.
+      // Should not throw. The token is still live, so this isn't no_device:
+      // failed lets the sweep retry, and the retry re-attempts the revoke.
       await expect(
         sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
-      ).resolves.toBe('no_device')
+      ).resolves.toBe('failed')
 
       expect(logger.error).toHaveBeenCalledWith(
         { err: expect.any(Error), route: 'APNs' },
@@ -304,6 +304,25 @@ describe('server/utils/apns', () => {
         expect.objectContaining({ route: 'APNs', reason: 'BadDeviceToken', environment: 'PRODUCTION' }),
         '[APNs] Revoked device token rejected by APNs',
       )
+    })
+
+    test('400 BadDeviceToken: a failed revoke reports failed, not no_device — the token is still live', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'wrong-env-tok' })])
+      mockRequest.mockResolvedValueOnce({
+        statusCode: 400,
+        body: { text: vi.fn().mockResolvedValue('{"reason":"BadDeviceToken"}') },
+      })
+      mockDeviceTokenUpdate.mockRejectedValueOnce(new Error('DB error'))
+
+      await expect(
+        sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
+      ).resolves.toBe('failed')
+
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: expect.any(Error), route: 'APNs' },
+        '[APNs] Failed to revoke stale device token',
+      )
+      expect(logger.warn).not.toHaveBeenCalledWith(expect.anything(), '[APNs] Revoked device token rejected by APNs')
     })
 
     test('400 BadDeviceToken: never logs the full token', async () => {

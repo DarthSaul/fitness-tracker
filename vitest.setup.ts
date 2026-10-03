@@ -14,7 +14,7 @@ import { postPhotoPath, POST_PHOTOS_BUCKET } from './server/utils/post-photo-sto
 import { parseReactionEmoji, REACTION_CAP } from './server/utils/reactions'
 import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, parsePostBody, parsePostContent } from './server/utils/posts'
 import { parseReportInput } from './server/utils/reports'
-import { isApnsDeviceToken } from './server/utils/device-tokens'
+import { parseApnsDeviceToken } from './server/utils/device-tokens'
 import { parseUsername, normalizeUsername, usernameProblem } from './server/utils/usernames'
 import { meSelect, parseBio } from './server/utils/profile'
 import { notificationSelect, toNotificationPayload, inboxWhere, notificationKeys } from './server/utils/notifications'
@@ -159,7 +159,7 @@ vi.stubGlobal('REACTION_CAP', REACTION_CAP)
 vi.stubGlobal('reactionSummaries', vi.fn().mockResolvedValue(new Map()))
 vi.stubGlobal('requireVisiblePost', vi.fn())
 // Device tokens: the real format check (it has its own unit tests).
-vi.stubGlobal('isApnsDeviceToken', isApnsDeviceToken)
+vi.stubGlobal('parseApnsDeviceToken', parseApnsDeviceToken)
 // Reports: the real input parser (it has its own unit tests).
 vi.stubGlobal('parseReportInput', parseReportInput)
 // Usernames and profile: the real pure helpers (each has its own unit tests).
