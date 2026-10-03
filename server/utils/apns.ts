@@ -63,6 +63,17 @@ export type PushOutcome = 'sent' | 'no_device' | 'failed'
 
 type DeviceOutcome = 'sent' | 'gone' | 'failed'
 
+/** The `reason` from an APNs error body (`{"reason":"BadDeviceToken"}`), or null. */
+function apnsErrorReason(body: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(body)
+    const reason = (parsed as { reason?: unknown } | null)?.reason
+    return typeof reason === 'string' ? reason : null
+  } catch {
+    return null
+  }
+}
+
 async function sendPushToDevice(
   deviceToken: string,
   bundleId: string,
@@ -101,6 +112,23 @@ async function sendPushToDevice(
 
   if (response.statusCode !== 200) {
     const body = await response.body.text()
+    const reason = apnsErrorReason(body)
+
+    // The token will never work in this environment — usually a development
+    // build's token registered as PRODUCTION, or the reverse. Only this reason
+    // revokes: DeviceTokenNotForTopic also arrives when *our* bundle ID is
+    // misconfigured, and revoking on it would unregister every device at once.
+    if (response.statusCode === 400 && reason === 'BadDeviceToken') {
+      await prisma.deviceToken
+        .update({
+          where: { token_environment: { token: deviceToken, environment } },
+          data: { revokedAt: new Date() },
+        })
+        .catch((err: unknown) => logger.error({ err, route: 'APNs' }, '[APNs] Failed to revoke stale device token'))
+      logger.warn({ route: 'APNs', maskedToken, environment, reason, userId }, '[APNs] Revoked device token rejected by APNs')
+      return 'gone'
+    }
+
     logger.error({ route: 'APNs', maskedToken, statusCode: response.statusCode, body }, '[APNs] Push failed')
     return 'failed'
   }

@@ -11,7 +11,7 @@ defineRouteMeta({
             type: 'object',
             required: ['token', 'platform', 'environment'],
             properties: {
-              token: { type: 'string' },
+              token: { type: 'string', description: 'APNs device token, hex-encoded (64–200 hex chars)' },
               platform: { type: 'string', enum: ['IOS'] },
               environment: { type: 'string', enum: ['SANDBOX', 'PRODUCTION'] },
             },
@@ -28,10 +28,13 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
-  const body = await readBody<{ token?: string; platform?: string; environment?: string }>(event)
+  const body = await readBody<{ token?: unknown; platform?: string; environment?: string }>(event)
 
   if (!body?.token) {
     throw createError({ statusCode: 400, statusMessage: 'token is required' })
+  }
+  if (!isApnsDeviceToken(body.token)) {
+    throw createError({ statusCode: 400, statusMessage: 'token must be a hex APNs device token' })
   }
   if (body.platform !== 'IOS') {
     throw createError({ statusCode: 400, statusMessage: 'platform must be IOS' })

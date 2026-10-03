@@ -282,11 +282,78 @@ describe('server/utils/apns', () => {
       )
     })
 
+    test('400 BadDeviceToken: soft-revokes the token — it will never work in this environment', async () => {
+      // Typically a development-build token registered as PRODUCTION (or the
+      // reverse). Left live, it would fail on every push forever.
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'wrong-env-tok', environment: 'PRODUCTION' })])
+      mockRequest.mockResolvedValueOnce({
+        statusCode: 400,
+        body: { text: vi.fn().mockResolvedValue('{"reason":"BadDeviceToken"}') },
+      })
+      mockDeviceTokenUpdate.mockResolvedValueOnce({})
+
+      await expect(
+        sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
+      ).resolves.toBe('no_device')
+
+      expect(mockDeviceTokenUpdate).toHaveBeenCalledWith({
+        where: { token_environment: { token: 'wrong-env-tok', environment: 'PRODUCTION' } },
+        data: { revokedAt: expect.any(Date) },
+      })
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ route: 'APNs', reason: 'BadDeviceToken', environment: 'PRODUCTION' }),
+        '[APNs] Revoked device token rejected by APNs',
+      )
+    })
+
+    test('400 BadDeviceToken: never logs the full token', async () => {
+      const fullToken = 'a1b2c3d4'.repeat(8)
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: fullToken })])
+      mockRequest.mockResolvedValueOnce({
+        statusCode: 400,
+        body: { text: vi.fn().mockResolvedValue('{"reason":"BadDeviceToken"}') },
+      })
+      mockDeviceTokenUpdate.mockResolvedValueOnce({})
+
+      await sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } })
+
+      const logged = JSON.stringify((logger.warn as ReturnType<typeof vi.fn>).mock.calls)
+      expect(logged).not.toContain(fullToken)
+    })
+
+    test('400 DeviceTokenNotForTopic: does NOT revoke — a bundle-ID misconfig would wipe every device', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'tok-topic' })])
+      mockRequest.mockResolvedValueOnce({
+        statusCode: 400,
+        body: { text: vi.fn().mockResolvedValue('{"reason":"DeviceTokenNotForTopic"}') },
+      })
+
+      await expect(
+        sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
+      ).resolves.toBe('failed')
+
+      expect(mockDeviceTokenUpdate).not.toHaveBeenCalled()
+    })
+
+    test('400 with an unparseable body: treated as a plain failure, not revoked', async () => {
+      mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'tok-garbled' })])
+      mockRequest.mockResolvedValueOnce({
+        statusCode: 400,
+        body: { text: vi.fn().mockResolvedValue('BadDeviceToken') },
+      })
+
+      await expect(
+        sendPush('user001', { aps: { alert: { title: 'T', body: 'B' } } }),
+      ).resolves.toBe('failed')
+
+      expect(mockDeviceTokenUpdate).not.toHaveBeenCalled()
+    })
+
     test('4xx/5xx response: logs error but does not throw (allSettled)', async () => {
       mockDeviceTokenFindMany.mockResolvedValueOnce([makeTokenRecord({ token: 'tok-bad' })])
       mockRequest.mockResolvedValueOnce({
         statusCode: 400,
-        body: { text: vi.fn().mockResolvedValue('BadDeviceToken') },
+        body: { text: vi.fn().mockResolvedValue('{"reason":"PayloadTooLarge"}') },
       })
 
       await expect(

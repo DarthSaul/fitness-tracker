@@ -4,8 +4,9 @@ defineRouteMeta({
     summary: 'Log out',
     description:
       'Web clients: clears the session cookie and redirects to /login. ' +
-      'Native clients: revokes the refresh token and returns JSON. ' +
-      'A request is treated as native if it sends X-Client-Type: native OR includes a refreshToken in the request body.',
+      'Native clients: revokes the refresh token and the device\'s push token, then returns JSON. ' +
+      'A request is treated as native if it sends X-Client-Type: native OR includes a refreshToken or deviceToken in the request body. ' +
+      'Send deviceToken only on a user-initiated sign-out: a forced sign-out (expired session) should keep the device registered.',
     requestBody: {
       content: {
         'application/json': {
@@ -13,6 +14,7 @@ defineRouteMeta({
             type: 'object',
             properties: {
               refreshToken: { type: 'string', description: 'Refresh token to revoke; presence also triggers the native (JSON) logout path' },
+              deviceToken: { type: 'string', description: 'APNs device token (hex) to stop pushing to; best-effort, never fails the logout. Presence also triggers the native (JSON) logout path' },
             },
           },
         },
@@ -27,8 +29,10 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   try {
-    const body = await readBody<{ refreshToken?: string }>(event).catch(() => null)
-    const isNative = getHeader(event, 'x-client-type') === 'native' || Boolean(body?.refreshToken)
+    const body = await readBody<{ refreshToken?: string; deviceToken?: unknown }>(event).catch(() => null)
+    const isNative = getHeader(event, 'x-client-type') === 'native'
+      || Boolean(body?.refreshToken)
+      || Boolean(body?.deviceToken)
 
     if (body?.refreshToken) {
       const hashBuffer = await crypto.subtle.digest(
@@ -41,6 +45,20 @@ export default defineEventHandler(async (event) => {
         where: { tokenHash, revokedAt: null },
         data: { revokedAt: new Date() },
       }).catch(() => {})
+    }
+
+    // Stop pushing the signed-out user's notifications to this phone. Keyed
+    // on the token alone: this route is public, and holding a device's APNs
+    // token is what identifies the device. A malformed token is ignored
+    // rather than failing the sign-out.
+    const deviceToken = body?.deviceToken
+    if (isApnsDeviceToken(deviceToken)) {
+      await prisma.deviceToken.updateMany({
+        where: { token: deviceToken, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }).catch((err: unknown) => {
+        ;(event.context.logger ?? logger).warn({ err, route: 'POST /api/auth/logout' }, '[POST /api/auth/logout] Failed to revoke device token')
+      })
     }
 
     if (isNative) {

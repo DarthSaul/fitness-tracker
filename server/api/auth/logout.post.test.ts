@@ -5,6 +5,8 @@
  *  - Happy path: clearUserSession is called, then redirect to /login
  *  - Ordering: clear happens before redirect
  *  - Error propagation: if clearUserSession throws, the error bubbles
+ *  - Device token: an explicit sign-out revokes the device's push token,
+ *    best-effort, so a signed-out phone stops receiving the user's pushes
  */
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 
@@ -15,6 +17,9 @@ const mockSendRedirect = sendRedirect as ReturnType<typeof vi.fn>
 const mockGetHeader = getHeader as ReturnType<typeof vi.fn>
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockRefreshTokenUpdateMany = (prisma as any).refreshToken.updateMany as ReturnType<typeof vi.fn>
+const mockDeviceTokenUpdateMany = (prisma as any).deviceToken.updateMany as ReturnType<typeof vi.fn>
+
+const DEVICE_TOKEN = 'a1b2c3d4'.repeat(8)
 
 function makeEvent() {
   return { path: '/api/auth/logout', context: {} }
@@ -131,5 +136,55 @@ describe('POST /api/auth/logout — native client', () => {
     mockRefreshTokenUpdateMany.mockResolvedValueOnce({ count: 0 })
     const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
     expect(result).toEqual({ success: true })
+  })
+})
+
+describe('POST /api/auth/logout — device token', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetHeader.mockImplementation((_event: unknown, header: string) =>
+      header === 'x-client-type' ? 'native' : null,
+    )
+    mockRefreshTokenUpdateMany.mockResolvedValue({ count: 1 })
+    mockDeviceTokenUpdateMany.mockResolvedValue({ count: 1 })
+  })
+
+  test('revokes the live device token when provided', async () => {
+    mockReadBody.mockResolvedValueOnce({ refreshToken: 'raw-refresh-token', deviceToken: DEVICE_TOKEN })
+    const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(mockDeviceTokenUpdateMany).toHaveBeenCalledWith({
+      where: { token: DEVICE_TOKEN, revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    })
+    expect(mockRefreshTokenUpdateMany).toHaveBeenCalled()
+    expect(result).toEqual({ success: true })
+  })
+
+  test('does not touch device tokens when none is provided', async () => {
+    mockReadBody.mockResolvedValueOnce({ refreshToken: 'raw-refresh-token' })
+    await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(mockDeviceTokenUpdateMany).not.toHaveBeenCalled()
+  })
+
+  test('ignores a malformed device token rather than failing sign-out', async () => {
+    mockReadBody.mockResolvedValueOnce({ deviceToken: 'not/a/token' })
+    const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(mockDeviceTokenUpdateMany).not.toHaveBeenCalled()
+    expect(result).toEqual({ success: true })
+  })
+
+  test('returns success even when the device revoke fails', async () => {
+    mockReadBody.mockResolvedValueOnce({ deviceToken: DEVICE_TOKEN })
+    mockDeviceTokenUpdateMany.mockRejectedValueOnce(new Error('DB connection lost'))
+    const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(result).toEqual({ success: true })
+  })
+
+  test('a deviceToken in the body alone selects the native (JSON) path', async () => {
+    mockGetHeader.mockReturnValue(null)
+    mockReadBody.mockResolvedValueOnce({ deviceToken: DEVICE_TOKEN })
+    const result = await (handler as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+    expect(result).toEqual({ success: true })
+    expect(mockClearUserSession).not.toHaveBeenCalled()
   })
 })

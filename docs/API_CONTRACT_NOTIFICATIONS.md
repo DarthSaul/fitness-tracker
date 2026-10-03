@@ -151,3 +151,38 @@ When the user taps a push:
 
 Pushes go to every device registered through `POST /api/devices/register`. A
 notification that is read in-app before its push goes out is never pushed.
+
+## Device registration
+
+### `POST /api/devices/register`
+Body `{ token, platform: "IOS", environment: "SANDBOX" | "PRODUCTION" }`.
+Returns `{ id }`.
+- **When to call:** on every launch, once APNs hands you a token. It's
+  idempotent: re-registering refreshes `lastSeenAt` and re-activates a revoked
+  token.
+- **`token`:** the APNs token, hex-encoded (64+ hex chars). Anything else is
+  `400`.
+- **`environment`:** `SANDBOX` for development builds, `PRODUCTION` for
+  TestFlight and the App Store. A token registered under the wrong one is
+  rejected by APNs as `BadDeviceToken`, and the server revokes it. The next
+  launch's registration brings it back.
+- **Shared phones:** the token belongs to whoever registered it last. Signing
+  in as someone else and registering moves it to that user.
+
+### Signing out
+There are two kinds of sign-out, and they treat pushes differently:
+
+| Sign-out | What the app sends | Pushes afterwards |
+|---|---|---|
+| **User taps Sign Out** | `POST /api/auth/logout` with `X-Client-Type: native` and `{ refreshToken, deviceToken }` | Stop. Someone else may use the phone next. |
+| **Forced** (refresh failed: 30 days idle, token revoked) | Nothing; clear local state only | Continue. It's still the user's phone, and a reminder may bring them back. Tapping one opens sign-in. |
+
+- **`deviceToken` on logout:** best-effort. Logout returns
+  `{ success: true }` even if the token is missing, malformed or already
+  revoked.
+- **`DELETE /api/devices/:id`:** also available, and also always `204`.
+  That includes a missing id, an already-revoked token or another user's
+  token, none of which it touches. Prefer logout for sign-out: it needs no
+  stored row id and takes one call.
+- **Account deletion:** `DELETE /api/auth/me` removes every device token.
+  Don't call logout or unregister afterwards.
