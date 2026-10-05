@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
     fullName?: { givenName?: string | null; familyName?: string | null }
   }>(event)
 
-  if (!body?.identityToken || body.identityToken.trim().length === 0) {
+  if (typeof body?.identityToken !== 'string' || body.identityToken.trim().length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'identityToken is required' })
   }
 
