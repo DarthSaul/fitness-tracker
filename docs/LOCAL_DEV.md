@@ -50,7 +50,7 @@ You need Docker Desktop running, and the Supabase CLI
 ```bash
 pnpm db:local:start        # pulls images on the first run (a few GB), then ~15 s
 pnpm db:local:env          # writes .env.dev from `supabase status`
-pnpm db:local:reset        # empty DB → migrations → programs → social fixtures
+pnpm db:local:reset        # empty DB → migrations → programs → social fixtures → workout history
 pnpm dev:local             # http://localhost:3000, also on your LAN
 ```
 
@@ -81,11 +81,34 @@ Password for all of them: `password123`. Sign in with email, on iOS
 | `carol@drdumbbell.test` | `@carol_cardio` | public | her follow request to you is pending (in your inbox) |
 | `dave@drdumbbell.test` | `@dave_deadlifts` | public | you blocked him |
 | `erin@drdumbbell.test` | `@erin_squats` | private | you follow each other; she reacted to your post |
+| `fresh@drdumbbell.test` | `@fresh_start` | private | none: no follows, posts, workouts, program or bio, for the empty states |
 
 To test both sides of an interaction, sign in as `bob` and accept the
-request from `me`. `pnpm db:local:seed-social` puts the graph back exactly
-as above and leaves workouts and programs alone. `pnpm db:local:reset` starts
-everything from empty.
+request from `me`.
+
+### Workout history
+
+| Account | Active program | Done | Next |
+|---|---|---|---|
+| `me` | Brick House | weeks 1–2, 10 workouts, every set logged with weights | week 3, day 1 |
+| `alice` | Pool Season | 3 workouts | week 1, day 4 |
+| `erin` | Oak Tree | 6 workouts | week 2, day 7 |
+
+`me`'s workouts run three days on, one off, ending yesterday, so History,
+Analytics (volume, streak, per-exercise progress) and Home all have data.
+Percentage sets ("70% of Bench 1RM") use assumed maxes of bench 205, squat 275
+and deadlift 335 lb. Other lifts add 5 lb in week 2. `alice` and `erin` give
+the profile stats (active program and workout count) something to show.
+
+### Resetting
+
+- `pnpm db:local:seed-social` puts the social graph back as above. It leaves
+  workouts and programs alone. Run both to return `fresh` to empty.
+- `pnpm db:local:seed-workouts` puts the workout history back. It **deletes
+  every program run and on-the-go session a fixture account holds**, including
+  workouts you logged by hand while testing. The dates are recomputed from today, so re-run it
+  after a few days away to keep the streak live.
+- `pnpm db:local:reset` rebuilds everything from empty.
 
 ## Pointing the iOS app at your Mac
 

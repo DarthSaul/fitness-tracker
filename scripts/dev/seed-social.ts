@@ -15,23 +15,9 @@
 import { PrismaClient } from '@prisma/client'
 import { createClient } from '@supabase/supabase-js'
 import { assertLocalTarget } from './local-guard'
+import { ACCOUNTS, DEV_PASSWORD, HANDLES, emailFor, type Handle } from './fixture-accounts'
 
 assertLocalTarget(process.env)
-
-const DEV_PASSWORD = 'password123'
-
-type Handle = 'me' | 'alice' | 'bob' | 'carol' | 'dave' | 'erin'
-
-const ACCOUNTS: Record<Handle, { name: string, username: string, bio: string, visibility: 'PUBLIC' | 'PRIVATE' }> = {
-  me: { name: 'Dev Me', username: 'dev_me', bio: 'The account you sign in as.', visibility: 'PRIVATE' },
-  alice: { name: 'Alice Lifts', username: 'alice_lifts', bio: 'Public profile. You follow her.', visibility: 'PUBLIC' },
-  bob: { name: 'Bob Benches', username: 'bob_benches', bio: 'Private. Your request to him is pending.', visibility: 'PRIVATE' },
-  carol: { name: 'Carol Cardio', username: 'carol_cardio', bio: 'Public. Her request to you is pending.', visibility: 'PUBLIC' },
-  dave: { name: 'Dave Deadlifts', username: 'dave_deadlifts', bio: 'Public. You have blocked him.', visibility: 'PUBLIC' },
-  erin: { name: 'Erin Squats', username: 'erin_squats', bio: 'Private. You follow each other.', visibility: 'PRIVATE' },
-}
-
-const emailFor = (handle: Handle): string => `${handle}@drdumbbell.test`
 
 const prisma = new PrismaClient()
 const supabase = createClient(process.env.NUXT_SUPABASE_URL!, process.env.NUXT_SUPABASE_SERVICE_ROLE_KEY!, {
@@ -86,7 +72,7 @@ async function ensureAccount(handle: Handle): Promise<string> {
 
 async function main(): Promise<void> {
   const ids = {} as Record<Handle, string>
-  for (const handle of Object.keys(ACCOUNTS) as Handle[]) {
+  for (const handle of HANDLES) {
     ids[handle] = await ensureAccount(handle)
   }
   const all = Object.values(ids)
@@ -129,7 +115,7 @@ async function main(): Promise<void> {
     })
   }
 
-  const myPost = await post('me', 'Week 3 done. Legs are filing a complaint.', 'Brick House')
+  const myPost = await post('me', 'Week 2 of Brick House done. Legs are filing a complaint.', 'Brick House')
   const alicePost = await post('alice', 'New deadlift PR this morning!')
   await post('erin', 'Only visible to followers: you follow Erin, so you see this.')
   await post('carol', 'Public post from Carol.')
@@ -170,8 +156,8 @@ async function main(): Promise<void> {
   })
 
   console.log('Social fixtures ready. Sign in with any of these (password: %s):', DEV_PASSWORD)
-  for (const handle of Object.keys(ACCOUNTS) as Handle[]) {
-    console.log(`  ${emailFor(handle).padEnd(26)} @${ACCOUNTS[handle].username.padEnd(16)} ${ACCOUNTS[handle].bio}`)
+  for (const handle of HANDLES) {
+    console.log(`  ${emailFor(handle).padEnd(26)} @${ACCOUNTS[handle].username.padEnd(16)} ${ACCOUNTS[handle].bio ?? '(empty: no follows, posts or workouts)'}`)
   }
 }
 

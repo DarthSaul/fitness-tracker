@@ -152,7 +152,10 @@ migration.** In short:
 - Prisma owns the schema. Don't use `supabase migration`/`db diff` or the
   Studio table editor to change it.
 - Fixture accounts (`*@drdumbbell.test`, password `password123`) come from
-  `scripts/dev/seed-social.ts`. They exist only locally.
+  `scripts/dev/seed-social.ts`, and their workout history (`me` is halfway
+  through Brick House) from `scripts/dev/seed-workouts.ts`; `fresh` is kept
+  empty for empty-state UIs. The list lives in `scripts/dev/fixture-accounts.ts`.
+  They exist only locally.
 
 ### TDD Workflow
 
