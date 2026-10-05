@@ -55,6 +55,17 @@ describe('POST /api/auth/native/apple', () => {
       mockReadBody.mockResolvedValueOnce({ identityToken: '   ' })
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'identityToken is required' })
     })
+
+    test.each([
+      ['a number', 123],
+      ['null', null],
+      ['an object', {}],
+      ['an array', ['token']],
+      ['a boolean', true],
+    ])('throws 400 when identityToken is %s', async (_label, value) => {
+      mockReadBody.mockResolvedValueOnce({ identityToken: value })
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'identityToken is required' })
+    })
   })
 
   describe('identity token verification', () => {

@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<{ idToken?: string }>(event)
 
-  if (!body?.idToken || body.idToken.trim().length === 0) {
+  if (typeof body?.idToken !== 'string' || body.idToken.trim().length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'idToken is required' })
   }
 

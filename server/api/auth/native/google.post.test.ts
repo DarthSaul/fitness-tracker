@@ -61,6 +61,17 @@ describe('POST /api/auth/native/google', () => {
       mockReadBody.mockResolvedValueOnce({ idToken: '   ' })
       await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'idToken is required' })
     })
+
+    test.each([
+      ['a number', 123],
+      ['null', null],
+      ['an object', {}],
+      ['an array', ['token']],
+      ['a boolean', true],
+    ])('throws 400 when idToken is %s', async (_label, value) => {
+      mockReadBody.mockResolvedValueOnce({ idToken: value })
+      await expect(handler(makeEvent())).rejects.toMatchObject({ statusCode: 400, statusMessage: 'idToken is required' })
+    })
   })
 
   describe('identity token verification', () => {
