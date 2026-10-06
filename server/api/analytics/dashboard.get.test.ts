@@ -1,10 +1,12 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import handler from './dashboard.get'
 
 const mockFindManySessions = (prisma as typeof prisma).workoutSession.findMany as ReturnType<typeof vi.fn>
 const mockFindManyStandaloneSessions = (prisma as typeof prisma).standaloneWorkoutSession.findMany as ReturnType<typeof vi.fn>
 const mockCreateError = createError as ReturnType<typeof vi.fn>
+const mockFindUniqueUser = (prisma as typeof prisma).user.findUnique as ReturnType<typeof vi.fn>
+const mockGetQuery = getQuery as ReturnType<typeof vi.fn>
 
 function makeEvent() {
   return {
@@ -99,6 +101,9 @@ describe('GET /api/analytics/dashboard', () => {
     // Default: no standalone history. Tests exercising the standalone path
     // override with mockResolvedValueOnce, which takes precedence.
     mockFindManyStandaloneSessions.mockResolvedValue([])
+    // Default: a new account's week settings, and no query params.
+    mockFindUniqueUser.mockResolvedValue({ weekStartDay: 'SUNDAY', timezone: null })
+    mockGetQuery.mockReturnValue({})
     mockCreateError.mockImplementation((opts: { statusCode: number; statusMessage: string }) => {
       const err = new Error(opts.statusMessage) as Error & { statusCode: number; statusMessage: string }
       err.statusCode = opts.statusCode
@@ -479,10 +484,11 @@ describe('GET /api/analytics/dashboard', () => {
   })
 
   test('sessionsThisWeek counts standalone sessions', async () => {
-    // 2026-03-24 is a Tuesday; the week starts Monday Mar 23 (tzOffset 0).
+    // 2026-03-24 is a Tuesday; with a Monday start the week begins Mar 23 (UTC).
     const fixedNow = new Date('2026-03-24T12:00:00.000Z')
     vi.useFakeTimers()
     vi.setSystemTime(fixedNow)
+    mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'MONDAY', timezone: null })
 
     mockFindManySessions.mockResolvedValueOnce([
       makeSession({ id: 'ws001', completedAt: new Date('2026-03-22T10:00:00.000Z') }),
@@ -497,6 +503,73 @@ describe('GET /api/analytics/dashboard', () => {
 
     vi.useRealTimers()
     expect(result.sessionsThisWeek).toBe(2)
+  })
+
+  // The same week as GET /api/weekly-goal (docs/weekly-goal/SPEC-weekly-goal.md).
+  describe('sessionsThisWeek follows the user\'s week settings', () => {
+    // Tuesday 2026-03-24, noon UTC (07:00 CDT).
+    const NOW = new Date('2026-03-24T12:00:00.000Z')
+    // Sunday 03:00 UTC = Saturday 22:00 CDT: this week in UTC, last week in Chicago.
+    const SUNDAY_EARLY_UTC = new Date('2026-03-22T03:00:00.000Z')
+
+    const sessionsThisWeek = async (query: Record<string, unknown> = {}) => {
+      mockGetQuery.mockReturnValue(query)
+      mockFindManySessions.mockResolvedValueOnce([makeSession({ completedAt: SUNDAY_EARLY_UTC })])
+      const event = makeEvent()
+      const result = await (handler as unknown as (e: typeof event) => Promise<{ sessionsThisWeek: number }>)(event)
+      return result.sessionsThisWeek
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(NOW)
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    test('reads weekStartDay and timezone from the caller\'s own row', async () => {
+      await sessionsThisWeek()
+      expect(mockFindUniqueUser).toHaveBeenCalledWith({ where: { id: 'user001' }, select: { weekStartDay: true, timezone: true } })
+    })
+
+    test('a Sunday workout counts toward the new week by default (SUNDAY)', async () => {
+      expect(await sessionsThisWeek()).toBe(1)
+    })
+
+    test('with a Monday start, the same Sunday workout is last week', async () => {
+      mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'MONDAY', timezone: null })
+      expect(await sessionsThisWeek()).toBe(0)
+    })
+
+    test('the stored zone applies when no param is sent', async () => {
+      mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'SUNDAY', timezone: 'America/Chicago' })
+      expect(await sessionsThisWeek()).toBe(0)
+    })
+
+    test('the legacy tzOffset param wins over the stored zone', async () => {
+      mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'SUNDAY', timezone: 'America/Chicago' })
+      expect(await sessionsThisWeek({ tzOffset: '0' })).toBe(1)
+    })
+
+    test('the timeZone param wins over tzOffset', async () => {
+      expect(await sessionsThisWeek({ timeZone: 'America/Chicago', tzOffset: '0' })).toBe(0)
+      expect(await sessionsThisWeek({ timeZone: 'UTC', tzOffset: '-300' })).toBe(1)
+    })
+
+    test('400 for an invalid timeZone, before any query', async () => {
+      mockGetQuery.mockReturnValue({ timeZone: 'Mars/Olympus_Mons' })
+      const event = makeEvent()
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 400 })
+      expect(mockFindManySessions).not.toHaveBeenCalled()
+    })
+
+    test('404 when the user record is missing', async () => {
+      mockFindUniqueUser.mockResolvedValueOnce(null)
+      const event = makeEvent()
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 404 })
+    })
   })
 
   test('throws 500 and logs error when standaloneWorkoutSession.findMany fails', async () => {

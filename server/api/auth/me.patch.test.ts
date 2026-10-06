@@ -24,7 +24,7 @@ const mockCreateError = createError as ReturnType<typeof vi.fn>
 const mockTransaction = (prisma as typeof prisma).$transaction as ReturnType<typeof vi.fn>
 const mockAcceptPending = (prisma as typeof prisma).follow.updateManyAndReturn as ReturnType<typeof vi.fn>
 
-const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true, showActiveProgram: true, showWorkoutCount: true }
+const meSelect = { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true, showActiveProgram: true, showWorkoutCount: true, weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: true, weekStartDay: true }
 
 function makeEvent(body: unknown = { ptRoutineInWorkout: true }) {
   mockReadBody.mockResolvedValue(body)
@@ -87,8 +87,8 @@ describe('PATCH /api/auth/me', () => {
   test.each([
     ['body is an array', ['nope'], 'Invalid request body'],
     ['body is a string', 'nope', 'Invalid request body'],
-    ['no recognised field', {}, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount'],
-    ['body is null', null, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount'],
+    ['no recognised field', {}, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount, weeklyWorkoutGoalEnabled, weeklyWorkoutGoal, weekStartDay'],
+    ['body is null', null, 'Provide at least one of ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount, weeklyWorkoutGoalEnabled, weeklyWorkoutGoal, weekStartDay'],
     ['value is not a boolean', { ptRoutineInWorkout: 'yes' }, 'ptRoutineInWorkout must be a boolean'],
     ['profileVisibility is invalid', { profileVisibility: 'FRIENDS' }, 'profileVisibility must be PUBLIC or PRIVATE'],
     ['profileVisibility is lowercase', { profileVisibility: 'public' }, 'profileVisibility must be PUBLIC or PRIVATE'],
@@ -270,6 +270,55 @@ describe('PATCH /api/auth/me', () => {
     test('username and bio can be sent with the other settings', async () => {
       expect(await update({ username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' }, { username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' }))
         .toEqual({ username: 'saul', bio: 'hi', profileVisibility: 'PUBLIC' })
+    })
+  })
+
+  describe('weekly workout goal', () => {
+    // Sends `body` and returns the data written.
+    const write = async (body: unknown) => {
+      mockUpdateUser.mockResolvedValueOnce(mockUpdatedUser)
+      const event = makeEvent(body)
+      await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+      return mockUpdateUser.mock.calls[0]![0].data
+    }
+
+    test('enable and set in one request', async () => {
+      expect(await write({ weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: 4 }))
+        .toEqual({ weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: 4 })
+    })
+
+    test('disabling (and "remove") writes only the toggle, so the number is kept', async () => {
+      expect(await write({ weeklyWorkoutGoalEnabled: false })).toEqual({ weeklyWorkoutGoalEnabled: false })
+    })
+
+    test('the number can be updated on its own, enabled or not', async () => {
+      expect(await write({ weeklyWorkoutGoal: 7 })).toEqual({ weeklyWorkoutGoal: 7 })
+    })
+
+    test('the week start can be changed on its own', async () => {
+      expect(await write({ weekStartDay: 'MONDAY' })).toEqual({ weekStartDay: 'MONDAY' })
+    })
+
+    test('all three can be sent alongside the other settings', async () => {
+      expect(await write({ weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: 2, weekStartDay: 'SATURDAY', ptRoutineInWorkout: true }))
+        .toEqual({ weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: 2, weekStartDay: 'SATURDAY', ptRoutineInWorkout: true })
+    })
+
+    test.each([
+      ['null goal', { weeklyWorkoutGoal: null }],
+      ['goal of 0', { weeklyWorkoutGoal: 0 }],
+      ['goal of 8', { weeklyWorkoutGoal: 8 }],
+      ['fractional goal', { weeklyWorkoutGoal: 4.5 }],
+      ['string goal', { weeklyWorkoutGoal: '4' }],
+      ['non-boolean toggle', { weeklyWorkoutGoalEnabled: 'yes' }],
+      ['lowercase week start', { weekStartDay: 'monday' }],
+      ['unknown week start', { weekStartDay: 'FUNDAY' }],
+      ['numeric week start', { weekStartDay: 1 }],
+      ['valid toggle with an invalid goal', { weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: 9 }],
+    ])('400 for a %s, before any write', async (_label, body) => {
+      const event = makeEvent(body)
+      await expect((handler as unknown as (e: typeof event) => Promise<unknown>)(event)).rejects.toMatchObject({ statusCode: 400 })
+      expect(mockTransaction).not.toHaveBeenCalled()
     })
   })
 

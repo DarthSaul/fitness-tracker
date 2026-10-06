@@ -2,10 +2,16 @@ defineRouteMeta({
   openAPI: {
     tags: ['Analytics'],
     summary: 'Get dashboard summary stats',
-    description: 'Returns high-level analytics for the authenticated user across program and standalone workout sessions: total sessions, total volume, current and longest streaks, last workout timestamp, and distinct exercise count.',
+    description: 'Returns high-level analytics for the authenticated user across program and standalone workout sessions: total sessions, total volume, current and longest streaks, last workout timestamp, distinct exercise count, and `sessionsThisWeek`. The week is the same one GET /api/weekly-goal uses: local 00:00 on the user\'s `weekStartDay` (default SUNDAY) for seven local days, in the `timeZone` param, else the legacy `tzOffset`, else the stored `User.timezone`, else UTC.',
+    parameters: [
+      { name: 'timeZone', in: 'query', required: false, schema: { type: 'string', example: 'America/Chicago' }, description: 'IANA zone for "this week"; preferred over tzOffset' },
+      { name: 'tzOffset', in: 'query', required: false, schema: { type: 'integer', example: -300 }, description: 'Legacy: minutes east of UTC. Ignored when timeZone is sent; misses DST changes' },
+    ],
     responses: {
       200: { description: 'Dashboard summary stats' },
+      400: { description: 'timeZone is not an IANA zone' },
       401: { description: 'Unauthorized' },
+      404: { description: 'User not found' },
       500: { description: 'Internal server error' },
     },
   },
@@ -76,7 +82,11 @@ export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
   try {
-    const [sessions, standaloneSessions] = await Promise.all([
+    const query = getQuery(event)
+    const timeZoneParam = parseTimeZoneParam(query.timeZone)
+
+    const [user, sessions, standaloneSessions] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { weekStartDay: true, timezone: true } }),
       prisma.workoutSession.findMany({
         where: { userId, status: 'COMPLETED' },
         include: {
@@ -109,6 +119,9 @@ export default defineEventHandler(async (event) => {
         orderBy: { completedAt: 'asc' },
       }),
     ])
+    if (!user) {
+      throw createError({ statusCode: 404, statusMessage: 'User not found' })
+    }
 
     const totalSessions = sessions.length + standaloneSessions.length
 
@@ -156,20 +169,15 @@ export default defineEventHandler(async (event) => {
 
     const { longestStreakDays, currentStreakDays } = computeStreaks(completedAtDates)
 
-    // Start of the current ISO week in the user's local timezone.
-    // tzOffset = minutes to add to UTC to get local time (e.g. UTC-5 → -300)
-    const { tzOffset } = getQuery(event)
-    const tzOffsetMinutes = typeof tzOffset === 'string' && Number.isFinite(Number(tzOffset))
-      ? parseInt(tzOffset, 10)
-      : 0
-    const localNow = new Date(Date.now() + tzOffsetMinutes * 60_000)
-    const dayOfWeek = localNow.getUTCDay()
-    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    const weekStart = new Date(
-      Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate() - daysFromMonday)
-      - tzOffsetMinutes * 60_000,
-    )
-    const sessionsThisWeek = completedAtDates.filter((d) => d >= weekStart).length
+    // The user's week, as GET /api/weekly-goal computes it (docs/weekly-goal/SPEC-weekly-goal.md).
+    // Zone: the timeZone param, else the legacy tzOffset (minutes east of UTC,
+    // e.g. UTC-5 → -300, still sent by web bundles the PWA has cached), else the
+    // stored zone, else UTC.
+    const { tzOffset } = query
+    const legacyOffset = typeof tzOffset === 'string' && Number.isFinite(Number(tzOffset)) ? parseInt(tzOffset, 10) : undefined
+    const zone = timeZoneParam ?? legacyOffset ?? (isValidTimeZone(user.timezone) ? user.timezone : 'UTC')
+    const { start, end } = weekBounds(new Date(), user.weekStartDay, zone)
+    const sessionsThisWeek = completedAtDates.filter((d) => d >= start && d < end).length
 
     return {
       totalSessions,

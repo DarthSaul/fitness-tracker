@@ -44,7 +44,8 @@ export function useAnalytics() {
   // Dashboard stats
   const { data: dashboard, status: dashboardStatus } =
     useFetch<AnalyticsDashboard>('/api/analytics/dashboard', {
-      query: { tzOffset: -new Date().getTimezoneOffset() },
+      // An IANA zone, so "this week" is right across DST changes (tzOffset is legacy).
+      query: { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     })
 
   // Exercise list

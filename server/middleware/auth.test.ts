@@ -226,6 +226,20 @@ describe('server/middleware/auth', () => {
     )
   })
 
+  // Deliberately outside /api/auth/, where everything but the exact /api/auth/me is public.
+  describe('the weekly goal progress route is protected', () => {
+    test.each(['/api/weekly-goal', '/api/weekly-goal?timeZone=America/Chicago'])(
+      '401 for unauthenticated %s',
+      async (path) => {
+        mockGetUserSession.mockResolvedValueOnce(null)
+        const event = makeEvent(path)
+        await expect(
+          (handler as (e: typeof event) => Promise<void>)(event),
+        ).rejects.toMatchObject({ statusCode: 401 })
+      },
+    )
+  })
+
   describe('OPTIONS preflight passthrough', () => {
     test('allows OPTIONS requests through without checking auth', async () => {
       mockGetMethod.mockReturnValueOnce('OPTIONS')
