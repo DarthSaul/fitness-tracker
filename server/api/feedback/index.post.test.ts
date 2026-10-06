@@ -129,6 +129,47 @@ describe('POST /api/feedback', () => {
     expect(mockBucket.upload.mock.calls[0]![0]).toBe(`user001/${NOW.getTime()}-screenshot-${NOW.getTime()}`)
   })
 
+  // Regression: the client's filename went into the storage key unchanged, so
+  // "../" segments could climb out of the caller's `${userId}/` folder.
+  describe('the client filename is reduced to one safe segment inside the user\'s folder', () => {
+    const uploadedKey = async (filename: string) => {
+      mockReadMultipart.mockResolvedValueOnce([contentPart(), screenshotPart({ filename })])
+      await run(makeEvent())
+      return mockBucket.upload.mock.calls[0]![0] as string
+    }
+
+    test.each([
+      ['parent-directory segments', '../../../victim/evil.png', 'evil.png'],
+      ['Windows separators', '..\\..\\victim\\evil.png', 'evil.png'],
+      ['spaces and punctuation', 'my shot (1).png', 'my_shot__1_.png'],
+      ['a leading dot', '.hidden.png', 'hidden.png'],
+    ])('%s: %j → %j', async (_label, filename, safe) => {
+      expect(await uploadedKey(filename)).toBe(`user001/${NOW.getTime()}-${safe}`)
+    })
+
+    test.each([['only dots', '..'], ['only a separator', '/'], ['empty', '']])(
+      'a name that is %s falls back to a generated one',
+      async (_label, filename) => {
+        expect(await uploadedKey(filename)).toBe(`user001/${NOW.getTime()}-screenshot-${NOW.getTime()}`)
+      },
+    )
+
+    test('a very long name is capped, keeping its extension', async () => {
+      const key = await uploadedKey(`${'a'.repeat(300)}.png`)
+      const name = key.slice(`user001/${NOW.getTime()}-`.length)
+      expect(name).toHaveLength(100)
+      expect(name.endsWith('.png')).toBe(true)
+    })
+
+    test('whatever the name, the key is exactly `${userId}/<one segment>` with no ".." segment', async () => {
+      const key = await uploadedKey('a/../../b/./../c/%2e%2e/d.png')
+      const segments = key.split('/')
+      expect(segments).toHaveLength(2)
+      expect(segments[0]).toBe('user001')
+      expect(segments).not.toContain('..')
+    })
+  })
+
   test('ignores an empty screenshot part', async () => {
     mockReadMultipart.mockResolvedValueOnce([contentPart(), screenshotPart({ data: Buffer.alloc(0) })])
 

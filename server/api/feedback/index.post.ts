@@ -14,6 +14,20 @@ defineRouteMeta({
 })
 
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024 // 5 MB
+const MAX_FILENAME_LENGTH = 100
+
+/**
+ * The client-supplied filename reduced to one safe storage-key segment: its
+ * last path component, characters outside [A-Za-z0-9._-] replaced, leading dots
+ * dropped (so never "." or ".."), and the tail kept to MAX_FILENAME_LENGTH so
+ * the extension survives. Keeps every upload inside the caller's `${userId}/`
+ * folder; falls back to a generated name when nothing is left.
+ */
+function safeScreenshotName(raw: string | undefined): string {
+  const base = (raw ?? '').split(/[/\\]/).pop() ?? ''
+  const name = base.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '').slice(-MAX_FILENAME_LENGTH)
+  return name || `screenshot-${Date.now()}`
+}
 
 type FeedbackWithUser = Prisma.FeedbackGetPayload<{ include: { user: { select: { name: true } } } }>
 type FeedbackCreateResponse = FeedbackWithUser & { screenshotUrl: string | null }
@@ -42,8 +56,7 @@ export default defineEventHandler(async (event): Promise<FeedbackCreateResponse>
         throw createError({ statusCode: 400, statusMessage: 'Screenshot must be under 5 MB' })
       }
 
-      const filename = filePart.filename ?? `screenshot-${Date.now()}`
-      const storagePath = `${userId}/${Date.now()}-${filename}`
+      const storagePath = `${userId}/${Date.now()}-${safeScreenshotName(filePart.filename)}`
 
       const { data, error } = await supabase.storage
         .from('feedback-screenshots')
