@@ -282,4 +282,130 @@ describe('useSetEditing', () => {
     expect(workout.recordSet).not.toHaveBeenCalled()
     expect(workout.deleteCompletedSet).not.toHaveBeenCalled()
   })
+
+  describe('edge cases', () => {
+    test('a template set is not swapped when its exercise has no swap', () => {
+      const workout = makeWorkout()
+      workout.exerciseSwaps.value = [{ programExerciseId: 'other' }]
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+
+      expect(editing.isSwapped.value).toBe(false)
+    })
+
+    test('a template set that is not in the day is neither swapped nor shown', () => {
+      const workout = makeWorkout()
+      workout.exerciseSwaps.value = [{ programExerciseId: 'pe1' }]
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'template', exerciseSetId: 'missing' })
+
+      expect(editing.isSwapped.value).toBe(false)
+      expect(editing.editingSet.value).toBeNull()
+    })
+
+    test('extra and ad-hoc sets are never reported as swapped', () => {
+      const workout = makeWorkout()
+      workout.exerciseSwaps.value = [{ programExerciseId: 'pe1' }]
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'extra', completedSetId: 'x1', programExerciseId: 'pe1' })
+      expect(editing.isSwapped.value).toBe(false)
+
+      editing.handleEdit({ type: 'adhoc', completedSetId: 'a1' })
+      expect(editing.isSwapped.value).toBe(false)
+    })
+
+    test('shows no set and no swap flag before the day has loaded', () => {
+      const workout = makeWorkout()
+      workout.day.value = null as unknown as typeof workout.day.value
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+      expect(editing.isSwapped.value).toBe(false)
+      expect(editing.editingSet.value).toBeNull()
+
+      editing.handleEdit({ type: 'extra', completedSetId: 'x1', programExerciseId: 'pe1' })
+      expect(editing.editingSet.value).toBeNull()
+    })
+
+    test('completedSet is null when nothing is open or the set is not logged', () => {
+      const workout = makeWorkout()
+      const editing = setup(workout)
+      expect(editing.completedSet.value).toBeNull()
+
+      editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+      expect(editing.completedSet.value).toBeNull()
+
+      editing.handleEdit({ type: 'extra', completedSetId: 'nope', programExerciseId: 'pe1' })
+      expect(editing.completedSet.value).toBeNull()
+    })
+
+    test('an extra set not yet in the store is shown blank, numbered after the existing extras', () => {
+      const workout = makeWorkout()
+      workout.extraCompletedSets.value.set('x1', record('x1', { programExerciseId: 'pe1' }))
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'extra', completedSetId: 'new', programExerciseId: 'pe1' })
+
+      expect(editing.editingSet.value).toEqual({
+        id: 'new', setNumber: 4, reps: null, weight: null, rpe: null, notes: null, effortTarget: null,
+      })
+    })
+
+    test('an extra set for an exercise outside the day is numbered from one', () => {
+      const workout = makeWorkout()
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'extra', completedSetId: 'new', programExerciseId: 'unknown' })
+
+      expect(editing.editingSet.value).toMatchObject({ id: 'new', setNumber: 1 })
+    })
+
+    test('an ad-hoc set that is no longer logged shows nothing', () => {
+      const editing = setup(makeWorkout())
+
+      editing.handleEdit({ type: 'adhoc', completedSetId: 'gone' })
+
+      expect(editing.editingSet.value).toBeNull()
+    })
+
+    test('an ad-hoc set carries its logged values and defaults to set one without a group', () => {
+      const workout = makeWorkout()
+      // No adhocExerciseName, so it is in the store but in no ad-hoc group
+      workout.extraCompletedSets.value.set('a1', record('a1', { reps: 12, weight: 25, rpe: 7, notes: 'easy' }))
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'adhoc', completedSetId: 'a1' })
+
+      expect(editing.editingSet.value).toEqual({
+        id: 'a1', setNumber: 1, reps: 12, weight: 25, rpe: 7, notes: 'easy', effortTarget: null,
+      })
+    })
+
+    test('cancelling closes the open set', () => {
+      const editing = setup(makeWorkout())
+
+      editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+      editing.cancelEdit()
+
+      expect(editing.editingContext.value).toBeNull()
+    })
+
+    test('keeps a set the user opened while the save was in flight', async () => {
+      const workout = makeWorkout()
+      let finish: () => void = () => {}
+      workout.recordSet.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve }))
+      const editing = setup(workout)
+
+      editing.handleEdit({ type: 'template', exerciseSetId: 's1' })
+      const saving = editing.handleLog(5, 80)
+      editing.handleEdit({ type: 'template', exerciseSetId: 's2' })
+      finish()
+      await saving
+
+      expect(editing.editingContext.value).toEqual({ type: 'template', exerciseSetId: 's2' })
+    })
+  })
 })

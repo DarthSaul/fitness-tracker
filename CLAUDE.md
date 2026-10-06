@@ -629,7 +629,18 @@ Client contract: `docs/API_CONTRACT_WEEKLY_GOAL.md`.
 - [ ] Migrate the Analytics stat row to `AppStatTileGroup` / `AppStatTile`; it hand-rolls its own `grid-cols-3`, which is why the group primitive has no real consumer.
 - [ ] `text-white` is hardcoded on tint/brand backgrounds in ~11 places (`CalendarStrip`, `PwaInstallBanner`, `ShellResumeBanner`, `pt/*Drawer`, `MarketingHowItWorks`, `offline`, `home`, `feedback`). Add an `--color-on-tint` semantic token and migrate them together — doing one at a time is worse than leaving them consistent.
 - [ ] `app/pages/settings.vue` has the same empty-name avatar bug fixed in `ShellSideNav`: `user?.name?.charAt(0) ?? '?'` renders blank for an account with an empty name, since `''` is not nullish.
-- [ ] Achieve the 95% code coverage threshold — `vitest run --coverage` fails its configured 95% global thresholds on the current baseline (~74% lines as of 2026-07-09); backfill tests for uncovered server code (e.g. `server/routes/_schemas.ts`, `server/utils/supabase.ts`, scheduled-workouts routes) until the thresholds pass.
+- [x] Achieve the 95% code coverage threshold. `vitest run --coverage` now
+      passes all four global thresholds (2026-10-05).
+
+      | Metric | Coverage |
+      |---|---|
+      | Statements | 98.8% |
+      | Branches | 96.5% |
+      | Functions | 98.2% |
+      | Lines | 99.2% |
+
+      Branches has the least headroom. Keep new code tested so the gate
+      stays green.
 
 ## Subagents
 
