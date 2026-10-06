@@ -24,6 +24,9 @@ const mockUser = {
   // Distinct values, so the result proves each setting is passed through as stored.
   showActiveProgram: false,
   showWorkoutCount: true,
+  weeklyWorkoutGoalEnabled: true,
+  weeklyWorkoutGoal: 4,
+  weekStartDay: 'MONDAY',
 }
 
 describe('GET /api/auth/me', () => {
@@ -45,9 +48,10 @@ describe('GET /api/auth/me', () => {
 
     expect(result).toEqual(mockUser)
     expect(result).toMatchObject({ showActiveProgram: false, showWorkoutCount: true })
+    expect(result).toMatchObject({ weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: 4, weekStartDay: 'MONDAY' })
     expect(mockFindUniqueUser).toHaveBeenCalledWith({
       where: { id: 'user001' },
-      select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true, showActiveProgram: true, showWorkoutCount: true },
+      select: { id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true, showActiveProgram: true, showWorkoutCount: true, weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: true, weekStartDay: true },
     })
   })
 

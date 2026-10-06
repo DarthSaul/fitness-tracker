@@ -16,7 +16,8 @@ import { postSelect, toPostPayloads, parsePageQuery, pageWhere, newestFirst, par
 import { parseReportInput } from './server/utils/reports'
 import { parseApnsDeviceToken } from './server/utils/device-tokens'
 import { parseUsername, normalizeUsername, usernameProblem } from './server/utils/usernames'
-import { meSelect, parseBio } from './server/utils/profile'
+import { meSelect, parseBio, parseWeeklyWorkoutGoal, parseWeekStartDay, WEEK_START_DAYS } from './server/utils/profile'
+import { weekBounds, parseTimeZoneParam, completedWorkoutsBetween } from './server/utils/week'
 import { notificationSelect, toNotificationPayload, inboxWhere, notificationKeys } from './server/utils/notifications'
 import { NOTIFICATION_TYPES, formatReminderTime, parseReminderTime, isValidTimeZone, loadNotificationPreferences, parseReminderDay, formatReminderDay } from './server/utils/notification-preferences'
 
@@ -168,6 +169,15 @@ vi.stubGlobal('normalizeUsername', normalizeUsername)
 vi.stubGlobal('usernameProblem', usernameProblem)
 vi.stubGlobal('meSelect', meSelect)
 vi.stubGlobal('parseBio', parseBio)
+// Weekly goal: the real parsers (each has its own unit tests).
+vi.stubGlobal('parseWeeklyWorkoutGoal', parseWeeklyWorkoutGoal)
+vi.stubGlobal('parseWeekStartDay', parseWeekStartDay)
+vi.stubGlobal('WEEK_START_DAYS', WEEK_START_DAYS)
+// Week bounds and the completed count are real in route tests: the count runs
+// on the prisma mock's `count`, so routes are tested against real week edges.
+vi.stubGlobal('weekBounds', weekBounds)
+vi.stubGlobal('parseTimeZoneParam', parseTimeZoneParam)
+vi.stubGlobal('completedWorkoutsBetween', completedWorkoutsBetween)
 // Profile stats: mocked in route tests (the helper has its own unit tests).
 vi.stubGlobal('profileStats', vi.fn().mockResolvedValue({ activeProgram: null, completedWorkoutCount: null }))
 // Notifications: real pure helpers; writes, delivery and the badge count are

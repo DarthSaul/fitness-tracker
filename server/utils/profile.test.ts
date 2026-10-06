@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
 
-import { parseBio, meSelect, BIO_MAX } from './profile'
+import { parseBio, meSelect, BIO_MAX, parseWeeklyWorkoutGoal, parseWeekStartDay, WEEKLY_GOAL_MAX } from './profile'
+import { publicUserSelect } from './public-user'
 
 describe('parseBio', () => {
   test('trims', () => {
@@ -38,5 +39,34 @@ test('meSelect is the caller\'s own profile, including email, username and bio',
   expect(meSelect).toEqual({
     id: true, email: true, name: true, avatarUrl: true, ptRoutineInWorkout: true, profileVisibility: true, username: true, bio: true,
     showActiveProgram: true, showWorkoutCount: true,
+    weeklyWorkoutGoalEnabled: true, weeklyWorkoutGoal: true, weekStartDay: true,
   })
+})
+
+describe('parseWeeklyWorkoutGoal', () => {
+  test.each([1, 4, WEEKLY_GOAL_MAX])('accepts %d', (goal) => {
+    expect(parseWeeklyWorkoutGoal(goal)).toBe(goal)
+  })
+
+  test.each([
+    ['null', null], ['zero', 0], ['eight', 8], ['a fraction', 4.5], ['a numeric string', '4'], ['NaN', Number.NaN], ['undefined', undefined],
+  ])('400 for %s', (_label, raw) => {
+    expect(() => parseWeeklyWorkoutGoal(raw)).toThrow(expect.objectContaining({ statusCode: 400 }))
+  })
+})
+
+describe('parseWeekStartDay', () => {
+  test.each(['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'])('accepts %s', (day) => {
+    expect(parseWeekStartDay(day)).toBe(day)
+  })
+
+  test.each([['lowercase', 'monday'], ['unknown', 'FUNDAY'], ['a number', 1], ['null', null]])('400 for %s', (_label, raw) => {
+    expect(() => parseWeekStartDay(raw)).toThrow(expect.objectContaining({ statusCode: 400 }))
+  })
+})
+
+test('the weekly goal settings are private: none is in publicUserSelect', () => {
+  for (const field of ['weeklyWorkoutGoalEnabled', 'weeklyWorkoutGoal', 'weekStartDay']) {
+    expect(publicUserSelect).not.toHaveProperty(field)
+  }
 })

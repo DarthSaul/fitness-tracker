@@ -2,14 +2,34 @@ defineRouteMeta({
   openAPI: {
     tags: ['Analytics'],
     summary: 'Get dashboard summary stats',
-    description: 'Returns high-level analytics for the authenticated user across program and standalone workout sessions: total sessions, total volume, current and longest streaks, last workout timestamp, and distinct exercise count.',
+    description: 'Returns high-level analytics for the authenticated user across program and standalone workout sessions: total sessions, total volume, current and longest streaks, last workout timestamp, distinct exercise count, and `sessionsThisWeek`. The week is the same one GET /api/weekly-goal uses: local 00:00 on the user\'s `weekStartDay` (default SUNDAY) for seven local days, in the `timeZone` param, else the legacy `tzOffset`, else the stored `User.timezone`, else UTC.',
+    parameters: [
+      { name: 'timeZone', in: 'query', required: false, schema: { type: 'string', example: 'America/Chicago' }, description: 'IANA zone for "this week"; preferred over tzOffset' },
+      { name: 'tzOffset', in: 'query', required: false, schema: { type: 'integer', example: -300 }, description: 'Legacy: whole minutes east of UTC, -840 to 840. Ignored when timeZone is sent or when malformed; misses DST changes' },
+    ],
     responses: {
       200: { description: 'Dashboard summary stats' },
+      400: { description: 'timeZone is not an IANA zone' },
       401: { description: 'Unauthorized' },
+      404: { description: 'User not found' },
       500: { description: 'Internal server error' },
     },
   },
 })
+
+/** Real UTC offsets lie within ±14 hours. */
+const LEGACY_OFFSET_MAX_MINUTES = 14 * 60
+
+/**
+ * The legacy `tzOffset` param: a whole number of minutes east of UTC within
+ * ±14h. Anything else is ignored (undefined), so the caller falls back to the
+ * stored zone rather than computing an invalid or shifted week.
+ */
+function parseLegacyOffset(raw: unknown): number | undefined {
+  if (typeof raw !== 'string' || !/^[+-]?\d{1,4}$/.test(raw)) return undefined
+  const minutes = Number(raw)
+  return Math.abs(minutes) <= LEGACY_OFFSET_MAX_MINUTES ? minutes : undefined
+}
 
 /**
  * Given a sorted (ascending) array of unique UTC calendar day strings (YYYY-MM-DD),
@@ -76,7 +96,11 @@ export default defineEventHandler(async (event) => {
   const userId = event.context.userId as string
 
   try {
-    const [sessions, standaloneSessions] = await Promise.all([
+    const query = getQuery(event)
+    const timeZoneParam = parseTimeZoneParam(query.timeZone)
+
+    const [user, sessions, standaloneSessions] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { weekStartDay: true, timezone: true } }),
       prisma.workoutSession.findMany({
         where: { userId, status: 'COMPLETED' },
         include: {
@@ -109,6 +133,9 @@ export default defineEventHandler(async (event) => {
         orderBy: { completedAt: 'asc' },
       }),
     ])
+    if (!user) {
+      throw createError({ statusCode: 404, statusMessage: 'User not found' })
+    }
 
     const totalSessions = sessions.length + standaloneSessions.length
 
@@ -156,20 +183,15 @@ export default defineEventHandler(async (event) => {
 
     const { longestStreakDays, currentStreakDays } = computeStreaks(completedAtDates)
 
-    // Start of the current ISO week in the user's local timezone.
-    // tzOffset = minutes to add to UTC to get local time (e.g. UTC-5 → -300)
-    const { tzOffset } = getQuery(event)
-    const tzOffsetMinutes = typeof tzOffset === 'string' && Number.isFinite(Number(tzOffset))
-      ? parseInt(tzOffset, 10)
-      : 0
-    const localNow = new Date(Date.now() + tzOffsetMinutes * 60_000)
-    const dayOfWeek = localNow.getUTCDay()
-    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    const weekStart = new Date(
-      Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate() - daysFromMonday)
-      - tzOffsetMinutes * 60_000,
-    )
-    const sessionsThisWeek = completedAtDates.filter((d) => d >= weekStart).length
+    // The user's week, as GET /api/weekly-goal computes it (docs/weekly-goal/SPEC-weekly-goal.md).
+    // Zone: the timeZone param, else the legacy tzOffset (minutes east of UTC,
+    // e.g. UTC-5 → -300, still sent by web bundles the PWA has cached), else the
+    // stored zone, else UTC.
+    const zone = timeZoneParam
+      ?? parseLegacyOffset(query.tzOffset)
+      ?? (isValidTimeZone(user.timezone) ? user.timezone : 'UTC')
+    const { start, end } = weekBounds(new Date(), user.weekStartDay, zone)
+    const sessionsThisWeek = completedAtDates.filter((d) => d >= start && d < end).length
 
     return {
       totalSessions,

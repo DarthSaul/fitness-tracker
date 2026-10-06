@@ -70,6 +70,9 @@ const mockDbUser = {
   timezone: null,
   workoutReminderMinute: 480,
   workoutReminderDay: 'SAME_DAY' as const,
+  weeklyWorkoutGoalEnabled: false,
+  weeklyWorkoutGoal: 3,
+  weekStartDay: 'SUNDAY' as const,
   createdAt: new Date(),
   updatedAt: new Date(),
 } satisfies User

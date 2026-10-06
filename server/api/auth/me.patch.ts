@@ -1,13 +1,16 @@
 import { Prisma } from '@prisma/client'
 
-const FIELDS = ['ptRoutineInWorkout', 'profileVisibility', 'username', 'bio', 'showActiveProgram', 'showWorkoutCount'] as const
-const BOOLEAN_FIELDS = ['showActiveProgram', 'showWorkoutCount'] as const
+const FIELDS = [
+  'ptRoutineInWorkout', 'profileVisibility', 'username', 'bio', 'showActiveProgram', 'showWorkoutCount',
+  'weeklyWorkoutGoalEnabled', 'weeklyWorkoutGoal', 'weekStartDay',
+] as const
+const BOOLEAN_FIELDS = ['showActiveProgram', 'showWorkoutCount', 'weeklyWorkoutGoalEnabled'] as const
 
 defineRouteMeta({
   openAPI: {
     tags: ['Auth'],
     summary: 'Update current user settings',
-    description: 'Updates the authenticated user\'s profile settings. Send at least one of: `ptRoutineInWorkout` (whether PT routines are shown in the active workout view) `profileVisibility` (`PUBLIC` or `PRIVATE` — who can see the user\'s posts), `username` (3–30 of a–z, 0–9, "_" and "."; stored lowercase, a leading "@" dropped; unique), `bio` (up to 100 code points; blank or null clears it), and `showActiveProgram` / `showWorkoutCount` (whether people who can see the user\'s posts also see their active program\'s name and completed workout count on the profile; both default to true). Switching from PRIVATE to PUBLIC accepts every pending follow request.',
+    description: 'Updates the authenticated user\'s profile settings. Send at least one of: `ptRoutineInWorkout` (whether PT routines are shown in the active workout view) `profileVisibility` (`PUBLIC` or `PRIVATE` — who can see the user\'s posts), `username` (3–30 of a–z, 0–9, "_" and "."; stored lowercase, a leading "@" dropped; unique), `bio` (up to 100 code points; blank or null clears it), and `showActiveProgram` / `showWorkoutCount` (whether people who can see the user\'s posts also see their active program\'s name and completed workout count on the profile; both default to true), and the private weekly goal (docs/API_CONTRACT_WEEKLY_GOAL.md): `weeklyWorkoutGoalEnabled` (boolean; false disables, and is also "remove"), `weeklyWorkoutGoal` (integer 1–7, kept while disabled) and `weekStartDay` (SUNDAY…SATURDAY). Switching from PRIVATE to PUBLIC accepts every pending follow request.',
     requestBody: {
       required: true,
       content: {
@@ -21,13 +24,16 @@ defineRouteMeta({
               bio: { type: 'string', nullable: true, example: 'Lifting since 2010' },
               showActiveProgram: { type: 'boolean', example: true },
               showWorkoutCount: { type: 'boolean', example: true },
+              weeklyWorkoutGoalEnabled: { type: 'boolean', example: true },
+              weeklyWorkoutGoal: { type: 'integer', minimum: 1, maximum: 7, example: 4 },
+              weekStartDay: { type: 'string', enum: ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'] },
             },
           },
         },
       },
     },
     responses: {
-      200: { description: 'The updated profile: the same fields as GET /api/auth/me (id, email, name, avatarUrl, ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount)' },
+      200: { description: 'The updated profile: the same fields as GET /api/auth/me (id, email, name, avatarUrl, ptRoutineInWorkout, profileVisibility, username, bio, showActiveProgram, showWorkoutCount, weeklyWorkoutGoalEnabled, weeklyWorkoutGoal, weekStartDay)' },
       400: { description: 'Missing or invalid fields, or a reserved username' },
       401: { description: 'Unauthorized' },
       404: { description: 'User not found' },
@@ -66,6 +72,10 @@ export default defineEventHandler(async (event) => {
     // Every account has a username, so it can be changed but not cleared.
     if ('username' in body) data.username = parseUsername(body.username)
     if ('bio' in body) data.bio = parseBio(body.bio)
+    // Weekly goal (docs/weekly-goal/SPEC-weekly-goal.md): disabling writes only the
+    // toggle, so the number survives and re-enabling restores it.
+    if ('weeklyWorkoutGoal' in body) data.weeklyWorkoutGoal = parseWeeklyWorkoutGoal(body.weeklyWorkoutGoal)
+    if ('weekStartDay' in body) data.weekStartDay = parseWeekStartDay(body.weekStartDay)
     for (const field of BOOLEAN_FIELDS) {
       if (!(field in body)) continue
       const value = body[field]
