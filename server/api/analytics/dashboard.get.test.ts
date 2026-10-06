@@ -558,6 +558,30 @@ describe('GET /api/analytics/dashboard', () => {
       expect(await sessionsThisWeek({ timeZone: 'UTC', tzOffset: '-300' })).toBe(1)
     })
 
+    test('a valid tzOffset is applied, up to ±840 minutes', async () => {
+      mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'SUNDAY', timezone: 'UTC' })
+      expect(await sessionsThisWeek({ tzOffset: '-300' })).toBe(0)
+      // +14h: Sunday 03:00 UTC is Sunday 17:00 local, this week even for a Chicago user.
+      mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'SUNDAY', timezone: 'America/Chicago' })
+      expect(await sessionsThisWeek({ tzOffset: '+840' })).toBe(1)
+    })
+
+    // Regression (CodeRabbit, PR #153): Number() accepted these but parseInt read
+    // them differently, yielding NaN (an invalid week, counting 0) or a wrong offset.
+    test.each([
+      ['empty', ''], ['blank', ' '], ['overflowing', '9999999999999'], ['beyond −14h', '-841'],
+    ])('a %s tzOffset is ignored, falling back to the stored zone', async (_label, tzOffset) => {
+      mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'SUNDAY', timezone: 'UTC' })
+      expect(await sessionsThisWeek({ tzOffset })).toBe(1)
+    })
+
+    test.each([
+      ['exponent', '-1e3'], ['hex', '0x10'], ['fractional', '1.5'],
+    ])('a %s tzOffset is ignored rather than truncated', async (_label, tzOffset) => {
+      mockFindUniqueUser.mockResolvedValueOnce({ weekStartDay: 'SUNDAY', timezone: 'America/Chicago' })
+      expect(await sessionsThisWeek({ tzOffset })).toBe(0)
+    })
+
     test('400 for an invalid timeZone, before any query', async () => {
       mockGetQuery.mockReturnValue({ timeZone: 'Mars/Olympus_Mons' })
       const event = makeEvent()

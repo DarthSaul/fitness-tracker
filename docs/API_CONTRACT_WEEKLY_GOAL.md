@@ -94,6 +94,8 @@ The card reads `completedThisWeek` / `goal`, for example "1/4 this week".
   on Monday.
 - It accepts the same `timeZone` param, and an invalid one returns `400`. The
   old `tzOffset` (minutes east of UTC) still works when `timeZone` is absent,
-  but it ignores DST changes, so send `timeZone` instead.
+  but it ignores DST changes, so send `timeZone` instead. A `tzOffset` that
+  isn't a whole number from −840 to 840 is ignored, and the stored zone is
+  used.
 - It returns `404` if the user record is missing. Nothing else in the
   response shape changes.
