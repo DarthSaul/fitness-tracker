@@ -215,6 +215,51 @@ describe('POST /api/feedback', () => {
     )
   })
 
+  // Regression: the cleanup's result was ignored. Supabase reports a failed
+  // remove as `{ error }`, so the orphaned screenshot went unlogged; and a
+  // thrown failure replaced the database error that caused the cleanup.
+  describe('when removing the orphaned screenshot also fails', () => {
+    const mockLoggerWarn = (logger as unknown as { warn: ReturnType<typeof vi.fn> }).warn
+    const dbError = new Error('db down')
+
+    beforeEach(() => {
+      mockReadMultipart.mockResolvedValueOnce([contentPart(), screenshotPart()])
+      mockCreateFeedback.mockRejectedValueOnce(dbError)
+    })
+
+    test('a reported failure ({ error }) is logged with the orphaned path', async () => {
+      const removeError = { message: 'storage unavailable' }
+      mockBucket.remove.mockResolvedValueOnce({ data: null, error: removeError })
+
+      await expect(run(makeEvent())).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to save feedback' })
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        { err: removeError, path: 'user001/shot.png', route: 'POST /api/feedback' },
+        '[POST /api/feedback] Failed to remove orphaned screenshot',
+      )
+      expect(mockLoggerError).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/feedback' }, '[POST /api/feedback] Failed to save feedback')
+    })
+
+    test('a thrown failure is logged too, and the database error is still the one reported', async () => {
+      const thrown = new Error('socket hang up')
+      mockBucket.remove.mockRejectedValueOnce(thrown)
+
+      await expect(run(makeEvent())).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to save feedback' })
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        { err: thrown, path: 'user001/shot.png', route: 'POST /api/feedback' },
+        '[POST /api/feedback] Failed to remove orphaned screenshot',
+      )
+      expect(mockLoggerError).toHaveBeenCalledTimes(1)
+      expect(mockLoggerError).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/feedback' }, '[POST /api/feedback] Failed to save feedback')
+    })
+
+    test('a successful cleanup logs no warning', async () => {
+      await expect(run(makeEvent())).rejects.toMatchObject({ statusCode: 500 })
+      expect(mockLoggerWarn).not.toHaveBeenCalled()
+    })
+  })
+
   test('does not touch storage when a text-only database write fails', async () => {
     mockCreateFeedback.mockRejectedValueOnce(new Error('db down'))
 
