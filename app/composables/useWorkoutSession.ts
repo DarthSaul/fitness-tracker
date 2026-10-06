@@ -124,17 +124,26 @@ export function useWorkoutSession() {
     data: { reps?: number | null; weight?: number | null; rpe?: number | null; notes?: string | null },
   ): Promise<void> {
     if (!session.value) return
+    const sessionId = session.value.id
     recordingSetId.value = exerciseSetId
     try {
       const result = await $fetch<CompletedSetRecord>(
-        `/api/workouts/${session.value.id}/sets`,
+        `/api/workouts/${sessionId}/sets`,
         { method: 'POST', body: { exerciseSetId, ...data } },
       )
       completedSets.value.set(exerciseSetId, result)
     } catch (e) {
       if ((e as { statusCode?: number }).statusCode === 409) {
-        // Already recorded — mark as completed locally
-        return
+        // A 409 is either "already recorded" (logged on another device, or a
+        // retried request) or "exercise skipped". Ask the server which: take
+        // its record if the set exists, so it shows as done; otherwise the set
+        // was not saved, so rethrow rather than drop it silently.
+        const data = await $fetch<ActiveWorkoutResponse>(`/api/workouts/${sessionId}`)
+        const existing = data.session.completedSets.find((cs: CompletedSetRecord) => cs.exerciseSetId === exerciseSetId)
+        if (existing) {
+          completedSets.value.set(exerciseSetId, existing)
+          return
+        }
       }
       throw e
     } finally {
