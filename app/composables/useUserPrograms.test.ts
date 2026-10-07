@@ -92,4 +92,127 @@ describe('useUserPrograms', () => {
     expect(mockFetch).not.toHaveBeenCalled()
     expect(mockToastAdd).toHaveBeenCalled()
   })
+
+  test('treats a missing list as nothing saved and nothing active', () => {
+    mockUseFetch.mockReturnValueOnce({ data: { value: null }, refresh: mockRefresh, status: { value: 'pending' } })
+    const { isSaved, isActive, isCompleted, hasActiveProgram, status } = useUserPrograms()
+
+    expect(isSaved('prog1')).toBe(false)
+    expect(isActive('prog1')).toBe(false)
+    expect(isCompleted('prog1')).toBe(false)
+    expect(hasActiveProgram.value).toBe(false)
+    expect(status.value).toBe('pending')
+  })
+
+  test('reports an open active run as active', () => {
+    const { isActive, hasActiveProgram } = setup([run('up1', { isActive: true })])
+
+    expect(isActive('prog1')).toBe(true)
+    expect(hasActiveProgram.value).toBe(true)
+  })
+
+  test('saves an unsaved program and refreshes the list', async () => {
+    const { toggleSave } = setup([])
+
+    await toggleSave('prog1')
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/user-programs', { method: 'POST', body: { programId: 'prog1' } })
+    expect(mockRefresh).toHaveBeenCalled()
+  })
+
+  test('unsaves a saved program by its run id and refreshes the list', async () => {
+    const { toggleSave } = setup([run('up1')])
+
+    await toggleSave('prog1')
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/user-programs/up1', { method: 'DELETE' })
+    expect(mockRefresh).toHaveBeenCalled()
+  })
+
+  test('marks a program as saving while the request is in flight and ignores repeat taps', async () => {
+    let resolve!: () => void
+    mockFetch.mockReturnValueOnce(new Promise<void>((r) => { resolve = r }))
+    const { toggleSave, isSaving } = setup([])
+
+    const first = toggleSave('prog1')
+    expect(isSaving('prog1')).toBe(true)
+    await toggleSave('prog1')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    resolve()
+    await first
+    expect(isSaving('prog1')).toBe(false)
+  })
+
+  test('stops showing saving and skips the refresh when the save request fails', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('409'))
+    const { toggleSave, isSaving } = setup([])
+
+    await expect(toggleSave('prog1')).rejects.toThrow('409')
+
+    expect(isSaving('prog1')).toBe(false)
+    expect(mockRefresh).not.toHaveBeenCalled()
+  })
+
+  test('deactivates the active program and refreshes the list', async () => {
+    const { toggleActive } = setup([run('up1', { isActive: true })])
+
+    await toggleActive('prog1')
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/user-programs/up1/deactivate', { method: 'PATCH' })
+    expect(mockRefresh).toHaveBeenCalled()
+    expect(mockToastAdd).not.toHaveBeenCalled()
+  })
+
+  test('activates a saved program when nothing else is active', async () => {
+    const { toggleActive } = setup([run('up1')])
+
+    await toggleActive('prog1')
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/user-programs/up1/activate', { method: 'PATCH' })
+    expect(mockRefresh).toHaveBeenCalled()
+  })
+
+  test('does nothing when toggling activation of a program that is not saved', async () => {
+    const { toggleActive } = setup([])
+
+    await toggleActive('prog1')
+
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(mockToastAdd).not.toHaveBeenCalled()
+  })
+
+  test('marks a program as activating while the request is in flight and ignores repeat taps', async () => {
+    let resolve!: () => void
+    mockFetch.mockReturnValueOnce(new Promise<void>((r) => { resolve = r }))
+    const { toggleActive, isActivating } = setup([run('up1')])
+
+    const first = toggleActive('prog1')
+    expect(isActivating('prog1')).toBe(true)
+    await toggleActive('prog1')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    resolve()
+    await first
+    expect(isActivating('prog1')).toBe(false)
+  })
+
+  test('stops showing activating when activation fails', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('500'))
+    const { toggleActive, isActivating } = setup([run('up1')])
+
+    await expect(toggleActive('prog1')).rejects.toThrow('500')
+
+    expect(isActivating('prog1')).toBe(false)
+    expect(mockRefresh).not.toHaveBeenCalled()
+  })
+
+  test('stops showing activating when deactivation fails', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('500'))
+    const { toggleActive, isActivating } = setup([run('up1', { isActive: true })])
+
+    await expect(toggleActive('prog1')).rejects.toThrow('500')
+
+    expect(isActivating('prog1')).toBe(false)
+  })
 })

@@ -273,4 +273,133 @@ describe('POST /api/workouts', () => {
     expect(mockTransaction).toHaveBeenCalledOnce()
     expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function))
   })
+
+  describe('request validation', () => {
+    const run = (): Promise<unknown> => (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+
+    test.each([
+      ['only weekNumber', { weekNumber: 1 }],
+      ['only dayNumber', { dayNumber: 1 }],
+      ['weekNumber with a null dayNumber', { weekNumber: 1, dayNumber: null }],
+    ])('throws 400 when %s is provided', async (_label, body) => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue(body)
+
+      await expect(run()).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: 'Both weekNumber and dayNumber must be provided together',
+      })
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      ['zero', 0],
+      ['negative', -1],
+      ['fractional', 1.5],
+      ['a string', '1'],
+    ])('throws 400 when weekNumber is %s', async (_label, weekNumber) => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber, dayNumber: 1 })
+
+      await expect(run()).rejects.toMatchObject({ statusCode: 400, statusMessage: 'weekNumber must be a positive integer' })
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      ['zero', 0],
+      ['negative', -2],
+      ['fractional', 2.5],
+      ['a string', '1'],
+    ])('throws 400 when dayNumber is %s', async (_label, dayNumber) => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber: 1, dayNumber })
+
+      await expect(run()).rejects.toMatchObject({ statusCode: 400, statusMessage: 'dayNumber must be a positive integer' })
+      expect(mockTransaction).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('program state under the row lock', () => {
+    const run = (): Promise<unknown> => (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+
+    test('throws 400 when the locked program row is gone', async () => {
+      txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+      txMocks.queryRawUnsafe.mockResolvedValueOnce([])
+
+      await expect(run()).rejects.toMatchObject({ statusCode: 400, statusMessage: 'No active program' })
+      expect(txMocks.createSession).not.toHaveBeenCalled()
+    })
+
+    test('throws 400 when the program was deactivated before the lock was taken', async () => {
+      txMocks.findFirstUserProgram.mockResolvedValueOnce(mockActiveProgram)
+      txMocks.queryRawUnsafe.mockResolvedValueOnce([{ ...mockLockedProgram, isActive: false }])
+
+      await expect(run()).rejects.toMatchObject({ statusCode: 400, statusMessage: 'No active program' })
+      expect(txMocks.createSession).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('retroactive sessions', () => {
+    const run = (): Promise<unknown> => (handler as unknown as (e: ReturnType<typeof makeEvent>) => Promise<unknown>)(makeEvent())
+
+    beforeEach(() => {
+      txMocks.findFirstUserProgram.mockResolvedValue(mockActiveProgram)
+      txMocks.queryRawUnsafe.mockResolvedValue([mockLockedProgram]) // week 2, day 3
+    })
+
+    test('throws 400 for a week after the current position', async () => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber: 3, dayNumber: 1 })
+
+      await expect(run()).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: 'Cannot create a session ahead of current program position',
+      })
+      expect(txMocks.createSession).not.toHaveBeenCalled()
+    })
+
+    test('throws 400 for a later day in the current week', async () => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber: 2, dayNumber: 4 })
+
+      await expect(run()).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: 'Cannot create a session ahead of current program position',
+      })
+      expect(txMocks.createSession).not.toHaveBeenCalled()
+    })
+
+    test('allows the current position itself', async () => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber: 2, dayNumber: 3 })
+      txMocks.findFirstSession.mockResolvedValueOnce(null)
+      txMocks.findFirstDay.mockResolvedValueOnce(mockDay)
+      txMocks.createSession.mockResolvedValueOnce({ ...mockSession, weekNumber: 2, dayNumber: 3, status: 'EDITING' })
+
+      const result = await run() as { session: { status: string } }
+
+      expect(result.session.status).toBe('EDITING')
+    })
+
+    test('allows an earlier week even when its day number is higher than the current day', async () => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber: 1, dayNumber: 5 })
+      txMocks.findFirstSession.mockResolvedValueOnce(null)
+      txMocks.findFirstDay.mockResolvedValueOnce(mockDay)
+      txMocks.createSession.mockResolvedValueOnce({ ...mockSession, weekNumber: 1, dayNumber: 5, status: 'EDITING' })
+
+      await run()
+
+      expect(txMocks.createSession).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ weekNumber: 1, dayNumber: 5 }) }),
+      )
+    })
+
+    test('throws 409 when a session already exists at the requested position', async () => {
+      ;(readBody as ReturnType<typeof vi.fn>).mockResolvedValue({ weekNumber: 1, dayNumber: 1 })
+      txMocks.findFirstSession.mockResolvedValueOnce(mockSession)
+
+      await expect(run()).rejects.toMatchObject({
+        statusCode: 409,
+        statusMessage: 'A session already exists for this week and day',
+      })
+      expect(txMocks.findFirstSession).toHaveBeenCalledWith({
+        where: { userProgramId: 'up001', weekNumber: 1, dayNumber: 1 },
+      })
+      expect(txMocks.createSession).not.toHaveBeenCalled()
+    })
+  })
 })

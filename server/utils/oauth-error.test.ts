@@ -455,3 +455,119 @@ describe('reportOAuthFailure — synthetic error retains the original', () => {
     expect(captured.name).toBe('OAuthFailure')
   })
 })
+
+// ── Remaining branches ────────────────────────────────────────────────────────
+
+describe('extractOAuthErrorDetail — remaining classifications', () => {
+  /** An Error carrying a jose-style `code` (and optional claim). */
+  function joseLike(code: string, extra: Record<string, unknown> = {}): Error {
+    return Object.assign(new Error('jose failure'), { code, ...extra })
+  }
+
+  test.each([
+    ['ERR_JWK_INVALID', 'bad_private_key'],
+    ['ERR_JWKS_NO_MATCHING_KEY', 'jwks_unavailable'],
+    ['ERR_JWKS_INVALID', 'jwks_unavailable'],
+    ['ERR_JWKS_TIMEOUT', 'jwks_unavailable'],
+    ['ERR_JWKS_MULTIPLE_MATCHING_KEYS', 'jwks_unavailable'],
+    ['ERR_JWS_SIGNATURE_VERIFICATION_FAILED', 'id_token_signature'],
+    ['ERR_JOSE_NOT_SUPPORTED', 'jose_error'],
+  ] as [string, OAuthFailureCause][])('maps %s to %s', (code, cause) => {
+    expect(extractOAuthErrorDetail(joseLike(code)).cause).toBe(cause)
+  })
+
+  test('maps a claim failure on an unrelated claim to jose_error', () => {
+    const detail = extractOAuthErrorDetail(joseLike('ERR_JWT_CLAIM_VALIDATION_FAILED', { claim: 'nonce', reason: 'check_failed' }))
+
+    expect(detail.cause).toBe('jose_error')
+    expect(detail.joseClaim).toBe('nonce')
+    expect(detail.joseReason).toBe('check_failed')
+  })
+
+  test('maps an invalid JWT with a different message to jose_error', () => {
+    expect(extractOAuthErrorDetail(joseLike('ERR_JWT_INVALID')).cause).toBe('jose_error')
+  })
+
+  test('does not record an unrecognised library code', () => {
+    const detail = extractOAuthErrorDetail(Object.assign(new Error('boom'), { code: 'SOMETHING_ELSE' }))
+
+    expect(detail.networkCode).toBeUndefined()
+    expect(detail.prismaCode).toBeUndefined()
+    expect(detail.joseCode).toBeUndefined()
+    expect(detail.cause).toBe('unknown')
+  })
+
+  test('reads the pre-parsed response body when the error carries no data', () => {
+    const error = Object.assign(new Error('bad'), { response: { _data: { error: 'invalid_client', error_description: 'nope' } } })
+    const detail = extractOAuthErrorDetail(error)
+
+    expect(detail.cause).toBe('oauth_invalid_client')
+    expect(detail.oauthErrorDescription).toBe('nope')
+  })
+
+  test('detects an H3Error by its constructor marker', () => {
+    class MarkedError extends Error {
+      static __h3_error__ = true
+      statusCode = 500
+      status = 500
+    }
+    const detail = extractOAuthErrorDetail(new MarkedError('Missing NUXT_OAUTH_APPLE_CLIENT_ID'))
+
+    expect(detail.statusCode).toBe(500)
+    expect(detail.cause).toBe('missing_config')
+  })
+
+  test('names a plain object by its own name property', () => {
+    const detail = extractOAuthErrorDetail({ name: 'CustomShape', message: 'plain' })
+
+    expect(detail.errorName).toBe('CustomShape')
+    expect(detail.message).toBe('plain')
+  })
+
+  test('falls back to "Object" for a plain object without a name', () => {
+    expect(extractOAuthErrorDetail({ message: 'plain' }).errorName).toBe('Object')
+  })
+
+  test('describes a non-object throw by its type and string value', () => {
+    const detail = extractOAuthErrorDetail('just a string')
+
+    expect(detail.errorName).toBe('string')
+    expect(detail.message).toBe('just a string')
+    expect(detail.cause).toBe('unknown')
+  })
+
+  test('yields an empty message for a nullish throw', () => {
+    expect(extractOAuthErrorDetail(undefined).message).toBe('')
+  })
+})
+
+describe('reportOAuthFailure — fallbacks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('logs through the global logger when the event has no request-scoped logger', () => {
+    reportOAuthFailure({ context: {} } as never, 'google', 'upsert', new Error('x'))
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'google', stage: 'upsert', route: '/api/auth/google', requestId: '' }),
+      'oauth.failure',
+    )
+  })
+
+  test('captures a synthetic error with no cause when the failure is not an Error', () => {
+    reportOAuthFailure({ context: { requestId: 'r' } } as never, 'apple', 'callback', 'plain string')
+
+    const captured = vi.mocked(Sentry.captureException).mock.calls.at(-1)?.[0] as Error
+    expect(captured.message).toBe('apple oauth failed: unknown')
+    expect(captured.cause).toBeUndefined()
+  })
+
+  test('uses the error itself as the cause when it carries no inner data', () => {
+    const error = new Error('direct')
+    reportOAuthFailure({ context: { requestId: 'r' } } as never, 'apple', 'upsert', error)
+
+    const captured = vi.mocked(Sentry.captureException).mock.calls.at(-1)?.[0] as Error
+    expect(captured.cause).toBe(error)
+  })
+})

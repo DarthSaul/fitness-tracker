@@ -242,4 +242,74 @@ describe('POST /api/workouts/:id/exercises/:programExerciseId/extra-sets', () =>
     expect(logger.error).toHaveBeenCalledWith({ err: dbError, route: 'POST /api/workouts/:id/exercises/:programExerciseId/extra-sets' }, '[POST /api/workouts/:id/exercises/:programExerciseId/extra-sets] Failed to record extra set')
     consoleSpy.mockRestore()
   })
+
+  test.each([
+    ['below zero', -1],
+    ['above ten', 10.5],
+    ['Infinity', Infinity],
+    ['a string', '7'],
+  ])('throws 400 when rpe is %s', async (_label, rpe) => {
+    mockReadBody.mockResolvedValueOnce({ reps: 8, weight: 60, rpe })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'rpe must be between 0 and 10' })
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    ['not a string', 42],
+    ['over 500 characters', 'x'.repeat(501)],
+  ])('throws 400 when notes are %s', async (_label, notes) => {
+    mockReadBody.mockResolvedValueOnce({ reps: 8, weight: 60, notes })
+
+    const event = makeEvent()
+    await expect(
+      (handler as unknown as (e: typeof event) => Promise<unknown>)(event),
+    ).rejects.toMatchObject({ statusCode: 400, statusMessage: 'notes must be a string of 500 characters or less' })
+    expect(mockTransaction).not.toHaveBeenCalled()
+  })
+
+  test('saves rpe at the bounds and notes at exactly 500 characters', async () => {
+    const notes = 'x'.repeat(500)
+    mockReadBody.mockResolvedValueOnce({ reps: 0, weight: 0, rpe: 10, notes })
+    txMocks.findUniqueSession.mockResolvedValueOnce(mockSession)
+    txMocks.findFirstProgramExercise.mockResolvedValueOnce({ id: 'pe001' })
+    txMocks.createCompletedSet.mockResolvedValueOnce(mockCompletedSet)
+
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+
+    expect(txMocks.createCompletedSet).toHaveBeenCalledWith({
+      data: {
+        workoutSessionId: 'ws001',
+        exerciseSetId: null,
+        programExerciseId: 'pe001',
+        reps: 0,
+        weight: 0,
+        rpe: 10,
+        notes,
+      },
+    })
+  })
+
+  test('creates a blank extra set when the body is empty or fields are null', async () => {
+    txMocks.findUniqueSession.mockResolvedValue(mockSession)
+    txMocks.findFirstProgramExercise.mockResolvedValue({ id: 'pe001' })
+    txMocks.createCompletedSet.mockResolvedValue(mockCompletedSet)
+
+    mockReadBody.mockResolvedValueOnce(null)
+    const event = makeEvent()
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(event)
+    expect(txMocks.createCompletedSet).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ reps: undefined, weight: undefined, rpe: undefined, notes: undefined }),
+    })
+
+    mockReadBody.mockResolvedValueOnce({ reps: null, weight: null, rpe: null, notes: null })
+    await (handler as unknown as (e: typeof event) => Promise<unknown>)(makeEvent())
+    expect(txMocks.createCompletedSet).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ reps: null, weight: null, rpe: null, notes: null }),
+    })
+  })
 })
