@@ -608,8 +608,8 @@ Client contract: `docs/API_CONTRACT_WEEKLY_GOAL.md`.
     `weekStartDay`
   - `GET /api/weekly-goal` for the "1/4 this week" card
   - the dashboard's `sessionsThisWeek` on the same week
-- [ ] Apply migration `20261006025703_weekly_workout_goal` before deploy.
-      It only adds columns.
+- [x] Apply migration `20261006025703_weekly_workout_goal`: applied to the
+      hosted DB on 2026-10-06 at 05:56 UTC. It only adds columns.
 - [ ] iOS: settings rows (toggle, stepper, week-start picker) and the home
       card. Send `timeZone` on every call. Tracked in the app repo.
 - [ ] Web: no settings UI yet. The web dashboard follows the stored
