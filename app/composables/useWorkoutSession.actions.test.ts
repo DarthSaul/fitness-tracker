@@ -309,13 +309,76 @@ describe('useWorkoutSession — recordSet', () => {
     expect(recordingSetId.value).toBeNull()
   })
 
-  test('swallows a 409 (already recorded) without throwing and resets the in-flight id', async () => {
-    mockFetch.mockRejectedValueOnce(statusError(409))
-    const { session, recordingSetId, recordSet } = useWorkoutSession()
-    session.value = { ...baseSession }
+  // Regression: a 409 used to return early without recording anything, so a set
+  // logged elsewhere stayed "not done", and a set on a skipped exercise was
+  // silently dropped.
+  describe('on a 409', () => {
+    test('a set the server already has (logged elsewhere) is synced and shown as done', async () => {
+      const existing = makeSet({ id: 'cs-server', exerciseSetId: 's1', reps: 6, weight: 80 })
+      mockFetch
+        .mockRejectedValueOnce(statusError(409))
+        .mockResolvedValueOnce({ ...activeResponse, session: { ...activeResponse.session, completedSets: [existing] } })
+      const { session, completedSets, isSetCompleted, recordingSetId, recordSet } = useWorkoutSession()
+      session.value = { ...baseSession }
 
-    await expect(recordSet('s1', { reps: 5 })).resolves.toBeUndefined()
-    expect(recordingSetId.value).toBeNull()
+      await expect(recordSet('s1', { reps: 5 })).resolves.toBeUndefined()
+
+      expect(mockFetch).toHaveBeenLastCalledWith('/api/workouts/session-1')
+      expect(isSetCompleted('s1')).toBe(true)
+      // The server's record wins: it is what was actually saved.
+      expect(completedSets.value.get('s1')).toBe(existing)
+      expect(recordingSetId.value).toBeNull()
+    })
+
+    test('a 409 that left no set behind (e.g. the exercise is skipped) is rethrown, not swallowed', async () => {
+      const conflict = statusError(409)
+      mockFetch
+        .mockRejectedValueOnce(conflict)
+        .mockResolvedValueOnce({ ...activeResponse, session: { ...activeResponse.session, completedSets: [] } })
+      const { session, isSetCompleted, recordingSetId, recordSet } = useWorkoutSession()
+      session.value = { ...baseSession }
+
+      await expect(recordSet('s1', { reps: 5 })).rejects.toBe(conflict)
+      expect(isSetCompleted('s1')).toBe(false)
+      expect(recordingSetId.value).toBeNull()
+    })
+
+    // Regression (CodeRabbit, PR #155): template set ids repeat across runs of
+    // the same program day, so writing into a session loaded meanwhile would
+    // mark that other session's set as done.
+    test('a different session loaded while the 409 was being resolved is left untouched', async () => {
+      let resolveSessionFetch!: (v: unknown) => void
+      mockFetch
+        .mockRejectedValueOnce(statusError(409))
+        .mockReturnValueOnce(new Promise((res) => { resolveSessionFetch = res }))
+      const { session, completedSets, isSetCompleted, recordingSetId, recordSet } = useWorkoutSession()
+      session.value = { ...baseSession }
+
+      const pending = recordSet('s1', {})
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+      // The user moves to another session of the same program day meanwhile.
+      session.value = { ...baseSession, id: 'session-2' }
+      completedSets.value = new Map()
+      resolveSessionFetch({ ...activeResponse, session: { ...activeResponse.session, completedSets: [makeSet({ id: 'cs-server', exerciseSetId: 's1' })] } })
+
+      await expect(pending).resolves.toBeUndefined()
+      expect(isSetCompleted('s1')).toBe(false)
+      expect(recordingSetId.value).toBeNull()
+    })
+
+    test('only the conflicting set is synced; other local state is left alone', async () => {
+      const local = makeSet({ id: 'cs-local', exerciseSetId: 's2' })
+      mockFetch
+        .mockRejectedValueOnce(statusError(409))
+        .mockResolvedValueOnce({ ...activeResponse, session: { ...activeResponse.session, completedSets: [makeSet({ id: 'cs-server', exerciseSetId: 's1' })] } })
+      const { session, completedSets, recordSet } = useWorkoutSession()
+      session.value = { ...baseSession }
+      completedSets.value.set('s2', local)
+
+      await recordSet('s1', {})
+
+      expect(completedSets.value.get('s2')).toBe(local)
+    })
   })
 
   test('rethrows other errors and resets the in-flight id', async () => {
