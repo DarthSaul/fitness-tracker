@@ -88,7 +88,18 @@ export default defineEventHandler(async (event): Promise<FeedbackCreateResponse>
       }
     } catch (dbError) {
       if (screenshotPath) {
-        await supabase.storage.from('feedback-screenshots').remove([screenshotPath])
+        // Best-effort: a failed cleanup is logged (Supabase usually reports it
+        // as `{ error }` rather than throwing) and never replaces dbError.
+        let removeError: unknown
+        try {
+          const { error } = await supabase.storage.from('feedback-screenshots').remove([screenshotPath])
+          removeError = error
+        } catch (thrown) {
+          removeError = thrown
+        }
+        if (removeError) {
+          ;(event.context.logger ?? logger).warn({ err: removeError, path: screenshotPath, route: 'POST /api/feedback' }, '[POST /api/feedback] Failed to remove orphaned screenshot')
+        }
       }
       throw dbError
     }
