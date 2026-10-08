@@ -343,6 +343,29 @@ describe('useWorkoutSession — recordSet', () => {
       expect(recordingSetId.value).toBeNull()
     })
 
+    // Regression (CodeRabbit, PR #155): template set ids repeat across runs of
+    // the same program day, so writing into a session loaded meanwhile would
+    // mark that other session's set as done.
+    test('a different session loaded while the 409 was being resolved is left untouched', async () => {
+      let resolveSessionFetch!: (v: unknown) => void
+      mockFetch
+        .mockRejectedValueOnce(statusError(409))
+        .mockReturnValueOnce(new Promise((res) => { resolveSessionFetch = res }))
+      const { session, completedSets, isSetCompleted, recordingSetId, recordSet } = useWorkoutSession()
+      session.value = { ...baseSession }
+
+      const pending = recordSet('s1', {})
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+      // The user moves to another session of the same program day meanwhile.
+      session.value = { ...baseSession, id: 'session-2' }
+      completedSets.value = new Map()
+      resolveSessionFetch({ ...activeResponse, session: { ...activeResponse.session, completedSets: [makeSet({ id: 'cs-server', exerciseSetId: 's1' })] } })
+
+      await expect(pending).resolves.toBeUndefined()
+      expect(isSetCompleted('s1')).toBe(false)
+      expect(recordingSetId.value).toBeNull()
+    })
+
     test('only the conflicting set is synced; other local state is left alone', async () => {
       const local = makeSet({ id: 'cs-local', exerciseSetId: 's2' })
       mockFetch

@@ -141,7 +141,9 @@ export function useWorkoutSession() {
         const data = await $fetch<ActiveWorkoutResponse>(`/api/workouts/${sessionId}`)
         const existing = data.session.completedSets.find((cs: CompletedSetRecord) => cs.exerciseSetId === exerciseSetId)
         if (existing) {
-          completedSets.value.set(exerciseSetId, existing)
+          // Only into the session this was recorded against: template set ids
+          // repeat across runs, so a session loaded meanwhile must stay as is.
+          if (session.value?.id === sessionId) completedSets.value.set(exerciseSetId, existing)
           return
         }
       }
