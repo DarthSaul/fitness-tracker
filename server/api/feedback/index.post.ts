@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 
 defineRouteMeta({
@@ -56,7 +57,9 @@ export default defineEventHandler(async (event): Promise<FeedbackCreateResponse>
         throw createError({ statusCode: 400, statusMessage: 'Screenshot must be under 5 MB' })
       }
 
-      const storagePath = `${userId}/${Date.now()}-${safeScreenshotName(filePart.filename)}`
+      // The UUID keeps keys distinct when sanitized names collide (upsert is off)
+      // and makes the public screenshot URL unguessable.
+      const storagePath = `${userId}/${Date.now()}-${randomUUID()}-${safeScreenshotName(filePart.filename)}`
 
       const { data, error } = await supabase.storage
         .from('feedback-screenshots')

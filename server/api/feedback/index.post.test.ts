@@ -7,7 +7,17 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Feedback } from '@prisma/client'
 
+import { randomUUID } from 'node:crypto'
 import handler from './index.post'
+
+// A fixed UUID by default, so storage keys can be asserted exactly.
+vi.mock('node:crypto', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:crypto')>()
+  const randomUUID = vi.fn()
+  return { ...actual, default: { ...actual, randomUUID }, randomUUID }
+})
+const mockRandomUUID = randomUUID as unknown as ReturnType<typeof vi.fn>
+const UUID = '00000000-0000-4000-8000-000000000001'
 
 const mockReadMultipart = readMultipartFormData as ReturnType<typeof vi.fn>
 const mockCreateFeedback = (prisma as typeof prisma).feedback.create as ReturnType<typeof vi.fn>
@@ -73,6 +83,7 @@ describe('POST /api/feedback', () => {
     mockBucket.upload.mockResolvedValue({ data: { path: 'user001/shot.png' }, error: null })
     mockBucket.remove.mockResolvedValue({ data: null, error: null })
     mockBucket.getPublicUrl.mockReturnValue({ data: { publicUrl: 'https://cdn.test/shot.png' } })
+    mockRandomUUID.mockReturnValue(UUID)
     mockReadMultipart.mockResolvedValue([contentPart()])
     mockCreateFeedback.mockResolvedValue(mockFeedback)
   })
@@ -112,7 +123,7 @@ describe('POST /api/feedback', () => {
 
     expect(mockFrom).toHaveBeenCalledWith('feedback-screenshots')
     expect(mockBucket.upload).toHaveBeenCalledWith(
-      `user001/${NOW.getTime()}-shot.png`,
+      `user001/${NOW.getTime()}-${UUID}-shot.png`,
       Buffer.from('png-bytes'),
       { contentType: 'image/png', upsert: false },
     )
@@ -126,7 +137,7 @@ describe('POST /api/feedback', () => {
 
     await run(makeEvent())
 
-    expect(mockBucket.upload.mock.calls[0]![0]).toBe(`user001/${NOW.getTime()}-screenshot-${NOW.getTime()}`)
+    expect(mockBucket.upload.mock.calls[0]![0]).toBe(`user001/${NOW.getTime()}-${UUID}-screenshot-${NOW.getTime()}`)
   })
 
   // Regression: the client's filename went into the storage key unchanged, so
@@ -144,21 +155,34 @@ describe('POST /api/feedback', () => {
       ['spaces and punctuation', 'my shot (1).png', 'my_shot__1_.png'],
       ['a leading dot', '.hidden.png', 'hidden.png'],
     ])('%s: %j → %j', async (_label, filename, safe) => {
-      expect(await uploadedKey(filename)).toBe(`user001/${NOW.getTime()}-${safe}`)
+      expect(await uploadedKey(filename)).toBe(`user001/${NOW.getTime()}-${UUID}-${safe}`)
     })
 
     test.each([['only dots', '..'], ['only a separator', '/'], ['empty', '']])(
       'a name that is %s falls back to a generated one',
       async (_label, filename) => {
-        expect(await uploadedKey(filename)).toBe(`user001/${NOW.getTime()}-screenshot-${NOW.getTime()}`)
+        expect(await uploadedKey(filename)).toBe(`user001/${NOW.getTime()}-${UUID}-screenshot-${NOW.getTime()}`)
       },
     )
 
     test('a very long name is capped, keeping its extension', async () => {
       const key = await uploadedKey(`${'a'.repeat(300)}.png`)
-      const name = key.slice(`user001/${NOW.getTime()}-`.length)
+      const name = key.slice(`user001/${NOW.getTime()}-${UUID}-`.length)
       expect(name).toHaveLength(100)
       expect(name.endsWith('.png')).toBe(true)
+    })
+
+    // Regression (CodeRabbit, PR #156): sanitizing maps different names to the
+    // same one ("a b.png" and "a_b.png"), and with upsert: false a colliding key
+    // fails the second upload. A random UUID also makes the public URL unguessable.
+    test('two uploads in the same millisecond whose names sanitize alike get distinct keys', async () => {
+      mockRandomUUID.mockReturnValueOnce('uuid-a').mockReturnValueOnce('uuid-b')
+      const first = await uploadedKey('a b.png')
+      mockBucket.upload.mockClear()
+      const second = await uploadedKey('a_b.png')
+
+      expect(first).toBe(`user001/${NOW.getTime()}-uuid-a-a_b.png`)
+      expect(second).toBe(`user001/${NOW.getTime()}-uuid-b-a_b.png`)
     })
 
     test('whatever the name, the key is exactly `${userId}/<one segment>` with no ".." segment', async () => {
