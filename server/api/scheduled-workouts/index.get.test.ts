@@ -71,9 +71,41 @@ describe('GET /api/scheduled-workouts', () => {
     expect(mockFindUserProgram).not.toHaveBeenCalled()
   })
 
-  test('400 when userProgramId is missing', async () => {
-    await expect(call({})).rejects.toMatchObject({ statusCode: 400, statusMessage: 'userProgramId is required' })
-    expect(mockFindUserProgram).not.toHaveBeenCalled()
+  describe('without userProgramId', () => {
+    const allKinds = [
+      { ...mockScheduled[0], standaloneWorkout: null },
+      { id: 'sw3', userId: 'user001', userProgramId: null, weekNumber: null, dayNumber: null, standaloneWorkoutId: 'sa1', scheduledDate: new Date('2026-10-07T00:00:00.000Z'), standaloneWorkout: { id: 'sa1', name: 'Upper Body Blast', category: 'upper' } },
+    ]
+    // A program row saved by the previous client has no userId, so it is matched through its run.
+    const ownedByCaller = { OR: [{ userId: 'user001' }, { userProgram: { userId: 'user001' } }] }
+    const withStandalone = { standaloneWorkout: { select: { id: true, name: true, category: true } } }
+
+    test('lists every kind the caller has scheduled, with the standalone workout attached', async () => {
+      mockFindMany.mockResolvedValueOnce(allKinds)
+
+      expect(await call({})).toEqual({ scheduledWorkouts: allKinds })
+      expect(mockFindUserProgram).not.toHaveBeenCalled()
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: ownedByCaller,
+        include: withStandalone,
+        orderBy: { scheduledDate: 'asc' },
+      })
+    })
+
+    test('applies the date range', async () => {
+      await call({ from: '2026-10-01', to: '2026-10-31' })
+
+      expect(mockFindMany).toHaveBeenCalledWith({
+        where: { ...ownedByCaller, scheduledDate: { gte: new Date('2026-10-01'), lte: new Date('2026-10-31') } },
+        include: withStandalone,
+        orderBy: { scheduledDate: 'asc' },
+      })
+    })
+
+    test('400 for an unparseable from date', async () => {
+      await expect(call({ from: 'not-a-date' })).rejects.toMatchObject({ statusCode: 400, statusMessage: 'Invalid "from" date' })
+      expect(mockFindMany).not.toHaveBeenCalled()
+    })
   })
 
   test('404 when the user program does not exist', async () => {

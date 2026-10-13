@@ -139,6 +139,95 @@ describe('POST /api/scheduled-workouts', () => {
     expect(logger.error).not.toHaveBeenCalled()
   })
 
+  describe('a standalone workout', () => {
+    const mockFindStandalone = (prisma as typeof prisma).standaloneWorkout.findUnique as ReturnType<typeof vi.fn>
+    const standaloneBody = { standaloneWorkoutId: 'sa1', scheduledDate: '2026-10-08' }
+    const standaloneCreated = { id: 'sw2', userId: 'user001', standaloneWorkoutId: 'sa1', scheduledDate: new Date('2026-10-08') }
+
+    beforeEach(() => {
+      mockFindStandalone.mockResolvedValue({ id: 'sa1' })
+      mockCreate.mockResolvedValue(standaloneCreated)
+    })
+
+    test('schedules it for the caller and responds 201, without touching any program', async () => {
+      const { event, result } = call(standaloneBody)
+
+      expect(await result).toEqual({ scheduledWorkout: standaloneCreated })
+      expect(event.node.res.statusCode).toBe(201)
+      expect(mockFindStandalone).toHaveBeenCalledWith({ where: { id: 'sa1' }, select: { id: true } })
+      expect(mockCreate).toHaveBeenCalledWith({
+        data: { userId: 'user001', standaloneWorkoutId: 'sa1', scheduledDate: new Date('2026-10-08') },
+      })
+      expect(mockFindUserProgram).not.toHaveBeenCalled()
+      expect(mockFindDay).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      ['userProgramId', { userProgramId: 'up1' }],
+      ['weekNumber', { weekNumber: 2 }],
+      ['dayNumber', { dayNumber: 3 }],
+    ])('400 when %s is sent alongside it', async (_label, extra) => {
+      const { result } = call({ ...standaloneBody, ...extra })
+
+      await expect(result).rejects.toMatchObject({
+        statusCode: 400,
+        statusMessage: 'Send standaloneWorkoutId, or userProgramId, weekNumber and dayNumber, not both',
+      })
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      ['an empty string', ''],
+      ['a number', 42],
+    ])('400 when standaloneWorkoutId is %s', async (_label, standaloneWorkoutId) => {
+      const { result } = call({ ...standaloneBody, standaloneWorkoutId })
+
+      await expect(result).rejects.toMatchObject({ statusCode: 400, statusMessage: 'standaloneWorkoutId must be a non-empty string' })
+      expect(mockFindStandalone).not.toHaveBeenCalled()
+    })
+
+    test('400 when scheduledDate is missing', async () => {
+      const { result } = call({ standaloneWorkoutId: 'sa1' })
+
+      await expect(result).rejects.toMatchObject({ statusCode: 400, statusMessage: 'standaloneWorkoutId and scheduledDate are required' })
+      expect(mockFindStandalone).not.toHaveBeenCalled()
+    })
+
+    test('400 when scheduledDate is not a valid date', async () => {
+      const { result } = call({ ...standaloneBody, scheduledDate: 'garbage' })
+
+      await expect(result).rejects.toMatchObject({ statusCode: 400, statusMessage: 'scheduledDate must be a valid date' })
+      expect(mockFindStandalone).not.toHaveBeenCalled()
+    })
+
+    test('404 when the standalone workout does not exist', async () => {
+      mockFindStandalone.mockResolvedValueOnce(null)
+      const { result } = call(standaloneBody)
+
+      await expect(result).rejects.toMatchObject({ statusCode: 404, statusMessage: 'Standalone workout not found' })
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    test('409 when the caller already has a standalone workout on that date', async () => {
+      mockCreate.mockRejectedValueOnce(Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }))
+      const { result } = call(standaloneBody)
+
+      await expect(result).rejects.toMatchObject({ statusCode: 409, statusMessage: 'A standalone workout is already scheduled on this date' })
+      expect(logger.error).not.toHaveBeenCalled()
+    })
+
+    test('500 with a structured log on any other database error', async () => {
+      mockCreate.mockRejectedValueOnce(new Error('connection reset'))
+      const { result } = call(standaloneBody)
+
+      await expect(result).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to schedule workout' })
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ route: 'POST /api/scheduled-workouts' }),
+        expect.any(String),
+      )
+    })
+  })
+
   test('500 with a structured log on any other database error', async () => {
     mockCreate.mockRejectedValueOnce(new Error('connection reset'))
     const { result } = call()

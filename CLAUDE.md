@@ -619,7 +619,8 @@ Client contract: `docs/API_CONTRACT_WEEKLY_GOAL.md`.
 
 A `ScheduledWorkout` row is now a program day **or** a standalone workout
 (raw CHECK `ScheduledWorkout_one_kind`). At most one standalone per user per
-date. A program day and a standalone can share a date.
+date. A program day and a standalone can share a date. Client contract:
+`docs/API_CONTRACT_SCHEDULED_WORKOUTS.md`.
 
 - [x] Schema, expand step (`feat/schedule-standalone-workouts`): migration
       `20261013022859_schedule_standalone_workouts` makes the program fields
@@ -629,8 +630,12 @@ date. A program day and a standalone can share a date.
       without migrating. It is safe for the current production client: no
       standalone rows exist until the new routes ship, and the sweep's inner
       join skips them.
-- [ ] API: accept `standaloneWorkoutId` on `POST /api/scheduled-workouts`, and
-      list by user across both kinds on `GET`. Update the client contract.
+- [x] API: `POST /api/scheduled-workouts` accepts `standaloneWorkoutId`, and
+      `GET` without `userProgramId` lists both kinds for the caller, with the
+      standalone workout attached.
+- [ ] iOS and web: a way to schedule a Strength on the Go workout, and the
+      calendar on the user-wide `GET`. The web dashboard still lists only the
+      active run's days.
 - [ ] Sweep: remind for scheduled standalone workouts. "Started" means a
       `StandaloneWorkoutSession` for that workout on that local date.
 - [ ] Contract migration, once the expand deploy is live: re-run the `userId`
