@@ -60,6 +60,27 @@ describe('DELETE /api/scheduled-workouts/:id', () => {
     expect(mockDelete).not.toHaveBeenCalled()
   })
 
+  test('deletes the owner\'s scheduled standalone workout, which has no run', async () => {
+    mockFindUnique.mockResolvedValueOnce({ id: 'sw1', userId: 'user001', userProgram: null })
+
+    expect(await call()).toEqual({ success: true })
+    expect(mockDelete).toHaveBeenCalledWith({ where: { id: 'sw1' } })
+  })
+
+  test('403 and no delete when a scheduled standalone workout belongs to another user', async () => {
+    mockFindUnique.mockResolvedValueOnce({ id: 'sw1', userId: 'someone-else', userProgram: null })
+
+    await expect(call()).rejects.toMatchObject({ statusCode: 403, statusMessage: 'Forbidden' })
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
+  test('falls back to the run\'s owner for a program row saved without userId', async () => {
+    mockFindUnique.mockResolvedValueOnce({ id: 'sw1', userId: null, userProgram: { userId: 'someone-else' } })
+
+    await expect(call()).rejects.toMatchObject({ statusCode: 403, statusMessage: 'Forbidden' })
+    expect(mockDelete).not.toHaveBeenCalled()
+  })
+
   test('500 with a structured log on an unexpected database error', async () => {
     mockDelete.mockRejectedValueOnce(new Error('connection reset'))
 

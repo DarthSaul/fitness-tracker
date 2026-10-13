@@ -49,7 +49,7 @@ describe('POST /api/scheduled-workouts', () => {
       where: { programWeek: { programId: 'prog1', weekNumber: 2 }, dayNumber: 3 },
     })
     expect(mockCreate).toHaveBeenCalledWith({
-      data: { userProgramId: 'up1', weekNumber: 2, dayNumber: 3, scheduledDate: new Date('2026-10-08') },
+      data: { userId: 'user001', userProgramId: 'up1', weekNumber: 2, dayNumber: 3, scheduledDate: new Date('2026-10-08') },
     })
   })
 
