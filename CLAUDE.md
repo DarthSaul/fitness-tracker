@@ -615,6 +615,28 @@ Client contract: `docs/API_CONTRACT_WEEKLY_GOAL.md`.
 - [ ] Web: no settings UI yet. The web dashboard follows the stored
       `weekStartDay`, which only iOS can change today.
 
+### Scheduling Strength on the Go workouts
+
+A `ScheduledWorkout` row is now a program day **or** a standalone workout
+(raw CHECK `ScheduledWorkout_one_kind`). At most one standalone per user per
+date. A program day and a standalone can share a date.
+
+- [x] Schema, expand step (`feat/schedule-standalone-workouts`): migration
+      `20261013022859_schedule_standalone_workouts` makes the program fields
+      nullable, adds `userId` (backfilled) and `standaloneWorkoutId`. `POST`
+      now records `userId`, and `DELETE` checks ownership on either kind.
+- [ ] Apply that migration to the hosted DB **before merging**. `main` deploys
+      without migrating. It is safe for the current production client: no
+      standalone rows exist until the new routes ship, and the sweep's inner
+      join skips them.
+- [ ] API: accept `standaloneWorkoutId` on `POST /api/scheduled-workouts`, and
+      list by user across both kinds on `GET`. Update the client contract.
+- [ ] Sweep: remind for scheduled standalone workouts. "Started" means a
+      `StandaloneWorkoutSession` for that workout on that local date.
+- [ ] Contract migration, once the expand deploy is live: re-run the `userId`
+      backfill (the previous client inserts program rows without it), then
+      set `userId` `NOT NULL`.
+
 ### Backlog
 - [ ] `user_program_runs_reconcile` migration — once the runs deploy is live everywhere: re-run the `completedAt` backfill and the duplicate-session cleanup from `20260918120000_user_program_runs` (idempotent) — but tighten the cleanup so a session also survives if it has `notes`, a `WorkoutExerciseSwap` or a `WorkoutExerciseSkip`, not only a `CompletedSet`/`CoreWorkout` (the applied migration omitted those three; its 3 deletions were checked beforehand and had none) — force `isActive = false` on terminal rows, and add `CHECK (NOT ("isActive" AND ("completedAt" IS NOT NULL OR "archivedAt" IS NOT NULL)))`. Deliberately not in the first migration: the previous deploy's activate route re-activates completed rows and would 500 against the CHECK.
 - [ ] Show `runNumber` on History rows so repeat runs of one program are distinguishable.

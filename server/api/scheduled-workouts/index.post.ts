@@ -73,6 +73,7 @@ export default defineEventHandler(async (event) => {
   try {
     const scheduled = await prisma.scheduledWorkout.create({
       data: {
+        userId,
         userProgramId,
         weekNumber,
         dayNumber,
