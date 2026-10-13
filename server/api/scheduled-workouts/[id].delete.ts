@@ -34,7 +34,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Scheduled workout not found' })
   }
 
-  if (scheduled.userProgram.userId !== userId) {
+  // A standalone row has no run. A program row saved by the previous client
+  // has no userId until the contract migration backfills it.
+  if ((scheduled.userId ?? scheduled.userProgram?.userId) !== userId) {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
 
