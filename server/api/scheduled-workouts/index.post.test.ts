@@ -103,6 +103,29 @@ describe('POST /api/scheduled-workouts', () => {
     expect(mockFindUserProgram).not.toHaveBeenCalled()
   })
 
+  // Regression: new Date() accepted any parseable value, so an offset timestamp
+  // late in the evening west of UTC was stored on the next day.
+  test.each([
+    ['an offset timestamp', '2026-10-08T23:00:00-05:00'],
+    ['a UTC timestamp', '2026-10-08T00:00:00.000Z'],
+    ['a date that does not exist', '2026-02-30'],
+    ['a month that does not exist', '2026-13-01'],
+    ['an unpadded date', '2026-1-8'],
+    ['a number', 1791417600000],
+  ])('400 when scheduledDate is %s', async (_label, scheduledDate) => {
+    const { result } = call({ ...validBody, scheduledDate })
+
+    await expect(result).rejects.toMatchObject({ statusCode: 400, statusMessage: 'scheduledDate must be a valid date' })
+    expect(mockFindUserProgram).not.toHaveBeenCalled()
+  })
+
+  test('stores the day at UTC midnight', async () => {
+    const { result } = call({ ...validBody, scheduledDate: '2028-02-29' })
+    await result
+
+    expect(mockCreate.mock.calls[0]![0].data.scheduledDate.toISOString()).toBe('2028-02-29T00:00:00.000Z')
+  })
+
   test('404 when the user program does not exist', async () => {
     mockFindUserProgram.mockResolvedValueOnce(null)
     const { result } = call()
@@ -193,8 +216,11 @@ describe('POST /api/scheduled-workouts', () => {
       expect(mockFindStandalone).not.toHaveBeenCalled()
     })
 
-    test('400 when scheduledDate is not a valid date', async () => {
-      const { result } = call({ ...standaloneBody, scheduledDate: 'garbage' })
+    test.each([
+      ['not a date', 'garbage'],
+      ['an offset timestamp', '2026-10-08T23:00:00-05:00'],
+    ])('400 when scheduledDate is %s', async (_label, scheduledDate) => {
+      const { result } = call({ ...standaloneBody, scheduledDate })
 
       await expect(result).rejects.toMatchObject({ statusCode: 400, statusMessage: 'scheduledDate must be a valid date' })
       expect(mockFindStandalone).not.toHaveBeenCalled()

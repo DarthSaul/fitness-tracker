@@ -116,9 +116,17 @@ async function scheduleStandalone(
   })
 }
 
+/**
+ * A calendar day as `YYYY-MM-DD`, at UTC midnight: the column is a `DATE`, and
+ * Prisma stores a Date's UTC day. Timestamps are rejected rather than
+ * converted, since an offset one ("…T23:00:00-05:00") would land on the next day.
+ */
 function parseScheduledDate(scheduledDate: unknown): Date {
-  const parsedDate = new Date(scheduledDate as string)
-  if (isNaN(parsedDate.getTime())) {
+  const match = typeof scheduledDate === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(scheduledDate) : null
+  const [year, month, day] = (match ?? []).slice(1).map(Number) as [number, number, number]
+  const parsedDate = new Date(Date.UTC(year, month - 1, day))
+  // Date.UTC rolls an impossible day over (Feb 30 → Mar 2), so check it round-trips.
+  if (!match || parsedDate.getUTCMonth() !== month - 1 || parsedDate.getUTCDate() !== day) {
     throw createError({ statusCode: 400, statusMessage: 'scheduledDate must be a valid date' })
   }
   return parsedDate

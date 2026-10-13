@@ -56,7 +56,7 @@ Send exactly one kind. `scheduledDate` is `YYYY-MM-DD`.
 
 | Status | When |
 |---|---|
-| `400` | A field is missing or invalid, or a standalone body also sends `userProgramId`, `weekNumber` or `dayNumber`. |
+| `400` | A field is missing or invalid, or a standalone body also sends `userProgramId`, `weekNumber` or `dayNumber`. A `scheduledDate` that is a timestamp (with or without an offset) or not a real day, such as `2026-02-30`, is invalid. |
 | `403` | The run belongs to another user. |
 | `404` | No such run, or no such standalone workout. |
 | `409` | Program day: the day or the date is already scheduled on that run. Standalone: the caller already has a standalone workout on that date. |
