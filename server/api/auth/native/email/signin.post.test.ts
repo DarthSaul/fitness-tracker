@@ -4,7 +4,7 @@ import type { User } from '@prisma/client'
 import handler from './signin.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
-const mockSupabaseSignIn = (supabase as typeof supabase).auth.signInWithPassword as ReturnType<typeof vi.fn>
+const mockSupabaseSignIn = createSessionClient().auth.signInWithPassword as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockIssueTokenPair = issueTokenPair as ReturnType<typeof vi.fn>
 
@@ -68,6 +68,18 @@ describe('POST /api/auth/native/email/signin', () => {
       expect(mockReadBody).not.toHaveBeenCalled()
       expect(mockSupabaseSignIn).not.toHaveBeenCalled()
     })
+  })
+
+  // Regression (DR-DUMBBELL-NUXT-7): signing in on the shared service-role
+  // client left the user's session on it, so later Storage calls on the same
+  // warm instance ran as that user and were refused.
+  test('signs in on a fresh per-request client, not the shared service-role client', async () => {
+    mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
+
+    await handler(makeEvent())
+
+    expect(createSessionClient).toHaveBeenCalledTimes(1)
+    expect(mockSupabaseSignIn).toHaveBeenCalledTimes(1)
   })
 
   describe('request validation', () => {

@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Email and password are required.' })
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await createSessionClient().auth.signInWithPassword({
     email: body.email,
     password: body.password,
   })
