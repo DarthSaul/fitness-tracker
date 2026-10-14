@@ -7,7 +7,7 @@ const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockBackfillName = backfillNameFromMetadata as ReturnType<typeof vi.fn>
 const mockSetUserSession = setUserSession as ReturnType<typeof vi.fn>
-const mockSupabaseSignIn = (supabase as typeof supabase).auth.signInWithPassword as ReturnType<typeof vi.fn>
+const mockSupabaseSignIn = createSessionClient().auth.signInWithPassword as ReturnType<typeof vi.fn>
 
 const mockDbUser = {
   id: 'cluser001',
@@ -64,6 +64,23 @@ describe('POST /api/auth/email/signin', () => {
       expect(mockReadBody).not.toHaveBeenCalled()
       expect(mockSupabaseSignIn).not.toHaveBeenCalled()
     })
+  })
+
+  // Regression (DR-DUMBBELL-NUXT-7): signing in on the shared service-role
+  // client left the user's session on it, so later Storage calls on the same
+  // warm instance ran as that user and were refused.
+  test('signs in on a fresh per-request client, not the shared service-role client', async () => {
+    mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
+    mockSupabaseSignIn.mockResolvedValueOnce({
+      data: { user: { id: 'supabase-uid-001', email: 'test@example.com', user_metadata: {} } },
+      error: null,
+    })
+    mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
+
+    await handler(makeEvent())
+
+    expect(createSessionClient).toHaveBeenCalledTimes(1)
+    expect(mockSupabaseSignIn).toHaveBeenCalledTimes(1)
   })
 
   test('throws 401 when Supabase returns invalid credentials', async () => {

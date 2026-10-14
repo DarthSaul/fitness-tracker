@@ -3,8 +3,8 @@ import { describe, test, expect, vi, beforeEach } from 'vitest'
 import handler from './update-password.post'
 
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
-const mockSupabaseSetSession = (supabase as typeof supabase).auth.setSession as ReturnType<typeof vi.fn>
-const mockSupabaseUpdateUser = (supabase as typeof supabase).auth.updateUser as ReturnType<typeof vi.fn>
+const mockSupabaseSetSession = createSessionClient().auth.setSession as ReturnType<typeof vi.fn>
+const mockSupabaseUpdateUser = createSessionClient().auth.updateUser as ReturnType<typeof vi.fn>
 
 function makeEvent() {
   return { path: '/api/auth/email/update-password', context: {} } as any
@@ -25,6 +25,21 @@ describe('POST /api/auth/email/update-password', () => {
       expect(mockReadBody).not.toHaveBeenCalled()
       expect(mockSupabaseSetSession).not.toHaveBeenCalled()
     })
+  })
+
+  // Regression (DR-DUMBBELL-NUXT-7): setSession on the shared service-role
+  // client made every later request on the warm instance act as this user —
+  // and two concurrent resets could update each other's password.
+  test('sets the session and updates the password on one fresh per-request client', async () => {
+    mockReadBody.mockResolvedValueOnce({ accessToken: 'at', refreshToken: 'rt', newPassword: 'newpass123' })
+    mockSupabaseSetSession.mockResolvedValueOnce({ data: {}, error: null })
+    mockSupabaseUpdateUser.mockResolvedValueOnce({ data: {}, error: null })
+
+    await handler(makeEvent())
+
+    expect(createSessionClient).toHaveBeenCalledTimes(1)
+    expect(mockSupabaseSetSession).toHaveBeenCalledTimes(1)
+    expect(mockSupabaseUpdateUser).toHaveBeenCalledTimes(1)
   })
 
   test('throws 400 when accessToken is missing', async () => {
