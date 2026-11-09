@@ -44,7 +44,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters.' })
   }
 
-  const { error: sessionError } = await supabase.auth.setSession({
+  // One client for both calls: updateUser acts on whatever session the client
+  // holds, so it must be this request's and no one else's.
+  const client = createSessionClient()
+  const { error: sessionError } = await client.auth.setSession({
     access_token: body.accessToken,
     refresh_token: body.refreshToken,
   })
@@ -53,7 +56,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid or expired reset link. Please request a new one.' })
   }
 
-  const { error: updateError } = await supabase.auth.updateUser({
+  const { error: updateError } = await client.auth.updateUser({
     password: body.newPassword,
   })
 

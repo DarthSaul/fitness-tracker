@@ -77,6 +77,23 @@ describe('supabase client', () => {
     expect(mockCreateClient).toHaveBeenCalledTimes(1)
   })
 
+  // Regression (DR-DUMBBELL-NUXT-7): a session set on the shared client stayed
+  // on it, so createSessionClient must hand each caller its own client.
+  test('createSessionClient builds a separate client on every call', async () => {
+    const { supabase, createSessionClient } = await import('./supabase')
+    mockCreateClient.mockReturnValueOnce({ id: 'session-1' }).mockReturnValueOnce({ id: 'session-2' })
+
+    const first = createSessionClient()
+    const second = createSessionClient()
+
+    expect(first).toEqual({ id: 'session-1' })
+    expect(second).toEqual({ id: 'session-2' })
+    expect(first).not.toBe(supabase)
+    expect(mockCreateClient).toHaveBeenLastCalledWith('https://test.supabase.co', 'test-service-role-key', {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  })
+
   test('does not cache the client on globalThis in production', async () => {
     vi.stubEnv('NODE_ENV', 'production')
 

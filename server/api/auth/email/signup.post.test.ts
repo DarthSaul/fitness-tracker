@@ -6,7 +6,7 @@ import handler from './signup.post'
 const mockReadBody = readBody as ReturnType<typeof vi.fn>
 const mockFindOrLinkUser = findOrLinkUser as ReturnType<typeof vi.fn>
 const mockSetUserSession = setUserSession as ReturnType<typeof vi.fn>
-const mockSupabaseSignUp = (supabase as typeof supabase).auth.signUp as ReturnType<typeof vi.fn>
+const mockSupabaseSignUp = createSessionClient().auth.signUp as ReturnType<typeof vi.fn>
 
 const mockDbUser = {
   id: 'cluser001',
@@ -51,6 +51,23 @@ describe('POST /api/auth/email/signup', () => {
       expect(mockReadBody).not.toHaveBeenCalled()
       expect(mockSupabaseSignUp).not.toHaveBeenCalled()
     })
+  })
+
+  // Regression (DR-DUMBBELL-NUXT-7): a sign-up that returns a session would
+  // leave it on the shared service-role client, so later Storage calls on the
+  // same warm instance ran as that user and were refused.
+  test('signs up on a fresh per-request client, not the shared service-role client', async () => {
+    mockReadBody.mockResolvedValueOnce({ email: 'test@example.com', password: 'testpass123' })
+    mockSupabaseSignUp.mockResolvedValueOnce({
+      data: { user: { id: 'supabase-uid-001', email: 'test@example.com', identities: [{}] }, session: {} },
+      error: null,
+    })
+    mockFindOrLinkUser.mockResolvedValueOnce(mockDbUser)
+
+    await handler(makeEvent())
+
+    expect(createSessionClient).toHaveBeenCalledTimes(1)
+    expect(mockSupabaseSignUp).toHaveBeenCalledTimes(1)
   })
 
   test('throws 400 when email is missing', async () => {

@@ -224,14 +224,13 @@ loggerStub.child.mockReturnValue(loggerStub)
 vi.stubGlobal('logger', loggerStub)
 
 // ── Supabase client global (used in Nitro server route handlers via auto-import) ─
+// The shared service-role client deliberately has no session-setting auth
+// methods: calling one on it would make every later request on the instance
+// act as that user. Routes that sign a user in use createSessionClient().
 vi.stubGlobal('supabase', {
   auth: {
-    signUp: vi.fn(),
-    signInWithPassword: vi.fn(),
     resetPasswordForEmail: vi.fn(),
     resend: vi.fn(),
-    setSession: vi.fn(),
-    updateUser: vi.fn(),
     // Service-role admin API — used by DELETE /api/auth/me to remove the
     // GoTrue user behind an email identity.
     admin: { deleteUser: vi.fn() },
@@ -246,6 +245,18 @@ vi.stubGlobal('supabase', {
     })),
   },
 })
+
+// Per-request auth client — every call returns the same stub, so a test can
+// grab its mocks with createSessionClient().auth.signInWithPassword.
+const sessionClientStub = {
+  auth: {
+    signUp: vi.fn(),
+    signInWithPassword: vi.fn(),
+    setSession: vi.fn(),
+    updateUser: vi.fn(),
+  },
+}
+vi.stubGlobal('createSessionClient', vi.fn(() => sessionClientStub))
 
 // ── Server utility auto-imports (server/utils/) ──────────────────────────────
 // Account-linking helper — default to a no-op vi.fn(); each route test overrides

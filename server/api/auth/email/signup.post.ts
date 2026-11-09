@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   // confirmation state and forwards to /login?confirmed=true. The URL must be
   // in the Supabase redirect allowlist for each environment (prod + localhost).
   const config = useRuntimeConfig()
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await createSessionClient().auth.signUp({
     email: body.email,
     password: body.password,
     options: {

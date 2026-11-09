@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
   // web signup); the user then returns to the app and signs in. The URL must
   // be in the Supabase redirect allowlist for each environment.
   const config = useRuntimeConfig()
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await createSessionClient().auth.signUp({
     email: body.email,
     password: body.password,
     options: {
