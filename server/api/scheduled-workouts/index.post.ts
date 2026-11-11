@@ -125,8 +125,14 @@ function parseScheduledDate(scheduledDate: unknown): Date {
   const match = typeof scheduledDate === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(scheduledDate) : null
   const [year, month, day] = (match ?? []).slice(1).map(Number) as [number, number, number]
   const parsedDate = new Date(Date.UTC(year, month - 1, day))
-  // Date.UTC rolls an impossible day over (Feb 30 → Mar 2), so check it round-trips.
-  if (!match || parsedDate.getUTCMonth() !== month - 1 || parsedDate.getUTCDate() !== day) {
+  // Date.UTC rolls an impossible day over (Feb 30 → Mar 2) and maps years
+  // 0–99 to 1900–1999, so check every part round-trips.
+  if (
+    !match
+    || parsedDate.getUTCFullYear() !== year
+    || parsedDate.getUTCMonth() !== month - 1
+    || parsedDate.getUTCDate() !== day
+  ) {
     throw createError({ statusCode: 400, statusMessage: 'scheduledDate must be a valid date' })
   }
   return parsedDate

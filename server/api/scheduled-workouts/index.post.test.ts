@@ -111,6 +111,9 @@ describe('POST /api/scheduled-workouts', () => {
     ['a date that does not exist', '2026-02-30'],
     ['a month that does not exist', '2026-13-01'],
     ['an unpadded date', '2026-1-8'],
+    // Date.UTC maps years 0–99 to 1900–1999, so these would be stored a century off.
+    ['a two-digit year', '0050-06-15'],
+    ['year zero', '0000-01-01'],
     ['a number', 1791417600000],
   ])('400 when scheduledDate is %s', async (_label, scheduledDate) => {
     const { result } = call({ ...validBody, scheduledDate })
