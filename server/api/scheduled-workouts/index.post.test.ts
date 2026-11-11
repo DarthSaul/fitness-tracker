@@ -237,6 +237,19 @@ describe('POST /api/scheduled-workouts', () => {
       expect(mockCreate).not.toHaveBeenCalled()
     })
 
+    test('500 with a structured log when looking up the standalone workout fails', async () => {
+      const failure = new Error('connection reset')
+      mockFindStandalone.mockRejectedValueOnce(failure)
+      const { result } = call(standaloneBody)
+
+      await expect(result).rejects.toMatchObject({ statusCode: 500, statusMessage: 'Failed to schedule workout' })
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: failure, route: 'POST /api/scheduled-workouts' }),
+        expect.any(String),
+      )
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
     test('409 when the caller already has a standalone workout on that date', async () => {
       mockCreate.mockRejectedValueOnce(Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }))
       const { result } = call(standaloneBody)

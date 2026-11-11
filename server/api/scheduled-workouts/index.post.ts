@@ -101,10 +101,16 @@ async function scheduleStandalone(
 
   const parsedDate = parseScheduledDate(scheduledDate)
 
-  const standaloneWorkout = await prisma.standaloneWorkout.findUnique({
-    where: { id: standaloneWorkoutId },
-    select: { id: true },
-  })
+  let standaloneWorkout: { id: string } | null
+  try {
+    standaloneWorkout = await prisma.standaloneWorkout.findUnique({
+      where: { id: standaloneWorkoutId },
+      select: { id: true },
+    })
+  } catch (error) {
+    ;(event.context.logger ?? logger).error({ err: error, route: 'POST /api/scheduled-workouts' }, '[POST /api/scheduled-workouts] Failed to look up standalone workout')
+    throw createError({ statusCode: 500, statusMessage: 'Failed to schedule workout' })
+  }
 
   if (!standaloneWorkout) {
     throw createError({ statusCode: 404, statusMessage: 'Standalone workout not found' })
