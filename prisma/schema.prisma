@@ -159,6 +159,7 @@ model User {
   userPrograms              UserProgram[]
   workoutSessions           WorkoutSession[]
   standaloneWorkoutSessions StandaloneWorkoutSession[]
+  scheduledWorkouts         ScheduledWorkout[]
   feedback                  Feedback[]
   userExerciseNotes         UserExerciseNote[]
   refreshTokens             RefreshToken[]
@@ -475,19 +476,38 @@ model WorkoutExerciseSkip {
   @@index([programExerciseId])
 }
 
+// A row is one of two kinds, enforced by a raw CHECK
+// ("ScheduledWorkout_one_kind"):
+//   - a program day: userProgramId + weekNumber + dayNumber, no standaloneWorkoutId
+//   - a Strength on the Go workout: standaloneWorkoutId + userId, no program fields
+// The two @@unique below never match a standalone row, since Postgres treats
+// NULLs as distinct. A user schedules at most one standalone workout per date,
+// enforced by a raw partial unique index:
+//   CREATE UNIQUE INDEX "ScheduledWorkout_userId_scheduledDate_standalone_partial_idx"
+//   ON "ScheduledWorkout" ("userId", "scheduledDate")
+//   WHERE "standaloneWorkoutId" IS NOT NULL;
+// userId is nullable only until the contract migration: production's
+// previous client inserts program rows without it, so re-run the backfill
+// before setting NOT NULL.
 model ScheduledWorkout {
-  id            String   @id @default(cuid())
-  userProgramId String
-  weekNumber    Int
-  dayNumber     Int
-  scheduledDate DateTime @db.Date
-  createdAt     DateTime @default(now())
+  id                  String   @id @default(cuid())
+  userId              String?
+  userProgramId       String?
+  weekNumber          Int?
+  dayNumber           Int?
+  standaloneWorkoutId String?
+  scheduledDate       DateTime @db.Date
+  createdAt           DateTime @default(now())
 
-  userProgram   UserProgram    @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
-  notifications Notification[]
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userProgram       UserProgram?       @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
+  standaloneWorkout StandaloneWorkout? @relation(fields: [standaloneWorkoutId], references: [id], onDelete: Cascade)
+  notifications     Notification[]
 
   @@unique([userProgramId, weekNumber, dayNumber])
   @@unique([userProgramId, scheduledDate])
+  @@index([userId, scheduledDate])
+  @@index([standaloneWorkoutId])
 }
 
 // ---------------------------------------------------------------------------
@@ -533,8 +553,9 @@ model StandaloneWorkout {
   description String?
   createdAt   DateTime @default(now())
 
-  groups   StandaloneWorkoutGroup[]
-  sessions StandaloneWorkoutSession[]
+  groups            StandaloneWorkoutGroup[]
+  sessions          StandaloneWorkoutSession[]
+  scheduledWorkouts ScheduledWorkout[]
 
   @@unique([category, order])
 }
