@@ -626,10 +626,9 @@ date. A program day and a standalone can share a date. Client contract:
       `20261013022859_schedule_standalone_workouts` makes the program fields
       nullable, adds `userId` (backfilled) and `standaloneWorkoutId`. `POST`
       now records `userId`, and `DELETE` checks ownership on either kind.
-- [ ] Apply that migration to the hosted DB **before merging**. `main` deploys
-      without migrating. It is safe for the current production client: no
-      standalone rows exist until the new routes ship, and the sweep's inner
-      join skips them.
+- [x] Apply that migration to the hosted DB: applied 2026-11-18, a week
+      after #159 merged unmigrated. Until then every scheduled-workouts route
+      returned 500 in production (P2022 on the missing columns).
 - [x] API: `POST /api/scheduled-workouts` accepts `standaloneWorkoutId`, and
       `GET` without `userProgramId` lists both kinds for the caller, with the
       standalone workout attached.
